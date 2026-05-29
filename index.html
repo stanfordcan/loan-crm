@@ -1,0 +1,3664 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>借款客戶追蹤系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+/* Password screen */
+.pw-screen{position:fixed;inset:0;background:#F5F4F0;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif}
+.pw-box{background:#fff;border-radius:18px;padding:36px 28px;width:300px;max-width:90vw;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center}
+.pw-box h2{font-size:18px;font-weight:600;margin-bottom:6px;color:#1A1916}
+.pw-box p{font-size:13px;color:#A09D96;margin-bottom:24px}
+.pw-input{width:100%;background:#EFEDE8;border:1px solid #DDD9D0;border-radius:10px;padding:13px 16px;font-size:20px;font-family:inherit;outline:none;text-align:center;letter-spacing:6px;color:#1A1916;-webkit-appearance:none}
+.pw-input:focus{border-color:#2B5BE2;background:#fff}
+.pw-btn{width:100%;margin-top:14px;background:#2B5BE2;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+.pw-btn:active{opacity:.88}
+.pw-error{color:#D63B3B;font-size:13px;margin-top:10px;display:none}
+:root{--bg:#F5F4F0;--surface:#fff;--s2:#EFEDE8;--border:#DDD9D0;--text:#1A1916;--t2:#6B6860;--t3:#A09D96;--accent:#2B5BE2;--abg:#EDF1FC;--red:#D63B3B;--rbg:#FDECEC;--green:#1D8C5E;--gbg:#E8F7F1;--orange:#C46A00;--obg:#FFF3E0;--r:14px;--rs:8px;--sh:0 2px 12px rgba(0,0,0,.06)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.sticky-top{position:sticky;top:0;z-index:50;background:var(--surface)}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 16px 12px}
+.header-top{display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.header h1{font-size:20px;font-weight:700;letter-spacing:1px;text-align:center}
+.hbtns{display:flex;gap:7px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-bottom:10px;padding:0 2px 2px;justify-content:flex-start}
+.hbtns::-webkit-scrollbar{display:none}
+.hbtn{border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
+.hbtn:hover{filter:brightness(.95)}
+.hbtn:active{transform:scale(.95);opacity:.85}
+.hbtn-sync{background:var(--s2);color:var(--t2)}
+.hbtn-company{background:var(--gbg);color:var(--green)}
+.hbtn-xls{background:var(--abg);color:var(--accent)}
+.hbtn:active{opacity:.8}
+.hbtn:disabled{opacity:.5}
+.stats-bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:4px 2px 6px;justify-content:center}
+.stats-bar::-webkit-scrollbar{display:none}
+.spill{flex-shrink:0;background:var(--s2);border-radius:12px;padding:8px 16px;text-align:center;min-width:62px;transition:transform .1s}
+.spill b{display:block;font-size:22px;font-weight:700;color:var(--text);line-height:1.15;letter-spacing:-.5px}
+.spill span{display:block;font-size:10px;color:var(--t3);margin-top:2px;font-weight:500;letter-spacing:.3px}
+.spill.alert{background:var(--rbg)}
+.spill.alert b{color:var(--red)}
+.spill.warn{background:var(--obg)}
+.spill.warn b{color:var(--orange)}
+.spill.info b{color:var(--accent)}
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px;display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;flex:1}
+.tabs::-webkit-scrollbar{display:none}
+.tabs-wrap{position:relative;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border)}
+.tab-arrow{background:none;border:none;padding:0 6px;font-size:18px;cursor:pointer;color:var(--t3);flex-shrink:0;line-height:1}
+.tab-arrow:hover{color:var(--accent)}
+.tabs::-webkit-scrollbar{display:none}
+.tbtn{flex-shrink:0;padding:9px 12px;font-size:12px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+.tbtn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.search-wrap{padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+.search-input{width:100%;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
+.list-wrap{flex:1;padding:10px 14px;display:flex;flex-direction:column;gap:8px;padding-bottom:88px}
+/* Cards */
+.ccard{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:14px;cursor:pointer;border-left:4px solid transparent}
+.ccard:active{opacity:.9}
+.ccard.over{border-left-color:var(--red)}
+.ccard.today{border-left-color:var(--green)}
+.ccard.soon{border-left-color:#0369A1}
+/* Pinned card */
+.ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
+/* Heat-based left border (only when no remind-state border) */
+.ccard.heat-hw:not(.over):not(.today):not(.soon){border-left-color:rgba(196,106,0,.55)}
+.ccard.heat-hc:not(.over):not(.today):not(.soon){border-left-color:rgba(43,91,226,.45)}
+.ccard.heat-hx:not(.over):not(.today):not(.soon){border-left-color:rgba(124,58,237,.45)}
+.ccard.heat-hd:not(.over):not(.today):not(.soon){border-left-color:rgba(29,140,94,.45)}
+.ccard.heat-hp:not(.over):not(.today):not(.soon){border-left-color:rgba(156,130,100,.45)}
+.ctop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:7px}
+.cname{font-size:15px;font-weight:600}
+.cphone{font-size:12px;color:var(--t2);margin-top:2px}
+.hbadge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;flex-shrink:0;margin-left:6px;letter-spacing:.2px}
+.hw{background:var(--obg);color:var(--orange)}
+.hc{background:var(--abg);color:var(--accent)}
+.hd{background:var(--gbg);color:var(--green)}
+.hf{background:var(--s2);color:var(--t3)}
+.hx{background:#F3E8FF;color:#7C3AED}
+.hp{background:#F0EDE8;color:#7C6F5E}
+.cmeta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}
+.mi{font-size:11px;color:var(--t2)}
+.rchip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
+.rc-over{background:var(--rbg);color:var(--red)}
+.rc-today{background:var(--gbg);color:var(--green)}
+.rc-soon{background:#E0F2FE;color:#0369A1}
+.rc-ok{background:var(--abg);color:var(--accent)}
+.clog{font-size:11px;color:var(--t2);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{text-align:center;padding:50px 20px;color:var(--t3);font-size:13px}
+.loading{text-align:center;padding:50px 20px;color:var(--t3);font-size:13px}
+/* FAB */
+.fab{position:fixed;bottom:22px;right:20px;width:52px;height:52px;background:var(--accent);color:#fff;border:none;border-radius:50%;font-size:24px;cursor:pointer;box-shadow:0 4px 18px rgba(43,91,226,.4);display:flex;align-items:center;justify-content:center;z-index:40;font-family:inherit}
+.fab:active{transform:scale(.93)}
+/* Toast */
+.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:#1A1916;color:#fff;padding:9px 18px;border-radius:99px;font-size:12px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+/* Bottom sheet */
+.sbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-end}
+.sbg.open{display:flex}
+.sheet{background:var(--surface);border-radius:22px 22px 0 0;width:100%;height:60vh;min-height:30vh;max-height:95vh;display:flex;flex-direction:column;overflow:hidden;transition:none}
+.shandle{width:44px;height:5px;background:var(--border);border-radius:99px;margin:10px auto 4px;flex-shrink:0;cursor:grab;touch-action:none;transition:background .15s}
+.shandle:active{background:var(--t3)}
+.sheader{padding:13px 18px 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
+.stitle{font-size:16px;font-weight:600}
+.xbtn{background:var(--s2);border:none;border-radius:50%;width:28px;height:28px;font-size:15px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
+.stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.stabs::-webkit-scrollbar{display:none}
+.stab{flex-shrink:0;padding:9px 14px;font-size:12px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+.stab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.sbody{flex:1;overflow-y:auto;padding:14px 18px 20px}
+/* Form */
+.frow{margin-bottom:12px}
+.frow label{display:block;font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.frow input,.frow select,.frow textarea{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none;-webkit-appearance:none}
+.frow input:focus,.frow select:focus,.frow textarea:focus{border-color:var(--accent);background:#fff}
+.frow textarea{height:85px;resize:none;line-height:1.5}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rbox{background:var(--abg);border-radius:var(--rs);padding:13px;margin-bottom:12px;border:1px solid #C5D5F8}
+.rbox>label{font-size:12px;font-weight:600;color:var(--accent);display:block;margin-bottom:9px}
+/* Logs */
+.log-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+.litem{background:var(--s2);border-radius:var(--rs);padding:11px 13px}
+.ldate{font-size:11px;color:var(--t3);margin-bottom:3px;font-weight:600}
+.ltext{font-size:13px;line-height:1.5;padding-right:26px}
+.ldel{float:right;background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;margin-top:-1px}
+/* Form section headers */
+.form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
+.add-log{background:var(--s2);border-radius:var(--rs);padding:13px}
+.add-log>label{font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:7px}
+.alrow{display:flex;gap:7px;margin-bottom:7px}
+.alrow input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none}
+.alrow input:first-child{flex:0 0 115px}
+.albtn{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:9px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;font-family:inherit}
+/* Company data section */
+.company-info{background:var(--s2);border-radius:var(--rs);padding:12px 13px;margin-bottom:12px}
+.company-info-title{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px}
+.company-row{font-size:12px;color:var(--t2);margin-bottom:4px;line-height:1.5}
+.company-row b{color:var(--text);font-weight:500}
+/* Footer */
+.sfooter{padding:13px 18px;border-top:1px solid var(--border);display:flex;gap:9px;flex-shrink:0;background:var(--surface)}
+.bdel{background:var(--rbg);color:var(--red);border:none;border-radius:var(--rs);padding:11px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.bsave{flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:11px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.bsave:disabled{opacity:.5}
+/* Import modal */
+.imbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:150;align-items:center;justify-content:center;padding:18px}
+.imbg.open{display:flex}
+.immodal{background:var(--surface);border-radius:var(--r);padding:22px 18px;width:100%;max-width:420px}
+.immodal h3{font-size:15px;font-weight:600;margin-bottom:5px}
+.immodal p{font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.6}
+.imdrop{border:2px dashed var(--border);border-radius:var(--rs);padding:26px 16px;text-align:center;cursor:pointer;margin-bottom:12px}
+.imdrop:hover{border-color:var(--accent);background:var(--abg)}
+.imdrop .icon{font-size:28px;margin-bottom:6px}
+.imdrop p{font-size:12px;color:var(--t3);margin:0}
+.imdrop input{display:none}
+.imprev{background:var(--s2);border-radius:var(--rs);padding:11px 13px;font-size:12px;margin-bottom:12px;display:none}
+.imbtns{display:flex;gap:9px}
+.imcancel{flex:1;background:none;border:1px solid var(--border);border-radius:var(--rs);padding:10px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--t2)}
+.imgo{flex:2;background:var(--green);color:#fff;border:none;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.imgo:disabled{opacity:.5}
+/* ── Note + DebtPhone row ───────────────────────────────── */
+.note-debt-row{display:flex;flex-direction:column;gap:9px;margin-bottom:12px}
+@media(min-width:900px){
+  .pc-container .note-debt-row{column-span:all;flex-direction:row;align-items:flex-start;gap:14px}
+  .pc-container .note-debt-row>.frow{flex:2;margin-bottom:0}
+  .pc-container .note-debt-row>#debtPhoneArea{flex:1;margin-top:17px}
+}
+/* ── Memo ────────────────────────────────────────────────── */
+.memo-wrap{width:100%}
+.memo-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.memo-hd-title{font-size:14px;font-weight:700;color:var(--text)}
+.memo-input-row{display:flex;gap:7px;margin-bottom:8px}
+.memo-input-row input[type="text"],.memo-input-row input:not([type]){flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:9px 12px;font-size:13px;font-family:inherit;color:var(--text);outline:none}
+.memo-input-row input:focus{border-color:var(--accent);background:var(--surface)}
+.memo-dt-row{display:flex;gap:7px;margin-bottom:12px}
+.memo-dt-row input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
+.memo-dt-row input:focus{border-color:var(--accent);background:var(--surface)}
+.memo-addbtn{background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:9px 14px;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0}
+.memo-list{display:flex;flex-direction:column;gap:6px}
+.memo-item{display:flex;align-items:flex-start;gap:9px;background:var(--surface);border-radius:var(--rs);padding:10px 12px;box-shadow:var(--sh);border-left:3px solid transparent}
+.memo-item.overdue{border-left-color:var(--red)}
+.memo-item.due-today{border-left-color:var(--accent)}
+.memo-item.done{opacity:.5}
+.memo-chk{background:none;border:none;font-size:15px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;margin-top:1px}
+.memo-body{flex:1;min-width:0}
+.memo-text{font-size:13px;color:var(--text);line-height:1.45;word-break:break-all}
+.memo-item.done .memo-text{text-decoration:line-through;color:var(--t3)}
+.memo-due{font-size:11px;font-weight:600;margin-top:3px}
+.memo-del{background:none;border:none;color:var(--t3);font-size:13px;cursor:pointer;padding:0;flex-shrink:0;line-height:1}
+.memo-del:hover{color:var(--red)}
+.memo-empty{text-align:center;padding:20px 0;color:var(--t3);font-size:13px}
+.memo-divider{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 6px}
+.pc-stat-divider{border:none;border-top:1px solid var(--border);margin:22px 0 20px}
+/* PC-only right panel — always hidden on mobile */
+#pcEmptyState{display:none}
+/* 手機專用備忘錄按鈕（PC隱藏） */
+.memo-mobile-btn{background:none;border:none;font-size:20px;cursor:pointer;padding:2px 6px;color:var(--t2);line-height:1;border-radius:8px}
+.memo-mobile-btn:hover{background:var(--s2)}
+@media(min-width:900px){.memo-mobile-btn{display:none}}
+
+/* ── Batch select mode ───────────────────────────────────── */
+.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 14px 16px;display:flex;align-items:center;gap:8px;z-index:85;box-shadow:0 -4px 20px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .22s cubic-bezier(.32,1,.46,1);max-width:480px;margin:0 auto}
+.batch-bar.show{transform:translateY(0)}
+.ccard.selected{background:var(--abg)!important;outline:2px solid var(--accent);outline-offset:-1px}
+.sel-chk{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s;margin-right:8px;background:var(--surface);font-size:11px;font-weight:700;color:transparent}
+.ccard.selected .sel-chk{background:var(--accent);border-color:var(--accent);color:#fff}
+@media(min-width:900px){
+  .pc-container .batch-bar{left:0;right:auto;max-width:min(45vw,600px);margin:0}
+}
+
+/* ── Dark Mode ────────────────────────────────────────────── */
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1C1B18;--surface:#252420;--s2:#2E2C28;--border:#3A3830;
+    --text:#F0EDE8;--t2:#A09D96;--t3:#6B6860;
+    --abg:#1E2A4A;--rbg:#3A1A1A;--gbg:#1A3028;--obg:#3A2800;
+    --sh:0 2px 12px rgba(0,0,0,.3)
+  }
+  .pw-screen{background:#1C1B18}
+  .pw-box{background:#252420}
+  .pw-input{background:#2E2C28;color:#F0EDE8}
+}
+/* ── PC Layout (≥900px) ───────────────────────────────── */
+@media(min-width:900px){
+  html,body{height:100%;overflow:hidden}
+  .pc-container{display:flex;height:100vh;overflow:hidden}
+
+  /* 左側面板：比例寬度，跟著螢幕縮放 */
+  .pc-container .app{
+    width:45%;min-width:440px;max-width:600px;
+    flex-shrink:0;height:100vh;overflow-y:auto;
+    border-right:2px solid var(--border);
+    margin:0;min-height:unset;
+    background:var(--bg);
+  }
+
+  /* PC 按鈕列 */
+  .pc-container .hbtn{font-size:12px;padding:7px 12px}
+
+  /* 統計列可換行 */
+  .pc-container .stats-bar{flex-wrap:wrap;gap:5px;padding:4px 0}
+  .pc-container .spill{font-size:12px;padding:5px 12px}
+
+  /* 卡片間距與內距加大 */
+  .pc-container .list-wrap{padding:14px 18px 30px;gap:10px}
+  .pc-container .ccard{padding:16px 18px;border-radius:12px}
+  .pc-container .cname{font-size:16px}
+
+  /* 右側面板：編輯表單 */
+  .pc-container .sbg{
+    position:static!important;flex:1;
+    background:transparent!important;
+    display:flex!important;
+    align-items:stretch;height:100vh;
+    overflow:hidden;z-index:1;
+  }
+  .pc-container .sbg:not(.open) .sheet{display:none}
+  .pc-container .sbg:not(.open) #pcEmptyState{display:flex!important;flex-direction:column;width:100%;overflow-y:auto;padding:28px 32px;align-items:stretch}
+  .pc-container .sbg.open #pcEmptyState{display:none!important}
+  .pc-container .sheet{
+    border-radius:0!important;
+    height:100%!important;max-height:100%!important;
+    width:100%!important;
+    box-shadow:none;
+  }
+  .pc-container .shandle{display:none}
+
+  /* FAB 固定在左側欄右下角 */
+  .fab{left:calc(min(45vw,600px) - 72px);right:auto}
+
+  /* PC 表單兩欄排版 */
+  .pc-container #sp0,
+  .pc-container #sp1 {
+    column-count:2;
+    column-gap:20px;
+  }
+  .pc-container #sp0>*,
+  .pc-container #sp1>* {
+    break-inside:avoid;
+    -webkit-column-break-inside:avoid;
+  }
+  /* 提醒區塊、區段標題跨兩欄 */
+  .pc-container .rbox,
+  .pc-container .form-section-hd {
+    column-span:all;
+  }
+  /* PC 熱度徽章稍大 */
+  .pc-container .hbadge{font-size:13px;padding:4px 12px}
+  /* PC 卡片內身分證欄位較明顯 */
+  .pc-container .ccard .mi{font-size:12px}
+}
+</style>
+</head>
+<body>
+<!-- Login Screen -->
+<div class="pw-screen" id="loginScreen">
+  <div class="pw-box">
+    <h2>📋 客戶追蹤系統</h2>
+    <p>請登入以繼續</p>
+    <input class="pw-input" id="loginEmail" type="email" placeholder="電子信箱"
+      style="letter-spacing:0;font-size:15px;margin-bottom:10px;text-align:left;padding-left:14px"
+      onkeydown="if(event.key==='Enter')document.getElementById('loginPw').focus()"/>
+    <input class="pw-input" id="loginPw" type="password" placeholder="密碼"
+      style="margin-top:4px;letter-spacing:0;font-size:15px;text-align:left;padding-left:14px"
+      onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="pw-btn" id="loginBtn" onclick="doLogin()">登入</button>
+    <div class="pw-error" id="loginErr" style="display:none;margin-top:10px"></div>
+  </div>
+</div>
+<script>
+// ── Firebase 初始化 ──────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDaWZyl_Kkb9CuFfDXEi6L-C9UrOsyDMuQ",
+  authDomain: "loan-crm-a60e0.firebaseapp.com",
+  projectId: "loan-crm-a60e0",
+  storageBucket: "loan-crm-a60e0.firebasestorage.app",
+  messagingSenderId: "80169662405",
+  appId: "1:80169662405:web:07654161c54ee01e23fdac"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+let currentUser = null;
+
+// 登入狀態監聽（頁面載入 + 重整自動還原）
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
+    // 顯示目前登入帳號
+    const uEl = document.getElementById('loginUserLabel');
+    if (uEl) uEl.textContent = user.email;
+    // 從 Firestore 載入資料
+    const loaded = await loadFromFirestore();
+    if (!loaded) loadLocal(); // Firestore 無資料時用本地快取
+    if (typeof autoClassify === 'function') autoClassify();
+    if (typeof render === 'function') render();
+  } else {
+    currentUser = null;
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+  }
+});
+
+// 登入
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw    = document.getElementById('loginPw').value;
+  const errEl = document.getElementById('loginErr');
+  const btn   = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  if (!email || !pw) { errEl.textContent = '請填寫信箱與密碼'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = '登入中…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+    localStorage.setItem('crm_fb_last_email', email); // 記住信箱
+  } catch(e) {
+    const msg = {
+      'auth/user-not-found'    : '帳號不存在',
+      'auth/wrong-password'    : '密碼錯誤',
+      'auth/invalid-email'     : '信箱格式錯誤',
+      'auth/too-many-requests' : '登入次數過多，請稍後再試',
+      'auth/invalid-credential': '帳號或密碼錯誤',
+    }[e.code] || ('登入失敗：' + e.message);
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = '登入';
+  }
+}
+
+// 頁面載入時自動帶入上次信箱
+(function(){
+  const saved = localStorage.getItem('crm_fb_last_email');
+  if (saved) {
+    const el = document.getElementById('loginEmail');
+    if (el) { el.value = saved; }
+  }
+})();
+
+// 登出
+function doLogout() {
+  if (!confirm('確定要登出嗎？')) return;
+  auth.signOut();
+}
+
+// 寫入 Firestore
+async function saveToFirestore() {
+  if (!currentUser || !db) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set({
+      data: JSON.stringify({clients, nextId}),
+      gasUrl: GAS_URL || '',
+      companyUrl: COMPANY_URL || '',
+      updatedAt: new Date().toISOString()
+    });
+  } catch(e) { console.error('Firestore save:', e); }
+}
+
+// 從 Firestore 載入
+async function loadFromFirestore() {
+  if (!currentUser || !db) return false;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists) {
+      const raw = doc.data();
+      // 載入 GAS URL 設定
+      if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
+      if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
+      // 載入客戶資料
+      if (raw.data) {
+        const d = JSON.parse(raw.data);
+        if (d) {
+          clients = (d.clients||[]).map(c => ({
+            ...c,
+            remind     : normalizeDate(c.remind),
+            remindTime : normalizeTime(c.remindTime),
+            logs       : (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
+          }));
+          nextId = d.nextId || 1;
+          saveLocal();
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch(e) { console.error('Firestore load:', e); return false; }
+}
+
+// 儲存 URL 設定到 Firestore（不動客戶資料）
+async function saveUrlSettings() {
+  if (!currentUser || !db) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set(
+      { gasUrl: GAS_URL || '', companyUrl: COMPANY_URL || '' },
+      { merge: true }
+    );
+  } catch(e) { console.error('Firestore settings save:', e); }
+}
+
+function openUrlSettings() {
+  document.getElementById('settingsGasUrl').value     = GAS_URL || '';
+  document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
+  document.getElementById('urlSettingsBg').style.display = 'flex';
+}
+function closeUrlSettings() {
+  document.getElementById('urlSettingsBg').style.display = 'none';
+}
+async function applyUrlSettings() {
+  GAS_URL     = document.getElementById('settingsGasUrl').value.trim();
+  COMPANY_URL = document.getElementById('settingsCompanyUrl').value.trim();
+  await saveUrlSettings();
+  closeUrlSettings();
+  showToast('✅ 設定已儲存');
+}
+</script>
+<div class="pc-container">
+<div class="app" id="mainApp" style="display:none">
+  <div class="sticky-top">
+  <div class="header">
+    <div class="header-top">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <h1>📋 客戶追蹤系統</h1>
+        <span id="loginUserLabel" style="font-size:11px;color:var(--t3);letter-spacing:0;font-weight:400"></span>
+      </div>
+      <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px">
+    <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
+    <div class="hbtns" id="hbtnsRow" style="flex:1">
+      <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
+      <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
+      <button class="hbtn hbtn-sync" id="syncBtn" onclick="syncData()">🔄 同步</button>
+      <button class="hbtn" id="tenBtn" style="background:#F3E8FF;color:#7C3AED" onclick="openTenModal()">📄 謄本匯入</button>
+      <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
+      <button class="hbtn" id="selectModeBtn" onclick="toggleSelectMode()" style="background:var(--s2);color:var(--t2)">☑ 選取</button>
+      <button class="hbtn" id="clearBtn" style="background:#FDECEC;color:#D63B3B;box-shadow:0 1px 3px rgba(214,59,59,.12)" onclick="clearAllData()">🗑️ 清除</button>
+      <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="試算表設定">⚙️ 設定</button>
+      <button class="hbtn hbtn-sync" id="logoutBtn" onclick="doLogout()" title="登出">🚪 登出</button>
+      <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">⚙️</button>
+    </div>
+    <button class="tab-arrow" onclick="scrollHbtns(150)">&#8250;</button>
+    </div>
+    <!-- 工具列顯示設定面板 -->
+    <div id="hbtnSettingsPanel" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:190px">
+      <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:11px;letter-spacing:.3px">⚙️ 工具列顯示設定</div>
+      <div id="hbtnSettingsList"></div>
+    </div>
+    <div class="stats-bar" id="statsBar"></div>
+  </div>
+  <div class="tabs-wrap">
+    <button class="tab-arrow tab-arrow-left" onclick="scrollTabs(-150)">&#8249;</button>
+    <div class="tabs" id="tabsWrap"></div>
+    <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
+  </div>
+  <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
+    <input class="search-input" id="searchInput" placeholder="🔍 搜尋姓名、電話、身分證、備註…" oninput="render()" style="flex:1;min-width:120px"/>
+    <select id="sortSelect" onchange="render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
+      <option value="remind">📅 提醒日期</option>
+      <option value="deadline">⏰ 到期最近</option>
+      <option value="heat">🔥 熱度</option>
+      <option value="created">🕐 新增時間</option>
+      <option value="addr">📍 地址縣市</option>
+      <option value="phone">📞 有電話優先</option>
+      <option value="lastlog">💬 最後聯絡紀錄</option>
+    </select>
+    <div style="position:relative;flex-shrink:0">
+      <button id="cityFilterBtn" onclick="toggleCityFilter()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap">🗺️ 縣市 <span id="cityFilterCount"></span></button>
+      <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:var(--sh);z-index:60;max-height:320px;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:600;color:var(--t2)">選擇縣市</span>
+          <div style="display:flex;gap:8px">
+            <button onclick="selectAllCities()" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit">全選</button>
+            <button onclick="clearAllCities()" style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit">清除</button>
+          </div>
+        </div>
+        <div id="cityCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /sticky-top -->
+  <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
+</div>
+<button class="fab" id="fabBtn" onclick="openAdd()">＋</button>
+<div class="toast" id="toast"></div>
+
+<!-- Batch action bar -->
+<div class="batch-bar" id="batchBar">
+  <button id="batchSelAllBtn" onclick="batchSelectAll()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--t2);white-space:nowrap;flex-shrink:0">全選</button>
+  <span id="batchCount" style="flex:1;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">已選 0 筆</span>
+  <select id="batchHeat" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;flex-shrink:0;-webkit-appearance:none">
+    <option value="">移動到…</option>
+    <option value="覆訪">🟡 覆訪</option>
+    <option value="最新資料">🔵 最新資料</option>
+    <option value="新鑫">🟣 新鑫</option>
+    <option value="待分類">🟤 待分類</option>
+    <option value="已簽約">🟢 已簽約</option>
+    <option value="無效案件">⚫ 無效案件</option>
+  </select>
+  <button onclick="applyBatchCategory()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">套用</button>
+  <button onclick="exitSelectMode()" style="background:var(--s2);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button>
+</div>
+
+<!-- Client Sheet -->
+<div class="sbg" id="sheetBg">
+<div id="pcEmptyState">
+  <!-- 備忘錄 -->
+  <div class="memo-wrap" style="width:100%;max-width:440px;margin:0 auto">
+    <div class="memo-hd">
+      <span class="memo-hd-title">📝 備忘錄</span>
+      <span style="font-size:11px;color:var(--t3)" id="memoCountLabel"></span>
+    </div>
+    <div class="memo-input-row">
+      <input type="text" id="memoTextPC" placeholder="新增備忘事項…" onkeydown="if(event.key==='Enter')addMemo('pc')"/>
+      <button class="memo-addbtn" onclick="addMemo('pc')">＋</button>
+    </div>
+    <div class="memo-dt-row">
+      <input type="date" id="memoDuePC" title="提醒日期"/>
+      <input type="time" id="memoTimePC" title="提醒時間"/>
+    </div>
+    <div class="memo-list" id="memoListPC"></div>
+  </div>
+
+  <hr class="pc-stat-divider">
+
+  <!-- 統計 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:320px;margin:0 auto">
+    <div style="background:var(--rbg);border-radius:14px;padding:18px;text-align:center">
+      <div style="font-size:34px;font-weight:700;color:var(--red)" id="pc_over_num">0</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:4px">⚠️ 逾期</div>
+    </div>
+    <div style="background:var(--gbg);border-radius:14px;padding:18px;text-align:center">
+      <div style="font-size:34px;font-weight:700;color:var(--green)" id="pc_today_num">0</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:4px">📞 今日</div>
+    </div>
+    <div style="background:var(--s2);border-radius:14px;padding:18px;text-align:center">
+      <div style="font-size:34px;font-weight:700;color:var(--orange)" id="pc_hot_num">0</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:4px">📋 待分類</div>
+    </div>
+    <div style="background:var(--s2);border-radius:14px;padding:18px;text-align:center">
+      <div style="font-size:34px;font-weight:700;color:var(--text)" id="pc_total_num">0</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:4px">👥 總計</div>
+    </div>
+  </div>
+</div>
+  <div class="sheet">
+    <div class="shandle"></div>
+    <div class="sheader">
+      <span class="stitle" id="sheetTitle">新增客戶</span>
+      <button class="xbtn" onclick="closeSheet()">✕</button>
+    </div>
+    <div class="stabs">
+      <button class="stab active" onclick="sSTab(0,this)">基本</button>
+      <button class="stab" onclick="sSTab(1,this)">不動產</button>
+      <button class="stab" onclick="sSTab(2,this)">聯絡記錄</button>
+      <button class="stab" onclick="sSTab(3,this)">公司資料</button>
+      <button class="stab" onclick="sSTab(4,this)">房價評估</button>
+    </div>
+    <div class="sbody">
+      <div id="sp0">
+        <div class="frow"><label>姓名 *</label><input id="fName" placeholder="客戶姓名"/></div>
+        <div class="frow">
+          <label>出生年月日（民國）</label>
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+            <input type="number" id="fBirthY" placeholder="年" min="1" max="130" oninput="calcAge()" style="width:72px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 10px;font-size:14px;color:var(--text);font-family:inherit;outline:none;-webkit-appearance:none"/>
+            <span style="color:var(--t2);font-size:13px">年</span>
+            <input type="number" id="fBirthM" placeholder="月" min="1" max="12" oninput="calcAge()" style="width:55px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 8px;font-size:14px;color:var(--text);font-family:inherit;outline:none;-webkit-appearance:none"/>
+            <span style="color:var(--t2);font-size:13px">月</span>
+            <input type="number" id="fBirthD" placeholder="日" min="1" max="31" oninput="calcAge()" style="width:55px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 8px;font-size:14px;color:var(--text);font-family:inherit;outline:none;-webkit-appearance:none"/>
+            <span style="color:var(--t2);font-size:13px">日</span>
+            <div id="ageDisplay" style="display:none;background:var(--abg);color:var(--accent);border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700;line-height:1.4"></div>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678"/></div>
+          <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789"/></div>
+        </div>
+        <div class="frow"><label>追蹤熱度</label>
+          <select id="fHeat">
+            <option value="待分類">🟤 待分類</option>
+            <option value="最新資料">🔵 最新資料</option>
+            <option value="覆訪">🟡 覆訪</option>
+            <option value="新鑫">🟣 新鑫</option>
+            <option value="已簽約">🟢 已簽約</option>
+            <option value="無效案件">⚫ 無效案件</option>
+          </select>
+        </div>
+        <div class="form-section-hd">👤 客戶資料</div>
+        <div class="fg2">
+          <div class="frow"><label>工作／職業</label><input id="fJob" placeholder="例：上班族" oninput="syncToEval('ev_job', this.value)"/></div>
+          <div class="frow"><label>年資</label><input id="fJobYears" placeholder="例：5年"/></div>
+        </div>
+        <div class="frow"><label>財力證明</label>
+          <div id="finProofList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+          <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增財力證明</button>
+        </div>
+        <div class="form-section-hd">📅 下次提醒</div>
+        <div class="rbox">
+          <label>🔔 下次聯絡提醒</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+            <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind"/></div>
+            <div class="frow" style="margin:0"><label>時間</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <select id="fRemindHour" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 6px;font-size:14px;font-family:inherit;outline:none;-webkit-appearance:none"></select>
+                <span style="font-size:14px;color:var(--t2);flex-shrink:0">:</span>
+                <select id="fRemindMin" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 6px;font-size:14px;font-family:inherit;outline:none;-webkit-appearance:none"></select>
+              </div>
+            </div>
+            <div class="frow" style="margin:0"><label>說明</label><input id="fRemindNote" placeholder="再追一次"/></div>
+          </div>
+        </div>
+        <div class="note-debt-row">
+          <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…"></textarea></div>
+          <div id="debtPhoneArea" style="display:none">
+            <div style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">債電（未確認）</div>
+            <div id="debtPhoneList" style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);line-height:1.8"></div>
+          </div>
+        </div>
+      </div>
+      <div id="sp1" style="display:none">
+        <!-- 不動產切換列 -->
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <div id="propTabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
+          <button onclick="addProperty()" title="新增不動產" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid #b8e0ce;border-radius:var(--rs);padding:5px 11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1">＋</button>
+        </div>
+        <div class="frow"><label>門牌地址</label><input id="fAddr" placeholder="" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/></div>
+        <div class="fg2">
+          <div class="frow"><label>地段（區）</label><input id="fDistrict" placeholder="例：松山區" oninput="syncToEval('ev_district', this.value)"/></div>
+          <div class="frow"><label>地段號</label><input id="fPurpose" placeholder="" oninput="syncToEval('ev_section', this.value)"/></div>
+        </div>
+        <div class="frow"><label>土地使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
+        <div class="fg2">
+          <div class="frow"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value)"/></div>
+          <div class="frow"><label>地號①</label><input id="fLandNo" placeholder="" oninput="syncToEval('ev_landno', this.value);updateLandTotals()"/></div>
+        </div>
+        <div id="extraLandList" style="display:flex;flex-direction:column;gap:5px;margin-top:4px"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+          <button onclick="addExtraLand()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">＋ 新增地號</button>
+          <span id="extraLandTotal" style="font-size:12px;color:var(--t2);font-weight:600"></span>
+        </div>
+        <div class="form-section-hd">📐 面積</div>
+        <div class="fg2">
+          <div class="frow"><label>總面積（坪）</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
+          <div class="frow"><label>主建物（坪）</label><input type="number" id="fMainArea" placeholder=""/></div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>附屬（坪）</label><input type="number" id="fSubArea" placeholder=""/></div>
+          <div class="frow"><label>公設（坪）</label><input type="number" id="fCommonArea" placeholder=""/></div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>車位坪數（手動填）</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
+          <div class="frow"><label>土地①（坪）</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>土增稅－一般（元）</label><input type="number" id="fLandtaxNormal" placeholder="" oninput="syncLandtax('normal', this.value)"/></div>
+          <div class="frow"><label>土增稅－自用（元）</label><input type="number" id="fLandtaxSelf" placeholder="" oninput="syncLandtax('self', this.value)"/></div>
+        </div>
+        <div class="frow"><label>Google Drive 資料夾</label>
+          <div style="display:flex;gap:8px">
+            <input id="fDriveUrl" placeholder="尚未建立" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);font-family:inherit;outline:none" readonly/>
+            <button id="btnDrive" onclick="createDriveFolder()" style="background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">📁 建立</button>
+            <button id="btnOpenDrive" onclick="openDriveFolder()" style="display:none;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔗 開啟</button>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>銀行貸款（萬）</label><input type="number" id="fBank" placeholder="" oninput="syncToEval('ev_bank', this.value);refreshLoanSection()"/></div>
+          <div class="frow"><label>法人／租賃（萬）</label><input type="number" id="fLegal" placeholder="" oninput="syncToEval('ev_legal', this.value);refreshLoanSection()"/></div>
+        </div>
+        <div class="frow"><label>民間借貸（萬）</label><input type="number" id="fPrivate" placeholder="" oninput="syncToEval('ev_private', this.value);refreshLoanSection()"/></div>
+        <div class="frow"><label>其他貸款</label>
+          <div id="extraLoanList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+          <button onclick="addExtraLoan()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增貸款項目</button>
+        </div>
+        <!-- 跳轉房價評估 -->
+        <button onclick="jumpToEval()" style="width:100%;margin-top:14px;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 前往此筆房價評估</button>
+      </div>
+      <div id="sp2" style="display:none">
+        <div class="log-list" id="logList"></div>
+        <div class="add-log">
+          <label>➕ 新增通話記錄</label>
+          <div class="alrow">
+            <input type="date" id="fLogDate"/>
+            <input id="fLogText" placeholder="通話內容摘要…"/>
+          </div>
+          <button class="albtn" onclick="addLog()">加入記錄</button>
+        </div>
+      </div>
+      <div id="sp3" style="display:none">
+        <div class="company-info" id="companyInfoPanel">
+          <div class="company-info-title">📊 公司總檔資料</div>
+          <div style="font-size:12px;color:var(--t3)">尚無公司資料</div>
+        </div>
+      </div>
+      <div id="sp4" style="display:none">
+        <div id="evalPropIndicator" style="display:none;font-size:12px;font-weight:600;color:var(--accent);background:var(--abg);border:1px solid #C5D5F8;border-radius:var(--rs);padding:8px 12px;margin-bottom:10px;cursor:pointer" onclick="sSTabTo(1);document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===1))">← 返回不動產</div>
+        <div id="priceEvalPanel"></div>
+      </div>
+    </div>
+    <div class="sfooter">
+      <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()">刪除</button>
+      <button class="bsave" id="btnSave" onclick="saveClient()">儲存</button>
+    </div>
+  </div>
+</div>
+</div><!-- /pc-container -->
+
+<!-- Memo Modal (mobile) -->
+<div class="imbg" id="memoBg">
+  <div class="immodal" style="max-width:480px;max-height:80vh;display:flex;flex-direction:column">
+    <h3 style="margin-bottom:14px">📝 備忘錄</h3>
+    <div class="memo-input-row">
+      <input type="text" id="memoTextMobile" placeholder="新增備忘事項…" onkeydown="if(event.key==='Enter')addMemo('mobile')"/>
+      <button class="memo-addbtn" onclick="addMemo('mobile')">＋</button>
+    </div>
+    <div class="memo-dt-row">
+      <input type="date" id="memoDueMobile" title="提醒日期"/>
+      <input type="time" id="memoTimeMobile" title="提醒時間"/>
+    </div>
+    <div class="memo-list" id="memoListMobile" style="flex:1;overflow-y:auto;min-height:80px;max-height:50vh"></div>
+    <div class="imbtns" style="margin-top:14px">
+      <button class="imcancel" onclick="closeMemoModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- URL Settings Modal -->
+<div class="imbg" id="urlSettingsBg" onclick="if(event.target===this)closeUrlSettings()">
+  <div class="immodal" style="max-width:480px">
+    <h3>⚙️ 我的試算表設定</h3>
+    <p style="font-size:12px;color:var(--t3);margin-bottom:16px">同步網址全公司共用一個；個人總檔各自填入自己的網址。</p>
+    <div class="frow" style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px;display:block">同步網址（全公司共用同一個）</label>
+      <span style="font-size:11px;color:var(--t3);display:block;margin-bottom:6px">由管理員部署 GAS 後提供，所有人填相同的網址</span>
+      <input id="settingsGasUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"
+        style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:12px;font-family:inherit;outline:none;color:var(--text)"/>
+    </div>
+    <div class="frow" style="margin-bottom:20px">
+      <label style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px;display:block">個人總檔網址（從總檔更新用）</label>
+      <span style="font-size:11px;color:var(--t3);display:block;margin-bottom:6px">每個人填入自己的總檔 GAS 網址</span>
+      <input id="settingsCompanyUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"
+        style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:12px;font-family:inherit;outline:none;color:var(--text)"/>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeUrlSettings()" style="background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-family:inherit;cursor:pointer">取消</button>
+      <button onclick="applyUrlSettings()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">儲存設定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Blacklist Modal -->
+<div class="imbg" id="blBg">
+  <div class="immodal" style="max-width:480px">
+    <h3>🚫 黑名單管理</h3>
+    <p>已刪除的客戶即使從總檔或 XLS 匯入也不會再出現。如需恢復，點「移除」即可。</p>
+    <div id="blList" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-bottom:14px"></div>
+    <div class="imbtns">
+      <button class="imcancel" onclick="closeBlacklist()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tenement Import Modal -->
+<div class="imbg" id="tenBg">
+  <div class="immodal" style="max-width:500px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <h3>📄 謄本匯入</h3>
+    <p>上傳標示部、所有權部、他項權利部 PDF（可一次多選），系統自動識別並填入欄位。</p>
+    <div class="imdrop" onclick="document.getElementById('tenFiles').click()">
+      <div class="icon">📂</div>
+      <p>點此選擇謄本 PDF（可多選）</p>
+      <input type="file" id="tenFiles" accept=".pdf" multiple onchange="handleTenFiles(this.files)">
+    </div>
+    <div id="tenFileList" style="font-size:12px;margin:8px 0"></div>
+    <div id="tenPreview" style="flex:1;overflow-y:auto;min-height:0"></div>
+    <div id="tenTarget" style="display:none;margin:10px 0 0;padding:12px;background:var(--s2);border-radius:var(--rs);flex-shrink:0">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">📥 匯入方式</div>
+      <label style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;font-size:13px">
+        <input type="radio" name="tenMode" value="new" checked onchange="onTenModeChange()"> 建立新客戶
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px">
+        <input type="radio" name="tenMode" value="existing" onchange="onTenModeChange()"> 加入現有客戶的不動產
+      </label>
+      <div id="tenClientSearch" style="display:none;margin-top:9px">
+        <input type="text" id="tenSearchInput" placeholder="搜尋姓名、電話…" oninput="filterTenClients()"
+          style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:inherit;background:var(--bg);color:var(--text)">
+        <div id="tenClientList" style="max-height:130px;overflow-y:auto;margin-top:5px;border:1px solid var(--border);border-radius:var(--rs);background:var(--bg)"></div>
+      </div>
+    </div>
+    <div class="imbtns" style="margin-top:12px;flex-shrink:0">
+      <button class="imcancel" onclick="closeTenModal()">取消</button>
+      <button class="imgo" id="tenGo" disabled onclick="doTenImport()">✅ 匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- XLS Import Modal -->
+<div class="imbg" id="imBg">
+  <div class="immodal">
+    <h3>📥 匯入 XLS 檔案</h3>
+    <p>選擇公司給的 XLS 檔案，已有客戶的備註和記錄不會被覆蓋。</p>
+    <div class="imdrop" id="imDrop" onclick="document.getElementById('xlsFile').click()">
+      <div class="icon">📂</div>
+      <p>點此選擇 XLS / XLSX 檔案</p>
+      <input type="file" id="xlsFile" accept=".xls,.xlsx" onchange="handleXls(this.files[0])">
+    </div>
+    <div class="imprev" id="imPrev"></div>
+    <div class="imbtns">
+      <button class="imcancel" onclick="closeImport()">取消</button>
+      <button class="imgo" id="imGo" disabled onclick="doImport()">匯入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let GAS_URL     = 'https://script.google.com/macros/s/AKfycbzD8tf29__2Lqc2YEQeUE-AK36vwge_n1hkMoKK9R8Hym2qyy5Fnlm4myZXUyoERFzA/exec'; // 共用同步 GAS
+let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
+const API_TOKEN   = 'stanford87';
+// 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
+function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+const TODAY = localDateStr();
+const LOCAL_KEY     = 'loan_crm_fb_v1';   // Firebase 版獨立 key，不與 index.html 共用
+const BLACKLIST_KEY = 'loan_crm_fb_blacklist';
+
+let clients = [];
+let blacklist = []; // [{phone,name,idno,deletedAt}]
+let nextId = 1;
+let editId = null;
+let curTab = 'all';
+let tempLogs = [];
+let xlsRows = [];
+
+// ── Storage ───────────────────────────────────────────────
+function normalizeDate(val) {
+  if(!val && val !== 0) return '';
+  const s = String(val).trim();
+  if(!s || s === '0') return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return s >= '2000-01-01' ? s : '';
+  }
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = s.slice(0,10);
+    return d >= '2000-01-01' ? d : '';
+  }
+  const n = parseFloat(s);
+  if(!isNaN(n) && n > 36526) {
+    const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+    return d.toISOString().slice(0,10);
+  }
+  return '';
+}
+
+function normalizeTime(val) {
+  if(!val) return '';
+  const s = String(val).trim();
+  // 已經是 HH:MM 格式
+  if(/^\d{2}:\d{2}$/.test(s)) return s;
+  // HH:MM:SS 格式
+  if(/^\d{2}:\d{2}:\d{2}/.test(s)) return s.slice(0,5);
+  // Excel 小數時間（0~1之間）
+  const n = parseFloat(s);
+  if(!isNaN(n) && n >= 0 && n < 1) {
+    const totalMin = Math.round(n * 24 * 60);
+    const h = Math.floor(totalMin / 60).toString().padStart(2,'0');
+    const m = (totalMin % 60).toString().padStart(2,'0');
+    return `${h}:${m}`;
+  }
+  return '';
+}
+
+function fixPhone(val) {
+  if(!val) return '';
+  const s = String(val).trim();
+  if(/^[9]\d{8}$/.test(s)) return '0'+s;
+  if(/^\d{9}$/.test(s)) return '0'+s;
+  return s;
+}
+
+function saveLocal() {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId})); } catch(e){}
+  saveToFirestore().catch(e => console.error('Firestore sync:', e));
+}
+function loadLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
+    if(d){
+      clients = (d.clients||[]).map(c => ({
+        ...c,
+        remind: normalizeDate(c.remind),
+        remindTime: normalizeTime(c.remindTime),
+        logs: (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
+      }));
+      nextId = d.nextId||1;
+    }
+  } catch(e){}
+}
+
+// ── Memo ─────────────────────────────────────────────────
+const MEMO_KEY = 'loan_crm_fb_memos';
+let memos = [];
+let nextMemoId = 1;
+
+function saveMemos(){
+  try{ localStorage.setItem(MEMO_KEY, JSON.stringify({memos, nextMemoId})); }catch(e){}
+}
+function loadMemos(){
+  try{
+    const d = JSON.parse(localStorage.getItem(MEMO_KEY)||'null');
+    if(d){ memos = d.memos||[]; nextMemoId = d.nextMemoId||1; }
+  }catch(e){}
+  renderMemos();
+}
+function addMemo(src){
+  const textEl = document.getElementById(src==='mobile'?'memoTextMobile':'memoTextPC');
+  const dateEl = document.getElementById(src==='mobile'?'memoDueMobile':'memoDuePC');
+  const timeEl = document.getElementById(src==='mobile'?'memoTimeMobile':'memoTimePC');
+  const text = (textEl?.value||'').trim();
+  if(!text) return;
+  memos.unshift({
+    id: nextMemoId++,
+    text,
+    dueDate: dateEl?.value||'',
+    dueTime: timeEl?.value||'',
+    done: false,
+    createdAt: TODAY
+  });
+  if(textEl) textEl.value='';
+  if(dateEl) dateEl.value='';
+  if(timeEl) timeEl.value='';
+  saveMemos();
+  renderMemos();
+  showToast('📝 已新增備忘');
+}
+function toggleMemoDone(id){
+  const m = memos.find(x=>x.id===id);
+  if(!m) return;
+  m.done = !m.done;
+  m.doneAt = m.done ? TODAY : '';
+  saveMemos();
+  renderMemos();
+}
+function deleteMemo(id){
+  memos = memos.filter(x=>x.id!==id);
+  saveMemos();
+  renderMemos();
+}
+function memoItemHtml(m){
+  const isOver = m.dueDate && m.dueDate < TODAY && !m.done;
+  const isToday = m.dueDate && m.dueDate === TODAY && !m.done;
+  let dueHtml = '';
+  if(m.dueDate){
+    const cls = isOver?'color:var(--red)':isToday?'color:var(--accent)':'color:var(--t3)';
+    const label = isOver?`⚠️ 逾期 ${m.dueDate}`:isToday?`📅 今天`:m.dueDate===''?'':m.dueDate;
+    const t = m.dueTime?` ${m.dueTime}`:'';
+    dueHtml = `<div class="memo-due" style="${cls}">${label}${t}</div>`;
+  }
+  return `<div class="memo-item${m.done?' done':''}${isOver?' overdue':''}${isToday?' due-today':''}">
+    <button class="memo-chk" onclick="toggleMemoDone(${m.id})">${m.done?'✅':'☐'}</button>
+    <div class="memo-body">
+      <div class="memo-text">${(m.text||'').replace(/</g,'&lt;')}</div>
+      ${dueHtml}
+    </div>
+    <button class="memo-del" onclick="deleteMemo(${m.id})">✕</button>
+  </div>`;
+}
+function renderMemos(){
+  const active = memos.filter(m=>!m.done);
+  const done   = memos.filter(m=>m.done).slice(0,5);
+  let html = '';
+  if(!memos.length){
+    html = '<div class="memo-empty">沒有備忘事項 ✨</div>';
+  } else {
+    html += active.map(memoItemHtml).join('');
+    if(done.length){
+      html += `<div class="memo-divider">已完成</div>`;
+      html += done.map(memoItemHtml).join('');
+    }
+  }
+  const pc = document.getElementById('memoListPC');
+  const mb = document.getElementById('memoListMobile');
+  if(pc) pc.innerHTML = html;
+  if(mb) mb.innerHTML = html;
+  const lbl = document.getElementById('memoCountLabel');
+  if(lbl) lbl.textContent = active.length ? `${active.length} 項待辦` : '';
+  // 清理超過14天的已完成備忘
+  const cutoff14 = new Date(); cutoff14.setDate(cutoff14.getDate()-14);
+  const C14 = localDateStr(cutoff14);
+  const before = memos.length;
+  memos = memos.filter(m=>!m.done||!m.doneAt||m.doneAt>=C14);
+  if(memos.length !== before) saveMemos();
+}
+function checkMemoReminders(){
+  const now = new Date();
+  memos.forEach(m=>{
+    if(m.done||!m.dueDate||!m.dueTime) return;
+    if(m.dueDate !== TODAY) return;
+    const [h,min] = m.dueTime.split(':').map(Number);
+    const due = new Date(); due.setHours(h,min,0,0);
+    const diff = Math.abs(now - due);
+    if(diff < 60000 && !m._notified){
+      m._notified = true;
+      showToast(`🔔 備忘提醒：${m.text}`);
+      if(Notification.permission==='granted'){
+        new Notification('📝 備忘提醒', {body: m.text, icon: '📋'});
+      }
+    }
+  });
+}
+function openMemoModal(){
+  renderMemos();
+  document.getElementById('memoBg').classList.add('open');
+}
+function closeMemoModal(){
+  document.getElementById('memoBg').classList.remove('open');
+}
+
+// ── Auto-classify ────────────────────────────────────────
+function autoClassify() {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  const CUTOFF = localDateStr(cutoff);
+  let changed = false;
+  clients.forEach(c => {
+    // 舊資料遷移：追很緊 → 覆訪
+    if(c.heat === '追很緊') {
+      c.heat = '覆訪';
+      changed = true;
+    }
+    // 超過7天未分類的「最新資料」→「待分類」
+    if(c.heat === '最新資料' && c.createdAt && c.createdAt <= CUTOFF) {
+      c.heat = '待分類';
+      changed = true;
+    }
+  });
+  if(changed) saveLocal();
+}
+
+// ── Blacklist ─────────────────────────────────────────────
+function saveBlacklist() {
+  try { localStorage.setItem(BLACKLIST_KEY, JSON.stringify(blacklist)); } catch(e){}
+}
+function loadBlacklist() {
+  try {
+    const d = JSON.parse(localStorage.getItem(BLACKLIST_KEY)||'null');
+    if(Array.isArray(d)) blacklist = d;
+  } catch(e){}
+  updateBlacklistBtn();
+}
+function addToBlacklist(c) {
+  const phone = (c.phone||'').replace(/[-\s]/g,'');
+  const idno  = (c.idno||'').toUpperCase();
+  // avoid duplicate entries
+  const already = blacklist.some(b => {
+    const bp = (b.phone||'').replace(/[-\s]/g,'');
+    if(phone && phone.length>5 && bp && phone===bp) return true;
+    if(idno  && idno.length>5  && b.idno && idno===b.idno.toUpperCase()) return true;
+    return false;
+  });
+  if(!already) {
+    blacklist.push({ phone:c.phone||'', name:c.name||'', idno:c.idno||'', deletedAt:TODAY });
+    saveBlacklist();
+    updateBlacklistBtn();
+  }
+}
+function isBlacklisted(phone, idno) {
+  const np = (phone||'').replace(/[-\s]/g,'');
+  const ni = (idno||'').toUpperCase();
+  return blacklist.some(b => {
+    const bp = (b.phone||'').replace(/[-\s]/g,'');
+    if(np && np.length>5 && bp && np===bp) return true;
+    if(ni && ni.length>5 && b.idno && ni===b.idno.toUpperCase()) return true;
+    return false;
+  });
+}
+function removeFromBlacklist(i) {
+  blacklist.splice(i, 1);
+  saveBlacklist();
+  updateBlacklistBtn();
+  openBlacklist();
+  showToast('✅ 已從黑名單移除');
+}
+function updateBlacklistBtn() {
+  const el = document.getElementById('blCount');
+  if(el) el.textContent = blacklist.length ? ` (${blacklist.length})` : '';
+}
+
+// ── Google Sheets sync ────────────────────────────────────
+const HDR = ['姓名','電話','身分證','追蹤熱度','下次聯絡日期','提醒時間','提醒說明','工作','年資','財力證明','門牌地址','總面積(坪)','主建物(坪)','附屬(坪)','公設(坪)','車位(坪)','銀行貸款(萬)','法人(萬)','民間借貸(萬)','地段號','建號','地號','Drive連結','標示部','所有權部','他項權利部','拜訪過程','公司備註','聯絡記錄','備註','建立日期','更新日期','系統ID','置頂','資料JSON'];
+
+const toRow = c => [
+  c.name||'', String(c.phone||''), c.idno||'', c.heat||'',
+  c.remind||'', c.remindTime||'', c.remindNote||'',
+  c.job||'', c.jobYears||'', JSON.stringify(c.finProofs||[]),
+  c.addr||'', c.area||'', c.mainArea||'', c.subArea||'', c.commonArea||'', c.parkArea||'',
+  c.bank||'', c.legal||'', c.private||'',
+  c.purpose||'', c.buildNo||'', c.landNo||'', c.driveUrl||'',
+  c.companyRaw?.buildInfo||'', c.companyRaw?.owner||'', c.companyRaw?.rights||'',
+  c.companyRaw?.process||'', c.companyRaw?.note||'',
+  JSON.stringify(c.logs||[]), c.note||'',
+  c.createdAt||'', c.updatedAt||'', c.id||'',
+  c.pinned?'1':'',
+  JSON.stringify({
+    properties: c.properties||[],
+    evalData:   c.evalData||{},
+    extraLoans: c.extraLoans||[],
+    loanPurpose:c.loanPurpose||'',
+    parkType:   c.parkType||'無',
+    parkTitle:  c.parkTitle||'非獨立',
+    parkVal:    c.parkVal||0,
+    birthY:     c.birthY||0,
+    birthM:     c.birthM||0,
+    birthD:     c.birthD||0,
+  }),
+];
+
+const fromRow = (row, i) => {
+  const g = (j) => row[j] ?? '';
+  let logs = [], finProofs = [];
+  try { logs = JSON.parse(g(28)||'[]'); logs = logs.map(l=>({...l, date: normalizeDate(l.date)})); } catch(e){ logs=[]; }
+  try { finProofs = JSON.parse(g(9)||'[]'); } catch(e){ finProofs=[]; }
+  let companyRaw = {};
+  if(g(23)||g(24)||g(25)){
+    companyRaw = {buildInfo:g(23),owner:g(24),rights:g(25),process:g(26),note:g(27),addr:g(10),area:g(11)+'坪'};
+  }
+  // 讀取富欄位 JSON（第 34 欄）
+  let rich = {};
+  try { rich = JSON.parse(g(34)||'{}'); } catch(e){ rich={}; }
+  return {
+    id: parseInt(g(32)) || (i+1),
+    name:g(0), phone:fixPhone(g(1)), idno:g(2), heat:g(3)||'最新資料',
+    remind:normalizeDate(g(4)), remindTime:normalizeTime(g(5)), remindNote:g(6),
+    job:g(7), jobYears:g(8), finProofs,
+    addr:g(10),
+    area:parseFloat(g(11))||0, mainArea:parseFloat(g(12))||0,
+    subArea:parseFloat(g(13))||0, commonArea:parseFloat(g(14))||0, parkArea:parseFloat(g(15))||0,
+    bank:parseFloat(g(16))||0, legal:parseFloat(g(17))||0, private:parseFloat(g(18))||0,
+    purpose:g(19), buildNo:g(20), landNo:g(21), driveUrl:g(22),
+    note:g(29), logs,
+    companyRaw: Object.keys(companyRaw).length ? companyRaw : null,
+    createdAt:g(30), updatedAt:g(31), debtPhones:[],
+    pinned: g(33)==='1',
+    // 富欄位：從 JSON 欄還原
+    properties:  rich.properties  || [],
+    evalData:    rich.evalData    || {},
+    extraLoans:  rich.extraLoans  || [],
+    loanPurpose: rich.loanPurpose || '',
+    parkType:    rich.parkType    || '無',
+    parkTitle:   rich.parkTitle   || '非獨立',
+    parkVal:     rich.parkVal     || 0,
+    birthY:      rich.birthY      || 0,
+    birthM:      rich.birthM      || 0,
+    birthD:      rich.birthD      || 0,
+  };
+};
+
+// ── Sync ──────────────────────────────────────────────────
+function parseVisitLogs(text){
+  if(!text) return [];
+  const curYear = new Date().getFullYear();
+  const logs = [];
+
+  // 用日期pattern切割
+  const datePattern = /(?=(?:\d{3}\/\d{1,2}\/\d{1,2}|\d{7}|\d{6}|\d{4}(?!\d)))/g;
+  const parts = text.split(datePattern).map(s=>s.trim()).filter(Boolean);
+
+  parts.forEach(part => {
+    if(!part) return;
+    let date='', time='', content=part;
+
+    // 7位民國 YYYMMDD + 可選時間4位
+    let m = part.match(/^(\d{3})(\d{2})(\d{2})\s*(\d{4})?\s*/);
+    if(m && parseInt(m[1]) > 90){
+      date = `${parseInt(m[1])+1911}-${m[2]}-${m[3]}`;
+      if(m[4]) time = `${m[4].slice(0,2)}:${m[4].slice(2)}`;
+      content = part.slice(m[0].length).trim();
+    }
+    // 民國斜線 YYY/M/D
+    else if((m = part.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})\s*/))){
+      date = `${parseInt(m[1])+1911}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+      content = part.slice(m[0].length).trim();
+    }
+    // 6位 YYMMDD
+    else if((m = part.match(/^(\d{2})(\d{2})(\d{2})\s*(\d{4})?\s*/))){
+      const yr = parseInt(m[1]);
+      date = `${yr < 30 ? 2000+yr : 1900+yr+11}-${m[2]}-${m[3]}`;
+      if(m[4]) time = `${m[4].slice(0,2)}:${m[4].slice(2)}`;
+      content = part.slice(m[0].length).trim();
+    }
+    // 4位月日 + 4位時間 MMDD HHMM
+    else if((m = part.match(/^(\d{2})(\d{2})\s+(\d{2})(\d{2})\s+/))){
+      date = `${curYear}-${m[1]}-${m[2]}`;
+      time = `${m[3]}:${m[4]}`;
+      content = part.slice(m[0].length).trim();
+    }
+    // 4位月日 MMDD
+    else if((m = part.match(/^(\d{2})(\d{2})(?!\d)\s*/))){
+      date = `${curYear}-${m[1]}-${m[2]}`;
+      content = part.slice(m[0].length).trim();
+    }
+
+    if(content) logs.push({ date: date||TODAY, time, text: content });
+  });
+
+  return logs.reverse();
+}
+
+async function syncData() {
+  if (!GAS_URL) { showToast('⚠️ 請先在 ⚙️ 設定填入同步網址'); return; }
+  if (!currentUser) { showToast('⚠️ 請先登入'); return; }
+  const btn=document.getElementById('syncBtn');
+  btn.textContent='⏳'; btn.disabled=true;
+  const userParam = '&user=' + encodeURIComponent(currentUser.email);
+  try {
+    const res = await fetch(GAS_URL + '?token=' + API_TOKEN + userParam);
+    const raw = await res.json();
+    if(raw&&raw.length>1){
+      const localPins=new Set(clients.filter(c=>c.pinned).map(c=>String(c.id)));
+      clients=raw.slice(1).filter(r=>r[0]).map((r,i)=>fromRow(r,i));
+      clients.forEach(c=>{ if(localPins.has(String(c.id))) c.pinned=true; });
+      nextId=clients.length?Math.max(...clients.map(c=>c.id))+1:1;
+      saveLocal(); showToast('✅ 同步成功');
+    } else { await pushToSheet(); showToast('✅ 初始化完成'); }
+  } catch(e){ showToast('⚠️ 同步失敗，使用本地資料'); }
+  btn.textContent='🔄 同步'; btn.disabled=false;
+  render();
+}
+async function pushToSheet() {
+  if (!GAS_URL || !currentUser) return;
+  const rows=[HDR,...clients.map(toRow)];
+  await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'save',token:API_TOKEN,user:currentUser.email,data:rows})});
+}
+
+// ── Company Sheet (JSONP) ─────────────────────────────────
+function jsonpFetch(url) {
+  return new Promise((resolve, reject) => {
+    const cb = '_cb' + Date.now() + Math.floor(Math.random()*1000);
+    const s = document.createElement('script');
+    const t = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout'));
+    }, 15000);
+    window[cb] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+    s.onerror = () => {
+      cleanup();
+      reject(new Error('載入失敗'));
+    };
+    function cleanup() {
+      clearTimeout(t);
+      delete window[cb];
+      if(s.parentNode) s.parentNode.removeChild(s);
+    }
+    s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    document.head.appendChild(s);
+  });
+}
+
+async function createDriveFolder(){
+  const name = document.getElementById('fName').value.trim();
+  if(!name){alert('請先填寫客戶姓名');return;}
+  const btn = document.getElementById('btnDrive');
+  btn.textContent='⏳ 建立中…';btn.disabled=true;
+  try{
+    const data = await jsonpFetch(GAS_URL+'?action=createFolder&token='+API_TOKEN+'&name='+encodeURIComponent(name));
+    if(data&&data.status==='ok'&&data.url){
+      document.getElementById('fDriveUrl').value=data.url;
+      document.getElementById('btnOpenDrive').style.display='';
+      btn.textContent='✅ 已建立';
+      showToast('📁 資料夾建立成功！');
+    } else {
+      showToast('⚠️ 建立失敗');btn.textContent='📁 建立';
+    }
+  }catch(e){showToast('⚠️ 建立失敗：'+e.message);btn.textContent='📁 建立';}
+  btn.disabled=false;
+}
+
+function openDriveFolder(){
+  const url = document.getElementById('fDriveUrl').value;
+  if(url) window.open(url,'_blank');
+}
+
+async function syncFromCompany() {
+  const btn=document.getElementById('companyBtn');
+  btn.textContent='⏳ 讀取中…'; btn.disabled=true;
+  showToast('⏳ 正在連接總檔…');
+  try {
+    const raw = await jsonpFetch(COMPANY_URL + '?token=' + API_TOKEN);
+    if(!raw||!Array.isArray(raw)){
+      showToast('⚠️ 總檔回傳格式錯誤');
+      btn.textContent='🏢 從總檔更新'; btn.disabled=false;
+      return;
+    }
+    processCompanyData(raw);
+  } catch(e) {
+    showToast('⚠️ 總檔連接失敗：'+e.message);
+    console.error(e);
+  }
+  btn.textContent='🏢 從總檔更新'; btn.disabled=false;
+}
+
+function processCompanyData(raw) {
+  if(!raw||raw.length<3){showToast('⚠️ 總檔沒有資料');return;}
+
+  // Row 0: short headers, Row 1: full headers, Row 2+: data
+  const rows = raw.slice(2);
+
+  // Sheet name → heat mapping (last column of each row)
+  function sheetToHeat(sheetName) {
+    const s = (sheetName||'').trim();
+    if(/無效|斷聯|塗銷/.test(s)) return '無效案件';
+    if(/簽約/.test(s)) return '已簽約';
+    if(/新鑫/.test(s)) return '新鑫';
+    return '最新資料'; // 所有匯入資料預設為最新資料
+  }
+
+  // Detect if row is 新鑫 format (col1 looks like ID number, col2 looks like phone)
+  function isXinXinRow(row) {
+    return String(row[6]||'').trim() === '新鑫';
+  }
+
+  function processXinXinRow(row) {
+    const name = String(row[0]||'').trim();
+    const phone = String(row[2]||'').trim().replace(/[^\d-]/g,'');
+    const addr = String(row[3]||'').trim();
+    const note = String(row[4]||'').trim();
+    return { name, phone, addr, note };
+  }
+
+  // Column indices (confirmed from real data):
+  // 0 = 電話欄（含姓名+電話，換行分隔）
+  // 1 = 拜訪過程
+  // 2 = 備註
+  // 4 = 門牌地址
+  // 5 = 面積
+  // 6 = 建物所有權部（含所有權人姓名）
+  // 13 = 他項權利部（含銀行/民間金額）
+
+  // 智慧合併新鑫備註：批次標頭更新，個人備註保留
+  // batchId = "1150318_資料 (4)"，rowNote = 該列第5欄的個別備註
+  function mergeXinNote(existing, batchId, rowNote){
+    const n = (existing||'').trim();
+
+    // 抽出現有備註中「批次標頭後面的個人備註」部分
+    // 舊格式：批次：2026/05/24（6）｜xxx  或  2026/05/24（6）｜xxx  或  1150318_資料 (4)｜xxx
+    let personal = n
+      .replace(/^批次：\d{4}[^\｜]*(｜\s*)?/, '')   // 移除 批次：日期 前綴
+      .replace(/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}[^\｜]*(｜\s*)?/, '') // 移除 YYYY/MM/DD 前綴
+      .replace(/^\d{7}_資料[^\｜]*(｜\s*)?/, '')     // 移除 1150318_資料 (N) 前綴
+      .trim();
+
+    // 優先用保留的 personal；若沒有則用本次匯入行的 rowNote
+    const keep = personal || rowNote || '';
+    return [batchId, keep].filter(Boolean).join('｜');
+  }
+
+  let added=0, updated=0, skipped=0;
+  let xinXinBatchDate = ''; // 追蹤新鑫批次日期
+
+  rows.forEach(row => {
+    const sheetName = String(row[row.length-1]||'').trim();
+
+    // 新鑫格式處理
+    if(sheetName === '新鑫') {
+      const name = String(row[0]||'').trim();
+
+      // 偵測批次日期行（如 "1150318_資料 (6)"），直接保留原始字串
+      if(!name || name.includes('_資料') || /^\d{4}-\d{2}-\d{2}/.test(name)) {
+        if(name) xinXinBatchDate = name.trim(); // e.g. "1150318_資料 (6)"
+        return;
+      }
+
+      const phone = String(row[2]||'').replace(/[^\d-]/g,'').trim();
+      const addr  = String(row[3]||'').trim();
+      const note  = String(row[4]||'').trim();
+      // 新鑫第1欄是身分證字號
+      const xinIdno = String(row[1]||'').trim().match(/([A-Z]\d{9})/)?.[1] || '';
+      const fullNote = [xinXinBatchDate || '', note].filter(Boolean).join('｜');
+      const normPhone = phone.replace(/[-\s]/g,'');
+
+      // 如果地址是空白，合併到上一筆同電話或同名的新鑫客戶
+      if(!addr && clients.length > 0) {
+        const prev = clients[clients.length - 1];
+        const prevPhone = String(prev.phone||'').replace(/[-\s]/g,'');
+        const samePhone = normPhone && prevPhone && prevPhone === normPhone;
+        const sameName = name && prev.name && (prev.name===name || prev.name.includes(name));
+        if(prev.heat === '新鑫' && (samePhone || sameName || !phone)) {
+          if(name && !prev.name.includes(name)) {
+            prev.name = prev.name + '／' + name;
+          }
+          if(phone && !(prev.debtPhones||[]).some(p=>p.includes(phone))) {
+            prev.debtPhones = [...(prev.debtPhones||[]), phone + `（${name}）`];
+          }
+          prev.updatedAt = TODAY;
+          updated++;
+          return;
+        }
+      }
+
+      const existing = clients.find(c=>{
+        if(c.phone && normPhone && String(c.phone).replace(/[-\s]/g,'')=== normPhone) return true;
+        if(name && c.name===name) return true;
+        return false;
+      });
+      if(isBlacklisted(phone, xinIdno)){ skipped++; return; }
+      if(existing){
+        if(!existing.addr && addr) existing.addr = addr;
+        // 批次標頭一定更新，個人備註（用戶手寫或原始行備註）保留
+        if(xinXinBatchDate) existing.note = mergeXinNote(existing.note, xinXinBatchDate, note);
+        if(!existing.idno && xinIdno) existing.idno = xinIdno;
+        // 分類：用戶已手動設為最終狀態（已簽約/無效案件）則不動；
+        //       其餘情況才標記為新鑫（讓系統知道這是新鑫名單）
+        const protectedHeats = ['已簽約','無效案件'];
+        if(!protectedHeats.includes(existing.heat)) existing.heat = '新鑫';
+        existing.updatedAt = TODAY;
+        updated++;
+      } else {
+        clients.push({
+          id: nextId++,
+          name, phone, idno: xinIdno, addr,
+          debtPhones: [],
+          heat: '新鑫',
+          remind: '', remindTime: '', remindNote: '',
+          job: '', jobYears: '', finProofs: [],
+          note: fullNote, area: 0, bank: 0, private: 0, legal: 0,
+          purpose: '', buildNo: '',
+          logs: fullNote ? [{date: TODAY, text: fullNote}] : [],
+          companyRaw: null,
+          createdAt: TODAY, updatedAt: TODAY,
+        });
+        added++;
+      }
+      return;
+    }
+
+    const rawCell = String(row[0]||'').trim();
+    const ownerCheck = String(row[6]||'').trim();
+    const buildCheck = String(row[3]||'').trim();
+    // Only skip if 標示部 AND 所有權部 are both empty
+    if(!ownerCheck && !buildCheck) return;
+
+    // Extract confirmed phones from col 0
+    const phoneMatches = rawCell.match(/0\d[\d-]{7,}/g) || [];
+    const landlines = rawCell.match(/0[2-9]\d-?\d{4}-?\d{4}/g) || [];
+    const allPhones = [...new Set([...phoneMatches, ...landlines])];
+    const phone = allPhones[0] || '';
+
+    // Extract debt phones from col 12 (債電), deduplicate against confirmed phones
+    const debtRaw = String(row[12]||'').trim();
+    const debtMatches = debtRaw.match(/0\d[\d-]{7,}/g) || [];
+    const debtLandlines = debtRaw.match(/0[2-9]\d-?\d{4}-?\d{4}/g) || [];
+    const allDebtPhones = [...new Set([...debtMatches, ...debtLandlines])].filter(p =>
+      !allPhones.some(op => op.replace(/[-\s]/g,'') === p.replace(/[-\s]/g,''))
+    );
+
+    // Extract name - always prioritize owner column (col 6)
+    const ownerRaw = String(row[6]||'');
+    // Match full ID: A123456789 姓名, or masked ID: A221*****8 江＊＊ or A221*****8 江某某
+    const ownerNameMatch = ownerRaw.match(/[A-Z]\d[\d*]{7,9}[\d*]\s+([\u4e00-\u9fff＊*]{2,8})/);
+    let ownerName = ownerNameMatch ? ownerNameMatch[1].replace(/[＊*]/g,'') : '';
+    // Remove if only asterisks remain
+    if(ownerName.length < 1) ownerName = '';
+
+    // If name is masked or missing, fallback to restriction col (col 18) for 義務人
+    const isMasked = !ownerName || ownerName.includes('*') || ownerName.includes('＊');
+    if (isMasked) {
+      const restrictRaw = String(row[18]||'');
+      const obligorMatch = restrictRaw.match(/義務人[：:]\s*([\u4e00-\u9fff]{2,8})/);
+      if (obligorMatch) ownerName = obligorMatch[1];
+    }
+
+    // Final fallback: try debt column (col 9)
+    if(!ownerName) {
+      const debtRaw = String(row[9]||'');
+      const debtMatch = debtRaw.match(/^([\u4e00-\u9fff]{2,6})[、，]/);
+      if(debtMatch) ownerName = debtMatch[1];
+    }
+
+    const name = (ownerName || '（未知）').trim();
+
+    // 從所有權部抓身分證字號
+    const idnoMatch = ownerRaw.match(/([A-Z]\d{9})/);
+    const idno = idnoMatch ? idnoMatch[1] : '';
+
+    if(!phone && !name) { skipped++; return; }
+
+    // Parse bank/legal/private from rights column (col 13)
+    const rightsRaw = String(row[13]||'');
+    let bank=0, priv=0, legal=0;
+
+    // Extract each entry - support both formats:
+    // 【銀】102-02-20 ... and 【銀】民國110年08月04日...
+    const entries = rightsRaw.split('\n').filter(l=>l.match(/【[銀私法]】/));
+    entries.forEach(line => {
+      // Match amount in various formats
+      const amtMatch = line.match(/新臺幣\s*([\d,]+)\s*元|（新臺幣([\d,]+)元）|（([\d,]+)）|\(([\d,]+)\)/);
+      const amt = amtMatch ? Math.round(parseInt((amtMatch[1]||amtMatch[2]||amtMatch[3]||amtMatch[4]||'0').replace(/,/g,''))/10000) : 0;
+      if(!amt) return;
+
+      if(line.includes('【銀】')) {
+        // Check if it's actually a legal entity (not a bank)
+        const isRealBank = /銀行|農會|信合社|信用合作|漁會/.test(line);
+        const isLegal2 = !isRealBank && /股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(line);
+        if(isLegal2) legal += amt;
+        else bank += amt; // 先累加，最後再除1.2
+      } else if(line.includes('【私】') || line.includes('【法】')) {
+        const creditorMatch = line.match(/最高\s+(.+?)\s+[\dA-Z]{8,}/) ||
+                              line.match(/[\dA-Z]{8,}\s+([\u4e00-\u9fff（）\s]{2,20})\s+新臺幣/);
+        const creditor = creditorMatch ? creditorMatch[1] : line;
+        const isBank = /銀行|農會|信合社|信用合作|漁會/.test(creditor);
+        const isLegal = !isBank && /股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(creditor);
+        if(isBank) bank += amt;
+        else if(isLegal) legal += amt;
+        else priv += amt;
+      }
+    });
+
+    // 銀行、法人金額 ÷ 1.2，無條件進位到整數萬
+    function calcAmt(b) {
+      return Math.ceil(b / 1.2);
+    }
+    bank = calcAmt(bank);
+    legal = calcAmt(legal);
+
+    // Fallback: use summary line if entry parsing got nothing
+    if(!bank && !priv && !legal) {
+      const bankMatch  = rightsRaw.match(/銀行[：:]\s*([\d,]+)/);
+      const privMatch  = rightsRaw.match(/民間[：:]\s*([\d,]+)/);
+      const legalMatch = rightsRaw.match(/法人[：:]\s*([\d,]+)/);
+      const rawBank  = bankMatch  ? parseInt(bankMatch[1].replace(/,/g,''))/10000 : 0;
+      const rawLegal = legalMatch ? parseInt(legalMatch[1].replace(/,/g,''))/10000 : 0;
+      bank  = Math.ceil(rawBank  / 1.2);
+      legal = Math.ceil(rawLegal / 1.2);
+      priv  = privMatch  ? Math.round(parseInt(privMatch[1].replace(/,/g,''))/10000) : 0;
+    }
+
+    // Parse area (col 5)
+    // 從標示部解析總面積、主建物、附屬、公設
+    const buildInfo3 = String(row[3]||'').replace(/\n/g,' ');
+    const areaRaw = String(row[5]||'');
+    const areaFromBI = parseFloat((buildInfo3.match(/[（(]([\d.]+)坪[）)]/)||[])[1])||0;
+    const areaFromCol5 = parseFloat((areaRaw.match(/[（(]([\d.]+)坪[）)]/)||areaRaw.match(/([\d.]+)坪/)||[])[1])||0;
+    const mainArea   = parseFloat((buildInfo3.match(/主建\(([\d.]+)\)/)||[])[1])||0;
+    const subArea    = parseFloat((buildInfo3.match(/附屬\(([\d.]+)\)/)||[])[1])||0;
+    const commonArea = parseFloat((buildInfo3.match(/公設\(([\d.]+)/)||[])[1])||0;
+    // 總面積：優先從標示部抓，若無則用主建+附屬+公設加總
+    const areaCalc = mainArea + subArea + commonArea;
+    const area = areaFromBI || areaFromCol5 || (areaCalc > 0 ? Math.round(areaCalc*100)/100 : 0);
+
+    // Address (col 4)
+    const addr = String(row[4]||'').replace(/\n/g,' ').trim();
+
+    // Extract buildInfo from col 3 (for display only)
+    const buildInfo = String(row[3]||'').trim();
+
+    // 從共同擔保建號（col 11）解析建號，去重複只留編號
+    const guaranteeRaw = String(row[11]||'');
+    const buildSection = guaranteeRaw.match(/共同擔保建號[：:]([\s\S]*?)$/);
+    let buildNo = '';
+    if(buildSection){
+      const lines = buildSection[1].split('\n');
+      const seen = new Set(); const result = [];
+      lines.forEach(line=>{
+        line = line.trim(); if(!line) return;
+        const parts = line.split(/\s+/);
+        if(parts.length >= 2){
+          const no = parts[1]; // 第二個token是建號
+          if(!seen.has(no)){seen.add(no);result.push(no);}
+        }
+      });
+      buildNo = result.join('、');
+    }
+    // 備用：從標示部抓建號
+    if(!buildNo){
+      const buildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
+      buildNo = buildNoMatch ? buildNoMatch[1] : '';
+    }
+
+    // 解析共同擔保地號，去重複，同時抓段名
+    const landSection = guaranteeRaw.match(/共同擔保地號[：:]([\s\S]*?)(?=共同擔保建號|$)/);
+    let landNos = '', sectionName = '';
+    if(landSection){
+      const lines = landSection[1].split('\n');
+      const seen = new Set(); const result = [];
+      const seenSection = new Set();
+      lines.forEach(line=>{
+        line = line.trim(); if(!line) return;
+        const parts = line.split(/\s+/);
+        if(parts.length >= 2){
+          const no = parts[1];
+          if(!seen.has(no)){seen.add(no);result.push(no);}
+          if(parts[0] && !seenSection.has(parts[0])){seenSection.add(parts[0]);}
+        }
+      });
+      landNos = result.join('、');
+      sectionName = [...seenSection].join('、');
+    }
+
+    // Process log (col 1)
+    const processText = String(row[1]||'').trim();
+    const noteText    = String(row[2]||'').trim();
+
+    // 如果電話欄空白且有建號，嘗試合併到上一筆相同建號的客戶
+    if(!rawCell && buildNo && clients.length > 0) {
+      const prevSameBuilding = clients.find(c =>
+        c.buildNo && c.buildNo === buildNo
+      );
+      if(prevSameBuilding) {
+        // 合併所有權人姓名
+        if(name && name !== '（未知）' && !prevSameBuilding.name.includes(name)) {
+          prevSameBuilding.name = prevSameBuilding.name + '／' + name;
+        }
+        // 合併債電
+        if(allDebtPhones.length) {
+          prevSameBuilding.debtPhones = [...(prevSameBuilding.debtPhones||[]), ...allDebtPhones];
+        }
+        prevSameBuilding.updatedAt = TODAY;
+        updated++;
+        return;
+      }
+    }
+
+    const companyRaw = {
+      phone: rawCell,
+      process: processText,
+      note: noteText,
+      addr: addr,
+      area: areaFromBI ? `${areaFromBI}坪` : areaRaw,
+      owner: ownerRaw,
+      rights: rightsRaw,
+      buildInfo: buildInfo,
+      allPhones: allPhones,
+    };
+
+    // Check if exists by any phone number OR (name + address)
+    const normPhones = allPhones.map(p=>p.replace(/[-\s\(\)#]/g,''));
+    const existing = clients.find(c => {
+      // Match by phone (strongest signal)
+      if(c.phone) {
+        const cp = String(c.phone).replace(/[-\s\(\)#]/g,'');
+        if(normPhones.some(p=>p&&cp&&p===cp)) return true;
+      }
+      // Match by name - only if address also matches or both have no address
+      if(name && name!=='（未知）' && c.name === name) {
+        const addrA = (c.addr||'').slice(0,10);
+        const addrB = (addr||'').slice(0,10);
+        // 都沒地址，或地址前10字相同，才視為同一人
+        if(!addrA && !addrB) return true;
+        if(addrA && addrB && addrA === addrB) return true;
+      }
+      return false;
+    });
+
+    // Get sheet name from last column and determine heat
+    const heat = sheetToHeat(sheetName);
+
+    if(isBlacklisted(phone, idno)){ skipped++; return; }
+
+    if(existing){
+      // ── 核心原則：用戶主動改過的欄位，匯入時一律不覆蓋 ──────────
+      // 公司資料（總檔來源）：永遠更新，這是總檔的職責
+      existing.companyRaw = companyRaw;
+      // 空白才補，有值就保留用戶資料
+      if(!existing.addr && addr) existing.addr = addr;
+      if(!existing.idno && idno) existing.idno = idno;
+      if(bank && !existing.bank) existing.bank = bank;
+      if(priv && !existing.private) existing.private = priv;
+      if(legal && !existing.legal) existing.legal = legal;
+      if(area && !existing.area) existing.area = area;
+      if(mainArea && !existing.mainArea) existing.mainArea = mainArea;
+      if(subArea && !existing.subArea) existing.subArea = subArea;
+      if(commonArea && !existing.commonArea) existing.commonArea = commonArea;
+      if(buildNo && !existing.buildNo) existing.buildNo = buildNo;
+      if(landNos && !existing.landNo) existing.landNo = landNos;
+      if(sectionName && !existing.purpose) existing.purpose = sectionName;
+      // 分類：只有還是預設值（最新資料）或空白才更新，用戶改過的分類絕對不動
+      const defaultHeats = ['最新資料', ''];
+      if(defaultHeats.includes(existing.heat||'')) existing.heat = heat;
+      // 負債電話：空白才補
+      if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
+      // 聯絡記錄：只加入新的，不恢復已刪除的
+      if(processText){
+        const newLogs = parseVisitLogs(processText);
+        const existingKeys = new Set((existing.logs||[]).map(l=>(l.date||'')+(l.text||'').slice(0,20)));
+        const deletedKeys = new Set(existing.deletedLogKeys||[]);
+        const toAdd = newLogs.filter(l=>{
+          const key = (l.date||'')+(l.text||'').slice(0,20);
+          return !existingKeys.has(key) && !deletedKeys.has(key);
+        });
+        if(toAdd.length) existing.logs = [...toAdd, ...(existing.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      }
+      // driveUrl、note、remind、job 等用戶欄位：完全不動
+      existing.updatedAt = TODAY;
+      updated++;
+    } else {
+      const logs = parseVisitLogs(processText);
+
+      clients.push({
+        id: nextId++,
+        name, phone, idno,
+        debtPhones: allDebtPhones,
+        heat,
+        remind: '', remindTime: '', remindNote: '',
+        job: '', jobYears: '', finProofs: [],
+        note: noteText,
+        addr, area, mainArea, subArea, commonArea, parkArea: 0, bank, private: priv, legal,
+        purpose: sectionName, buildNo, driveUrl: '', landNo: landNos,
+        logs: logs.slice(0,3),
+        companyRaw,
+        createdAt: TODAY, updatedAt: TODAY,
+      });
+      added++;
+    }
+  });
+
+  // 去除重複：同電話只保留一筆，同名要比對地址
+  const seen = new Set();
+  clients = clients.filter(c => {
+    const normPhone = (c.phone||'').replace(/[-\s\(\)#]/g,'');
+    const key1 = normPhone && normPhone.length > 5 ? 'p_'+normPhone : null;
+    // 同名同地址才算重複
+    const addrKey = (c.addr||'').slice(0,10);
+    const key2 = c.name && c.name !== '（未知）' ? 'n_'+c.name+'_'+addrKey : null;
+    if((key1 && seen.has(key1)) || (key2 && seen.has(key2))) return false;
+    if(key1) seen.add(key1);
+    if(key2) seen.add(key2);
+    return true;
+  });
+
+  autoClassify();
+  saveLocal();
+  pushToSheet().catch(()=>{});
+  render();
+  showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆`);
+}
+
+// ── Toolbar visibility settings ───────────────────────────
+const BTN_DEFS=[
+  {id:'companyBtn',    label:'🏢 從總檔更新'},
+  {id:'xlsBtn',        label:'📥 XLS 匯入'},
+  {id:'syncBtn',       label:'🔄 同步'},
+  {id:'tenBtn',        label:'📄 謄本匯入'},
+  {id:'blBtn',         label:'🚫 黑名單'},
+  {id:'selectModeBtn', label:'☑ 選取'},
+  {id:'clearBtn',      label:'🗑️ 清除'},
+  {id:'urlSettingsBtn',label:'⚙️ 設定'},
+  {id:'logoutBtn',     label:'🚪 登出'},
+];
+const HBTN_VIS_KEY='hbtn_vis_fb_v1';
+let hbtnVis={};
+
+function loadBtnVis(){
+  try{ hbtnVis=JSON.parse(localStorage.getItem(HBTN_VIS_KEY)||'{}'); }catch(e){ hbtnVis={}; }
+  BTN_DEFS.forEach(d=>{
+    if(!(d.id in hbtnVis)) hbtnVis[d.id]=true;
+    const el=document.getElementById(d.id);
+    if(el) el.style.display=hbtnVis[d.id]?'':'none';
+  });
+}
+function saveBtnVis(){
+  try{ localStorage.setItem(HBTN_VIS_KEY,JSON.stringify(hbtnVis)); }catch(e){}
+}
+
+let hbtnPanelOpen=false;
+function toggleBtnSettings(e){
+  e.stopPropagation();
+  hbtnPanelOpen=!hbtnPanelOpen;
+  const panel=document.getElementById('hbtnSettingsPanel');
+  if(!hbtnPanelOpen){ panel.style.display='none'; return; }
+  renderBtnSettings();
+  panel.style.display='';
+  // position below gear button
+  const btn=document.getElementById('hbtnSettingsBtn');
+  const r=btn.getBoundingClientRect();
+  panel.style.top=(r.bottom+6)+'px';
+  panel.style.right=(window.innerWidth-r.right)+'px';
+  panel.style.left='auto';
+}
+function renderBtnSettings(){
+  document.getElementById('hbtnSettingsList').innerHTML=BTN_DEFS.map(d=>`
+    <label style="display:flex;align-items:center;gap:9px;padding:6px 2px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)">
+      <input type="checkbox" ${hbtnVis[d.id]!==false?'checked':''} onchange="setBtnVis('${d.id}',this.checked)"
+        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent)">
+      <span style="color:var(--text)">${d.label}</span>
+    </label>`).join('');
+}
+function setBtnVis(id,val){
+  hbtnVis[id]=val;
+  saveBtnVis();
+  const el=document.getElementById(id);
+  if(el) el.style.display=val?'':'none';
+}
+document.addEventListener('click',e=>{
+  if(hbtnPanelOpen&&!document.getElementById('hbtnSettingsPanel').contains(e.target)){
+    hbtnPanelOpen=false;
+    document.getElementById('hbtnSettingsPanel').style.display='none';
+  }
+});
+
+// ── UI helpers ────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+function remSt(r){
+  if(!r)return null;
+  if(r<TODAY)return'over';
+  if(r===TODAY)return'today';
+  return(new Date(r)-new Date(TODAY))/86400000<=3?'soon':'ok';
+}
+function remChip(r,rt){
+  if(!r)return'';
+  let s=remSt(r);
+  // 今天但時間已過 → 視為逾期
+  if(s==='today'&&rt){
+    const now=new Date();
+    const [rh,rm]=(rt||'00:00').split(':').map(Number);
+    const rdt=new Date(); rdt.setHours(rh,rm,0,0);
+    if(now>rdt) s='over';
+  }
+  const ts=rt?` ${rt}`:'';
+  const days=Math.ceil((new Date(r)-new Date(TODAY))/86400000);
+  let label='';
+  if(s==='over') label=`⚠️ 逾期${ts}`;
+  else if(s==='today') label=`📞 今天${ts}`;
+  else if(days===1) label=`📅 明天${ts}`;
+  else if(days===2) label=`📅 後天${ts}`;
+  else if(days===3) label=`📅 3天後${ts}`;
+  else label=`📅 ${r}${ts}`;
+  const cls=s==='over'?'rc-over':s==='today'?'rc-today':s==='soon'?'rc-soon':'rc-ok';
+  return`<span class="rchip ${cls}">${label}</span>`;
+}
+const hCls={'待分類':'hp','覆訪':'hw','最新資料':'hc','已簽約':'hd','無效案件':'hf','新鑫':'hx'};
+const hOrd={'待分類':0,'覆訪':1,'最新資料':2,'新鑫':3,'已簽約':4,'無效案件':5};
+const rOrd={over:0,today:1,soon:2,ok:3,null:4};
+
+let showFullTotal = false; // 手機端切換含無效總計
+
+function updateStats(){
+  const inactive = ['已簽約','無效案件'];
+  // 逾期：提醒日已過，非結案
+  const over = clients.filter(c=>c.remind&&c.remind<TODAY&&!inactive.includes(c.heat)).length;
+  // 未排程：沒有提醒日，非結案
+  const noRemind = clients.filter(c=>!c.remind&&!inactive.includes(c.heat)).length;
+  // 本週：今天起7天內有提醒（含今天）
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate()+7);
+  const WEEK_END = localDateStr(weekEnd);
+  const week = clients.filter(c=>c.remind&&c.remind>=TODAY&&c.remind<=WEEK_END).length;
+  // 總計：預設排除無效案件
+  const activeTotal = clients.filter(c=>c.heat!=='無效案件').length;
+  const fullTotal   = clients.length;
+  const dispN = showFullTotal ? fullTotal : activeTotal;
+  const dispL = showFullTotal ? '👥 含無效' : '👥 總計';
+
+  document.getElementById('statsBar').innerHTML=`
+    <div class="spill ${over?'alert':''}"><b>${over}</b><span>⚠️ 逾期</span></div>
+    <div class="spill ${noRemind?'warn':''}"><b>${noRemind}</b><span>📋 未排程</span></div>
+    <div class="spill ${week?'info':''}"><b>${week}</b><span>📅 本週</span></div>
+    <div class="spill" id="totalSpill" style="cursor:pointer;user-select:none"
+      onmouseenter="totalHover(this,${fullTotal})"
+      onmouseleave="totalLeave(this,${activeTotal})"
+      onclick="totalClick()">
+      <b>${dispN}</b><span>${dispL}</span>
+    </div>
+  `;
+  // 瀏覽器標題顯示逾期數
+  document.title = over > 0 ? `(${over}) 借款追蹤系統` : '借款追蹤系統';
+  // PC 空白統計
+  const s=id=>document.getElementById(id);
+  const tod=clients.filter(c=>c.remind===TODAY).length;
+  const unclass=clients.filter(c=>c.heat==='待分類').length;
+  if(s('pc_over_num'))  s('pc_over_num').textContent=over;
+  if(s('pc_today_num')) s('pc_today_num').textContent=tod;
+  if(s('pc_hot_num'))   s('pc_hot_num').textContent=unclass;
+  if(s('pc_total_num')) s('pc_total_num').textContent=activeTotal;
+}
+
+// PC hover：暫時顯示含無效的完整數字
+function totalHover(el, full){
+  el.querySelector('b').textContent = full;
+  el.querySelector('span').textContent = '👥 含無效';
+  el.style.outline = '1.5px solid var(--border)';
+}
+function totalLeave(el, active){
+  el.style.outline = '';
+  if(!showFullTotal){
+    el.querySelector('b').textContent = active;
+    el.querySelector('span').textContent = '👥 總計';
+  }
+}
+// 手機端點擊切換
+function totalClick(){
+  if(!('ontouchstart' in window)) return; // PC 只用 hover，不 toggle
+  showFullTotal = !showFullTotal;
+  updateStats();
+}
+function updateTabs(){
+  const cnt={
+    all: clients.length,
+    today: clients.filter(c=>c.remind===TODAY).length,
+    over: clients.filter(c=>c.remind&&c.remind<TODAY&&!['已簽約','無效案件'].includes(c.heat)).length,
+    '待分類': clients.filter(c=>c.heat==='待分類').length,
+    '覆訪': clients.filter(c=>c.heat==='覆訪').length,
+    '最新資料': clients.filter(c=>c.heat==='最新資料').length,
+    '新鑫': clients.filter(c=>c.heat==='新鑫').length,
+    '已簽約': clients.filter(c=>c.heat==='已簽約').length,
+    '無效案件': clients.filter(c=>c.heat==='無效案件').length,
+  };
+  const tabs=[{k:'all',l:'全部'},{k:'today',l:'今日'},{k:'over',l:'逾期'},{k:'覆訪',l:'覆訪'},{k:'最新資料',l:'最新資料'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
+  document.getElementById('tabsWrap').innerHTML=tabs.map(t=>{
+    const n=cnt[t.k];
+    return`<button class="tbtn ${curTab===t.k?'active':''}" onclick="setTab('${t.k}')">${t.l}${n?`<span style="font-size:10px;opacity:.65;margin-left:2px">(${n})</span>`:''}</button>`;
+  }).join('');
+}
+function scrollTabs(dx) {
+  const tabs = document.getElementById('tabsWrap');
+  tabs.scrollBy({ left: dx, behavior: 'smooth' });
+}
+function scrollHbtns(dx) {
+  const row = document.getElementById('hbtnsRow');
+  row.scrollBy({ left: dx, behavior: 'smooth' });
+}
+
+function setTab(t){
+  const same=(t===curTab);
+  curTab=t;render();
+  if(same){
+    // 點同一分類 → 回到最上方（mobile: window；PC: .app overflow scroll）
+    document.getElementById('mainApp').scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+
+// Highlight matching keyword in text
+function hl(text, q){
+  if(!q||!text) return text||'';
+  try{
+    const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    return String(text).replace(new RegExp(`(${esc})`,'gi'),'<mark style="background:#FFF176;color:#5D4037;border-radius:2px;padding:0 1px">$1</mark>');
+  }catch(e){return text||'';}
+}
+
+function render(){
+  updateStats();updateTabs();
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  let list=[...clients];
+  if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
+  else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
+  else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
+  if(q) list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.addr||'').toLowerCase().includes(q)||(c.idno||'').toLowerCase().includes(q)||(c.note||'').toLowerCase().includes(q));
+  // 縣市篩選
+  if(selectedCities.size > 0) {
+    list = list.filter(c => {
+      const addr = c.addr || '';
+      return ALL_CITIES.some(city => selectedCities.has(city) && (addr.startsWith(city) || addr.startsWith(city.replace('台','臺'))));
+    });
+  }
+  const sortBy = document.getElementById('sortSelect')?.value || 'remind';
+
+  // 地址縣市排序順序
+  const cityOrder = ['台北市','臺北市','新北市','桃園市','基隆市','新竹市','新竹縣','苗栗縣','台中市','臺中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','台南市','臺南市','高雄市','屏東縣','宜蘭縣','花蓮縣','台東縣','臺東縣','澎湖縣','金門縣','連江縣'];
+  function getCityOrder(addr) {
+    const a = addr||'';
+    for(let i=0; i<cityOrder.length; i++) {
+      if(a.startsWith(cityOrder[i])) return i;
+    }
+    return 99;
+  }
+
+  list.sort((a,b)=>{
+    // 置頂優先
+    if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    if(sortBy==='heat'){
+      const hd=(hOrd[a.heat]??9)-(hOrd[b.heat]??9);
+      if(hd!==0) return hd;
+      const ra=rOrd[remSt(a.remind)]??4,rb=rOrd[remSt(b.remind)]??4;
+      return ra-rb;
+    } else if(sortBy==='deadline'){
+      const da=a.remind||'9999-99-99',db=b.remind||'9999-99-99';
+      if(da!==db) return da.localeCompare(db);
+      return (hOrd[a.heat]??9)-(hOrd[b.heat]??9);
+    } else if(sortBy==='created'){
+      const da=a.createdAt||'',db=b.createdAt||'';
+      return db.localeCompare(da);
+    } else if(sortBy==='addr'){
+      const ca=getCityOrder(a.addr), cb=getCityOrder(b.addr);
+      if(ca!==cb) return ca-cb;
+      return (a.addr||'').localeCompare(b.addr||'');
+    } else if(sortBy==='phone'){
+      const pa=a.phone?0:1, pb=b.phone?0:1;
+      if(pa!==pb) return pa-pb;
+      const ra=rOrd[remSt(a.remind)]??4,rb=rOrd[remSt(b.remind)]??4;
+      return ra-rb;
+    } else if(sortBy==='lastlog'){
+      const la=a.logs?.length?a.logs.reduce((m,l)=>l.date>m?l.date:m,''):'';
+      const lb=b.logs?.length?b.logs.reduce((m,l)=>l.date>m?l.date:m,''):'';
+      if(!la&&!lb) return 0;
+      if(!la) return 1;
+      if(!lb) return -1;
+      return lb.localeCompare(la);
+    } else {
+      const ra=rOrd[remSt(a.remind)]??4,rb=rOrd[remSt(b.remind)]??4;
+      if(ra!==rb)return ra-rb;
+      // 同日期按時間排序
+      if(a.remind===b.remind){
+        const ta=a.remindTime||'',tb=b.remindTime||'';
+        if(ta!==tb)return ta.localeCompare(tb);
+      }
+      return(hOrd[a.heat]??9)-(hOrd[b.heat]??9);
+    }
+  });
+  const wrap=document.getElementById('listWrap');
+  if(!list.length){wrap.innerHTML=`<div class="empty">🔍 查無資料</div>`;return;}
+  wrap.innerHTML=list.map(c=>{
+    let st=remSt(c.remind);
+    // 今天的提醒，但時間已過 → 視為逾期
+    if(st==='today'&&c.remindTime){
+      const now=new Date();
+      const [rh,rm]=(c.remindTime||'00:00').split(':').map(Number);
+      const rt=new Date(); rt.setHours(rh,rm,0,0);
+      if(now>rt) st='over';
+    }
+    const cls=st==='over'?'over':st==='today'?'today':st==='soon'?'soon':'';
+    const lastLog=c.logs&&c.logs.length?c.logs[0]:null;
+    const total=(c.bank||0)+(c.private||0);
+    const heatCls=hCls[c.heat]||'';
+    const isSel=selectMode&&selectedIds.has(c.id);
+    const cardClick=selectMode?`toggleSelect(${c.id},event)`:`openEdit(${c.id})`;
+    return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}" onclick="${cardClick}">
+      <div class="ctop">
+        ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
+        <div style="flex:1;min-width:0"><div class="cname">${hl(c.name||'',q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          ${selectMode?'':`<button onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px;line-height:1;opacity:${c.pinned?'1':'.25'};transition:opacity .15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${c.pinned?'1':'.25'}'">📌</button>`}
+          <span class="hbadge ${heatCls}">${c.heat}</span>
+        </div>
+      </div>
+      <div class="cmeta">
+        ${c.remind?remChip(c.remind,c.remindTime):''}
+        ${c.bank?`<span class="mi">🏦銀行${c.bank}萬</span>`:''}
+        ${c.legal?`<span class="mi">🏢法人${c.legal}萬</span>`:''}
+        ${c.private?`<span class="mi" style="color:var(--red)">⚠️民間${c.private}萬</span>`:''}
+        ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
+        ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
+        ${c.logs&&c.logs.length?`<span class="mi">💬${c.logs.length}筆</span>`:''}
+      </div>
+      ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📌${c.remindNote}</div>`:''}
+      ${c.addr?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍${hl(c.addr||'',q)}</div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+      ${c.remind?`<div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="openCalendar(${c.id});event.stopPropagation()" style="flex:1;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">📅 加入行事曆</button>
+        ${(st==='over'||st==='today'||st==='soon')?`<button onclick="clearRemind(event,${c.id})" style="flex:1;background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✕ 清除提醒</button>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function togglePin(id, e) {
+  e.stopPropagation();
+  const c = clients.find(x=>x.id===id);
+  if(!c) return;
+  c.pinned = !c.pinned;
+  saveLocal();
+  render();
+  showToast(c.pinned ? '📌 已置頂' : '已取消置頂');
+  pushToSheet().catch(()=>{});
+}
+
+// ── Batch select mode ─────────────────────────────────────
+let selectMode = false;
+let selectedIds = new Set();
+
+function getVisibleList(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  let list=[...clients];
+  if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
+  else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
+  else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
+  if(q) list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.addr||'').toLowerCase().includes(q)||(c.idno||'').toLowerCase().includes(q)||(c.note||'').toLowerCase().includes(q));
+  if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
+  return list;
+}
+
+function toggleSelectMode(){
+  selectMode=!selectMode;
+  selectedIds.clear();
+  const btn=document.getElementById('selectModeBtn');
+  if(selectMode){
+    btn.style.background='var(--abg)'; btn.style.color='var(--accent)'; btn.textContent='✕ 取消';
+  } else {
+    btn.style.background=''; btn.style.color=''; btn.textContent='☑ 選取';
+  }
+  updateBatchBar(); render();
+}
+
+function exitSelectMode(){
+  selectMode=false; selectedIds.clear();
+  const btn=document.getElementById('selectModeBtn');
+  if(btn){ btn.style.background=''; btn.style.color=''; btn.textContent='☑ 選取'; }
+  updateBatchBar(); render();
+}
+
+function toggleSelect(id, e){
+  e.stopPropagation();
+  if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  updateBatchBar(); render();
+}
+
+function batchSelectAll(){
+  const visible=getVisibleList();
+  const allSel=visible.length>0&&visible.every(c=>selectedIds.has(c.id));
+  if(allSel) visible.forEach(c=>selectedIds.delete(c.id));
+  else visible.forEach(c=>selectedIds.add(c.id));
+  updateBatchBar(); render();
+}
+
+function updateBatchBar(){
+  const bar=document.getElementById('batchBar');
+  bar.classList.toggle('show', selectMode);
+  document.getElementById('batchCount').textContent=`已選 ${selectedIds.size} 筆`;
+  const visible=getVisibleList();
+  const allSel=visible.length>0&&visible.every(c=>selectedIds.has(c.id));
+  document.getElementById('batchSelAllBtn').textContent=allSel?'取消全選':'全選';
+  const fab=document.getElementById('fabBtn');
+  if(fab) fab.style.display=selectMode?'none':'';
+}
+
+async function applyBatchCategory(){
+  const heat=document.getElementById('batchHeat').value;
+  if(!heat){ showToast('⚠️ 請選擇分類'); return; }
+  if(!selectedIds.size){ showToast('⚠️ 請先選取客戶'); return; }
+  const count=selectedIds.size;
+  clients.forEach(c=>{ if(selectedIds.has(c.id)){ c.heat=heat; c.updatedAt=TODAY; } });
+  saveLocal(); exitSelectMode();
+  try{ await pushToSheet(); showToast(`✅ 已將 ${count} 筆移到「${heat}」`); }
+  catch(e){ showToast(`✅ 已將 ${count} 筆移到「${heat}」（本地）`); }
+}
+
+async function clearRemind(e, id) {
+  e.stopPropagation(); // 防止觸發開啟客戶頁面
+  const c = clients.find(x=>x.id===id);
+  if(!c) return;
+  c.remind = '';
+  c.remindTime = '';
+  c.remindNote = '';
+  c.updatedAt = TODAY;
+  saveLocal();
+  try { await pushToSheet(); showToast('✅ 已清除提醒'); }
+  catch(e) { showToast('✅ 已清除提醒（本地）'); }
+  render();
+}
+
+// ── 電話點擊 ──────────────────────────────────────────────
+function handlePhoneClick(e, phone) {
+  e.stopPropagation();
+  if(!phone) return;
+  if(/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+    window.location.href = 'tel:' + phone.replace(/[-\s]/g,'');
+  } else {
+    navigator.clipboard.writeText(phone).then(()=>showToast('📋 已複製電話號碼'));
+  }
+}
+
+// ── 表單髒標記 ────────────────────────────────────────────
+let formDirty = false;
+document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; });
+
+// ── 瀏覽器推播通知 ────────────────────────────────────────
+function initNotifications() {
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default') Notification.requestPermission();
+}
+function checkReminders() {
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  const now=new Date();
+  const nowDate=localDateStr(now);
+  const nowTime=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  clients.forEach(c=>{
+    if(c.remind===nowDate && c.remindTime===nowTime && !c._notified) {
+      new Notification(`📞 聯絡 ${c.name}`,{body:c.remindNote||c.phone||'',icon:'📋'});
+      c._notified=true;
+    }
+    if(c.remind!==nowDate) c._notified=false;
+  });
+}
+setInterval(()=>{ checkReminders(); checkMemoReminders(); }, 60000);
+initNotifications();
+
+// ── 鍵盤快捷鍵 ───────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  const sheetOpen=document.getElementById('sheetBg').classList.contains('open');
+  // Esc 關閉
+  if(e.key==='Escape' && selectMode){ exitSelectMode(); return; }
+  if(e.key==='Escape' && sheetOpen){ closeSheet(); return; }
+  // Ctrl+S 儲存
+  if(e.ctrlKey && e.key==='s' && sheetOpen){ e.preventDefault(); saveClient(); return; }
+  // ↑↓ 切換客戶（PC）
+  if((e.key==='ArrowUp'||e.key==='ArrowDown') && sheetOpen && window.innerWidth>=900){
+    e.preventDefault();
+    const cards=Array.from(document.querySelectorAll('.ccard'));
+    const ids=cards.map(el=>{const m=el.getAttribute('onclick')?.match(/openEdit\((\d+)\)/);return m?parseInt(m[1]):null;}).filter(Boolean);
+    const idx=ids.indexOf(editId);
+    const next=e.key==='ArrowUp'?idx-1:idx+1;
+    if(next>=0&&next<ids.length) openEdit(ids[next]);
+  }
+});
+
+function syncToEval(targetId, val) {
+  const el = document.getElementById(targetId);
+  if(el) el.value = val;
+}
+function syncLandtax(field, val){
+  const wan = val ? Math.round(parseFloat(val)/10000) || '' : '';
+  if(field==='normal'){
+    syncToEval('ev_landtax_normal', val);
+    syncToEval('ev_tax_general', wan);
+  } else {
+    syncToEval('ev_landtax_self', val);
+    syncToEval('ev_tax_self', wan);
+  }
+}
+function extractDistrict(addr){
+  return addr.match(/[一-鿿]+[市縣]([一-鿿]+[區鄉鎮市])/)?.[1] || '';
+}
+function autoFillDistrict(addr){
+  const d = extractDistrict(addr);
+  if(!d) return;
+  const fd = document.getElementById('fDistrict');
+  if(fd && !fd.value) fd.value = d;   // 空白才自動帶入
+  syncToEval('ev_district', d);
+}
+function refreshLoanSection() {
+  const section = document.getElementById('ev_loan_section');
+  if(!section) return;
+  const bank = parseFloat(document.getElementById('fBank')?.value) || 0;
+  const legal = parseFloat(document.getElementById('fLegal')?.value) || 0;
+  const priv = parseFloat(document.getElementById('fPrivate')?.value) || 0;
+  const hasExtra = extraLoans.some(l => l.name && l.amount);
+  const bankRow = document.getElementById('ev_bank_row');
+  const legalRow = document.getElementById('ev_legal_row');
+  const privateRow = document.getElementById('ev_private_row');
+  if(bankRow) bankRow.style.display = bank ? 'block' : 'none';
+  if(legalRow) legalRow.style.display = legal ? 'block' : 'none';
+  if(privateRow) privateRow.style.display = priv ? 'block' : 'none';
+  section.style.display = (bank || legal || priv || hasExtra) ? 'block' : 'none';
+}
+
+function openCalendar(id) {
+  const c = clients.find(x => x.id === id);
+  if(!c || !c.remind) return;
+  const date = c.remind.replace(/-/g, '');
+  const time = c.remindTime || '09:00';
+  const [h, m] = time.split(':');
+  const endMin = parseInt(m) + 30;
+  const endH = parseInt(h) + Math.floor(endMin / 60);
+  const endM = endMin % 60;
+  const start = `${date}T${h}${m}00`;
+  const end = `${date}T${String(endH).padStart(2,'0')}${String(endM).padStart(2,'0')}00`;
+  const title = encodeURIComponent(`📞 聯絡 ${c.name}${c.remindNote ? ' - ' + c.remindNote : ''}`);
+  const details = encodeURIComponent(`電話：${c.phone || ''}\n備註：${c.remindNote || ''}\n地址：${c.addr || ''}`);
+  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}`, '_blank');
+}
+
+// ── Sheet modal ───────────────────────────────────────────
+function openAdd(){
+  editId=null;formDirty=false;
+  document.getElementById('sheetTitle').textContent='新增客戶';
+  document.getElementById('btnDel').style.display='none';
+  ['fName','fPhone','fIdno','fAddr','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ageDisplay').style.display='none';
+  document.getElementById('fDriveUrl').value='';
+  document.getElementById('btnOpenDrive').style.display='none';
+  document.getElementById('btnDrive').textContent='📁 建立';
+  ['fArea','fMainArea','fSubArea','fCommonArea','fParkArea','fLandArea','fLandtaxNormal','fLandtaxSelf','fBank','fLegal','fPrivate'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fHeat').value='最新資料';
+  document.getElementById('fRemind').value='';
+  document.getElementById('fRemindHour').value='';
+  document.getElementById('fRemindMin').value='';
+  document.getElementById('fLogDate').value=TODAY;
+  document.getElementById('fLogText').value='';
+  document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
+  document.getElementById('debtPhoneArea').style.display='none';
+  finProofs=[];renderFinProofs();
+  extraLoans=[];renderExtraLoans();
+  extraLands=[];renderExtraLands();
+  tempLogs=[];renderLogs();sSTabTo(0);
+  properties=[{...emptyProperty(0)}]; curPropIdx=0; renderPropTabs();
+  setTimeout(()=>renderPriceEval({}), 100);
+  document.getElementById('sheetBg').classList.add('open');
+}
+
+function openEdit(id){
+  editId=id;formDirty=false;
+  const c=clients.find(x=>x.id===id);
+  if(!c)return;
+  document.getElementById('sheetTitle').textContent=c.name;
+  document.getElementById('btnDel').style.display='';
+  document.getElementById('fName').value=c.name||'';
+  document.getElementById('fPhone').value=c.phone||'';
+  document.getElementById('fIdno').value=c.idno||'';
+  document.getElementById('fHeat').value=c.heat||'最新資料';
+  document.getElementById('fRemind').value=c.remind||'';
+  const rt = c.remindTime||'';
+  document.getElementById('fRemindHour').value = rt ? rt.slice(0,2) : '';
+  document.getElementById('fRemindMin').value  = rt ? rt.slice(3,5) : '';
+  document.getElementById('fRemindNote').value=c.remindNote||'';
+  document.getElementById('fNote').value=c.note||'';
+  document.getElementById('fJob').value=c.job||'';
+  document.getElementById('fJobYears').value=c.jobYears||'';
+  document.getElementById('fBirthY').value=c.birthY||'';
+  document.getElementById('fBirthM').value=c.birthM||'';
+  document.getElementById('fBirthD').value=c.birthD||'';
+  calcAge();
+  document.getElementById('fAddr').value=c.addr||'';
+  document.getElementById('fDriveUrl').value=c.driveUrl||'';
+  const btnOpen=document.getElementById('btnOpenDrive');
+  const btnCreate=document.getElementById('btnDrive');
+  if(c.driveUrl){btnOpen.style.display='';btnCreate.textContent='✅ 已建立';}
+  else{btnOpen.style.display='none';btnCreate.textContent='📁 建立';}
+  // 總面積：若為0則用主建+附屬+公設加總
+  const calcArea = (c.mainArea||0) + (c.subArea||0) + (c.commonArea||0);
+  document.getElementById('fArea').value = c.area || (calcArea > 0 ? Math.round(calcArea*100)/100 : '');
+  document.getElementById('fMainArea').value=c.mainArea||'';
+  document.getElementById('fSubArea').value=c.subArea||'';
+  document.getElementById('fCommonArea').value=c.commonArea||'';
+  document.getElementById('fParkArea').value=c.parkArea||'';
+  document.getElementById('fBank').value=c.bank||'';
+  document.getElementById('fLegal').value=c.legal||'';
+  document.getElementById('fPrivate').value=c.private||'';
+  document.getElementById('fPurpose').value=c.purpose||'';
+  document.getElementById('fBuildNo').value=c.buildNo||'';
+  document.getElementById('fLandNo').value=c.landNo||'';
+  document.getElementById('fLogDate').value=TODAY;
+  document.getElementById('fLogText').value='';
+  // Debt phones
+  const debtArea = document.getElementById('debtPhoneArea');
+  const debtList = document.getElementById('debtPhoneList');
+  if(c.debtPhones && c.debtPhones.length) {
+    debtArea.style.display='block';
+    debtList.innerHTML = c.debtPhones.map(p=>`<div>${p}</div>`).join('');
+  } else {
+    debtArea.style.display='none';
+  }
+  // Company data tab
+  if(c.companyRaw){
+    const r=c.companyRaw;
+    document.getElementById('companyInfoPanel').innerHTML=`
+      <div class="company-info-title">📊 公司總檔資料</div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🏠 標示部</div>
+        <div class="company-row">${(r.buildInfo||'').replace(/\n/g,'<br>') || '-'}</div>
+        <div class="company-row"><b>門牌：</b>${r.addr||'-'}</div>
+        <div class="company-row"><b>面積：</b>${r.area||'-'}</div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">👤 所有權部</div>
+        <div class="company-row">${(r.owner||'').replace(/\n/g,'<br>') || '-'}</div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🏦 他項權利部</div>
+        <div class="company-row">${(r.rights||'').replace(/\n/g,'<br>') || '-'}</div>
+      </div>
+
+      ${(c.buildNo||c.landNo)?`<div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🔗 共同擔保</div>
+        ${c.buildNo?`<div class="company-row"><b>建號：</b>${c.buildNo}</div>`:''}
+        ${c.landNo?`<div class="company-row"><b>地號：</b>${c.landNo}</div>`:''}
+      </div>`:''}
+
+      ${r.process?`<div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">📝 拜訪過程</div>
+        <div class="company-row">${r.process.replace(/\n/g,'<br>')}</div>
+      </div>`:''}
+      ${r.note?`<div>
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">📌 公司備註</div>
+        <div class="company-row">${r.note}</div>
+      </div>`:''}
+    `;
+  } else {
+    document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料，點「從總檔更新」匯入</div>';
+  }
+  finProofs=[...(c.finProofs||[])];renderFinProofs();
+  tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
+  properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
+  // 預載房價評估資料
+  setTimeout(()=>renderPriceEval({...c,...properties[0]}), 100);
+  document.getElementById('sheetBg').classList.add('open');
+}
+
+function closeSheet(){
+  if(formDirty && !confirm('有未儲存的變更，確定要關閉嗎？')) return;
+  formDirty=false;
+  document.getElementById('sheetBg').classList.remove('open');
+}
+
+function renderPriceEval(c) {
+  const panel = document.getElementById('priceEvalPanel');
+  if(!panel) return;
+
+  const e = c.evalData || {};  // saved eval fields take priority
+
+  const addr = c.addr || '';
+  const buildInfo = c.companyRaw?.buildInfo || '';
+
+  // Parse buildInfo (used as fallback when evalData is absent)
+  const buildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
+  const buildNo = buildNoMatch ? buildNoMatch[1] : (c.buildNo||'');
+
+  const sectionFromBuild = buildInfo.match(/[一-鿿]+[市縣]\s+[一-鿿]+[區鄉鎮市]\s+([一-鿿]+段[一-鿿]*)\s+\d+/)?.[1] || '';
+  const sectionDerived = c.purpose || document.getElementById('fPurpose')?.value || sectionFromBuild;
+
+  const districtFromBuild = buildInfo.match(/[一-鿿]+[市縣]\s+([一-鿿]+[區鄉鎮市])/)?.[1] || '';
+  const districtDerived = addr.match(/[一-鿿]+[市縣]([一-鿿]+[區鄉鎮市])/)?.[1] || districtFromBuild;
+
+  const floorsMatch = buildInfo.match(/0*(\d+)層/);
+  const floorsDerived = floorsMatch ? parseInt(floorsMatch[1]) : '';
+
+  const areaMatch = buildInfo.match(/（([\d.]+)坪）/);
+  const areaDerived = areaMatch ? areaMatch[1] : (c.area||'');
+
+  // 屋齡計算（民國年→西元）
+  const yearMatch = buildInfo.match(/(\d+)年\d+月/);
+  let ageDerived = '';
+  if(yearMatch) {
+    const rocYear = parseInt(yearMatch[1]);
+    const builtYear = rocYear + 1911;
+    ageDerived = new Date().getFullYear() - builtYear;
+  }
+
+  // 所在樓層從地址抓
+  const floorMatch = addr.match(/(\d+)樓/) || (c.companyRaw?.addr||'').match(/(\d+)樓/);
+  const clientFloor = floorMatch ? parseInt(floorMatch[1]) : '';
+  const floorDisplayDerived = clientFloor && floorsDerived ? `${clientFloor}／${floorsDerived}` : (floorsDerived||'');
+
+  // evalData 優先（有填才用），否則從不動產欄位，最後 fallback 推算
+  const district  = e.district  || c.district || districtDerived;
+  const section   = e.section   || sectionDerived;
+  const area      = e.buildarea || areaDerived;
+  const floorDisp = e.floors    || floorDisplayDerived;
+  const age       = (e.age !== undefined && e.age !== '') ? e.age : ageDerived;
+
+  // 記住目前車位資料，渲染後還原並觸發計算
+  const savedParking  = e.parking  || c.parkType  || '無';
+  const savedParkArea = c.parkArea  || '';
+  const savedParkTitle= e.parkTitle || c.parkTitle || '非獨立';
+
+  panel.innerHTML = `
+    <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:600;color:var(--text)">📋 案件評估表</div>
+      <button onclick="generateReport('${c.id}')" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">📄 生成報告</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">🏠 不動產資訊</div>
+        <div class="fg2">
+          <div class="frow" style="margin:0"><label>地段（區）</label><input id="ev_district" value="${district}" placeholder="例：松山區" oninput="syncToEval('fDistrict',this.value)"/></div>
+          <div class="frow" style="margin:0"><label>地段（段）</label><input id="ev_section" value="${section}" placeholder="例：延吉段三小段"/></div>
+        </div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label>地號</label><input id="ev_landno" value="${[c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).join('、')||e.landno||''}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>土地使用分區</label><div style="display:flex;gap:6px"><input id="ev_landzone" value="${e.landzone||c.landzone||''}" placeholder="例：住三" style="flex:1" oninput="syncToEval('fLandzone',this.value)"/><button onclick="openLandZoneQuery()" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:0 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🗺️ 查詢</button></div></div>
+        </div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label>土增稅（一般）元</label><input type="number" id="ev_landtax_normal" value="${e.landtaxNormal||c.landtaxNormal||''}" placeholder="" oninput="syncToEval('fLandtaxNormal',this.value)"/></div>
+          <div class="frow" style="margin:0"><label>土增稅（自用）元</label><input type="number" id="ev_landtax_self" value="${e.landtaxSelf||c.landtaxSelf||''}" placeholder="" oninput="syncToEval('fLandtaxSelf',this.value)"/></div>
+        </div>
+        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>建號</label><input id="ev_buildno" value="${e.buildno||c.buildNo||''}" placeholder=""/></div>
+        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>地址</label><input id="ev_addr" value="${e.addr||addr}" placeholder="門牌地址"/></div>
+        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>社區名稱</label><input id="ev_community" value="${e.community||''}" placeholder="社區或大樓名稱"/></div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0">
+            <label>建物（坪）</label>
+            <input type="number" id="ev_buildarea" value="${area}" placeholder="" oninput="calcTotal()"/>
+            <div id="ev_buildarea_hint" style="font-size:11px;color:var(--orange);background:var(--obg);border-radius:6px;padding:3px 8px;margin-top:4px;display:none"></div>
+          </div>
+          <div class="frow" style="margin:0"><label>土地（坪）</label><input type="number" id="ev_landarea" value="${e.landarea||c.landArea||''}" placeholder=""/></div>
+        </div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label>有無車位</label>
+            <select id="ev_parking" onchange="calcEvalBuildArea()">
+              <option value="無">無車位</option>
+              <option value="平面">平面車位</option>
+              <option value="機械">機械車位</option>
+            </select>
+          </div>
+          <div class="frow" style="margin:0"><label>車位坪數</label><input type="number" id="ev_parkarea" value="${c.parkArea||''}" placeholder="" oninput="calcEvalBuildArea()"/></div>
+        </div>
+        <div class="frow" style="margin-top:8px"><label>車位權狀</label>
+          <select id="ev_park_title" onchange="calcEvalBuildArea()">
+            <option value="非獨立">非獨立（面積含在建物內）</option>
+            <option value="獨立">獨立（另有獨立登記）</option>
+          </select>
+        </div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label>總樓層／所在樓層</label><input id="ev_floors" value="${floorDisp}" placeholder="例：3／7"/></div>
+          <div class="frow" style="margin:0"><label>屋齡（年）</label><input type="number" id="ev_age" value="${age}" placeholder="20"/></div>
+        </div>
+      </div>
+
+      <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">💰 土增稅</div>
+        <div class="fg2">
+          <div class="frow" style="margin:0"><label>一般（萬）</label><input type="number" id="ev_tax_general" value="${e.taxGeneral||(c.landtaxNormal?Math.round(c.landtaxNormal/10000):'')||''}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>自用（萬）</label><input type="number" id="ev_tax_self" value="${e.taxSelf||(c.landtaxSelf?Math.round(c.landtaxSelf/10000):'')||''}" placeholder=""/></div>
+        </div>
+        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>筆數</label><input type="number" id="ev_tax_count" value="${e.taxCount||([c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).length)||''}" placeholder="1"/></div>
+      </div>
+
+      <div id="ev_loan_section" style="background:var(--s2);border-radius:var(--rs);padding:12px 14px;display:${(c.bank||c.legal||c.private||(extraLoans||[]).some(l=>l.name&&l.amount))?'block':'none'}">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">🏦 貸款狀況</div>
+        <div id="ev_bank_row" style="margin-bottom:8px;display:${c.bank?'block':'none'}"><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">銀行（萬）</label><input type="number" id="ev_bank" value="${c.bank||''}" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div>
+        <div id="ev_legal_row" style="margin-bottom:8px;display:${c.legal?'block':'none'}"><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">法人／租賃（萬）</label><input type="number" id="ev_legal" value="${c.legal||''}" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div>
+        <div id="ev_private_row" style="margin-bottom:8px;display:${c.private?'block':'none'}"><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px"><div><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">民間（萬）</label><input type="number" id="ev_private" value="${c.private||''}" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div><div><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">利率（分）</label><input type="number" id="ev_rate" value="${e.rate||''}" placeholder="1.5" step="0.1" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div></div></div>
+        ${(extraLoans||[]).map((l,i)=>l.name?`<div class="frow" style="margin-bottom:6px"><label>${l.name}（萬）</label><input type="number" id="ev_extra_${i}" value="${l.amount||''}"/></div>`:'').join('')}
+      </div>
+
+      <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">🔍 物件評估</div>
+        <div class="frow" style="margin-bottom:8px"><label>屋況</label><input id="ev_condition" value="${e.condition||'無'}" placeholder="例：良好、需整修"/></div>
+        <div class="frow" style="margin-bottom:8px"><label>抗性</label><input id="ev_resistance" value="${e.resistance||'無'}" placeholder="例：無、頂樓、一樓"/></div>
+        <div class="frow" style="margin-bottom:0"><label>凶宅查詢</label><input id="ev_jinzhai" value="${e.jinzhai||'無'}"/></div>
+      </div>
+
+      <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">📊 行情估算</div>
+        <div class="fg2">
+          <div class="frow" style="margin:0"><label>住宅行情（萬/坪）</label><input type="number" id="ev_unitprice" value="${e.unitprice||''}" placeholder="80" oninput="calcTotal()"/></div>
+          <div class="frow" style="margin:0"><label>住宅估值（萬）</label><input type="number" id="ev_house_val" placeholder="自動計算" readonly style="background:var(--s2)"/></div>
+        </div>
+        <div class="fg2" id="ev_park_val_row" style="margin-top:8px;display:none">
+          <div class="frow" style="margin:0"><label>車位估值（萬）</label><input type="number" id="ev_park_val" value="${e.parkval||c.parkVal||''}" placeholder="例：100" oninput="calcTotal()"/></div>
+          <div class="frow" style="margin:0"><label style="color:var(--accent);font-weight:700">估算總價（萬）</label><input type="number" id="ev_total" placeholder="自動計算" readonly style="background:var(--abg);font-weight:700;color:var(--accent)"/></div>
+        </div>
+        <div id="ev_total_row" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label style="color:var(--accent);font-weight:700">估算總價（萬）</label><input type="number" id="ev_total_noPark" placeholder="自動計算" readonly style="background:var(--abg);font-weight:700;color:var(--accent)"/></div>
+        </div>
+      </div>
+
+      <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">👤 客戶資訊</div>
+        <div class="frow" style="margin-bottom:8px"><label>職業／收入</label><input id="ev_job" value="${e.job||c.job||''}" placeholder="例：上班族，月收5萬"/></div>
+        <div class="frow" style="margin-bottom:8px"><label>借款用途</label><input id="ev_purpose" value="${c.loanPurpose||''}" placeholder="例：週轉、整合債務"/></div>
+        <div class="frow" style="margin-bottom:8px"><label>客戶需求</label><input id="ev_need" value="${e.need||''}" placeholder="例：需借500萬，1分以內"/></div>
+        <div class="frow" style="margin-bottom:0"><label>備註（中人、注意事項）</label><textarea id="ev_note" style="height:70px" placeholder="例：中人需退2%，客戶態度保守">${e.evalNote||''}</textarea></div>
+      </div>
+    </div>
+  `;
+
+  // 渲染完後還原車位設定，並立即觸發一次計算讓提示和欄位正確顯示
+  setTimeout(()=>{
+    const ep = document.getElementById('ev_parking');
+    const et = document.getElementById('ev_park_title');
+    const pa = document.getElementById('ev_parkarea');
+    // 如果有車位坪數但選項還是「無」，預設選「平面」
+    const hasParkArea = parseFloat(pa?.value) > 0;
+    if(ep){
+      if(savedParking !== '無') ep.value = savedParking;
+      else if(hasParkArea && ep.value === '無') ep.value = '平面';
+    }
+    if(et) et.value = savedParkTitle;
+    calcEvalBuildArea();
+  }, 0);
+}
+
+function calcEvalBuildArea(){
+  const c = editId ? clients.find(x=>x.id===editId) : null;
+  const totalArea = parseFloat(document.getElementById('fArea')?.value) || (c ? (c.area || (c.mainArea||0)+(c.subArea||0)+(c.commonArea||0)+(c.parkArea||0)) : 0);
+  const parking = document.getElementById('ev_parking')?.value || '無';
+  const parkArea = parseFloat(document.getElementById('ev_parkarea')?.value) || 0;
+  const isIndependent = document.getElementById('ev_park_title')?.value === '獨立';
+  const hasPark = parking !== '無' && parkArea > 0;
+
+  let buildArea = totalArea;
+  let hint = '';
+
+  if(hasPark && !isIndependent){
+    // 非獨立：車位面積包含在總面積內，扣除後得到純住宅面積
+    buildArea = Math.round((totalArea - parkArea) * 100) / 100;
+    hint = `（已扣車位 ${parkArea} 坪）`;
+  } else if(hasPark && isIndependent){
+    // 獨立：車位另有登記，建物面積不含車位，直接用總面積
+    hint = `（車位獨立 ${parkArea} 坪）`;
+  }
+
+  const ba = document.getElementById('ev_buildarea');
+  const bh = document.getElementById('ev_buildarea_hint');
+  if(ba) ba.value = buildArea || '';
+  if(bh){
+    if(hint){
+      bh.textContent = hint;
+      bh.style.display = 'block';
+    } else {
+      bh.style.display = 'none';
+    }
+  }
+
+  // 有車位 → 顯示車位估值欄；無車位 → 顯示單一總價欄
+  const parkRow = document.getElementById('ev_park_val_row');
+  const totalRow = document.getElementById('ev_total_row');
+  if(parkRow) parkRow.style.display = hasPark ? 'grid' : 'none';
+  if(totalRow) totalRow.style.display = hasPark ? 'none' : 'block';
+
+  calcTotal();
+}
+
+function calcTotal(){
+  const unit = parseFloat(document.getElementById('ev_unitprice')?.value) || 0;
+  const area = parseFloat(document.getElementById('ev_buildarea')?.value) || 0;
+  const houseVal = unit && area ? Math.round(unit * area) : 0;
+
+  const hv = document.getElementById('ev_house_val');
+  if(hv) hv.value = houseVal || '';
+
+  const hasPark = (document.getElementById('ev_parking')?.value || '無') !== '無';
+  if(hasPark){
+    const parkVal = parseFloat(document.getElementById('ev_park_val')?.value) || 0;
+    const total = houseVal + parkVal;
+    const t = document.getElementById('ev_total');
+    if(t) t.value = total || '';
+  } else {
+    const t = document.getElementById('ev_total_noPark');
+    if(t) t.value = houseVal || '';
+  }
+}
+
+function generateReport(clientId) {
+  const c = clients.find(x => x.id === parseInt(clientId));
+  if(!c) return;
+
+  const g = id => document.getElementById(id)?.value || '';
+  const gn = id => parseFloat(document.getElementById(id)?.value) || 0;
+
+  const hasParkRpt = g('ev_parking') !== '無' && g('ev_parkarea');
+  const parkTitleRpt = g('ev_park_title') === '獨立' ? '獨立權狀' : '非獨立權狀';
+  const parkValRpt = g('ev_park_val') ? `，估值${g('ev_park_val')}萬` : '';
+  const parking = g('ev_parking') === '無' ? '無車位'
+    : `${g('ev_parking')}車位 ${g('ev_parkarea')}坪（${parkTitleRpt}${parkValRpt}）`;
+  const totalVal = hasParkRpt ? g('ev_total') : g('ev_total_noPark');
+
+  // 土地：多地號合併格式
+  const mainLandNo=document.getElementById('fLandNo')?.value||'';
+  const mainLandArea=parseFloat(document.getElementById('fLandArea')?.value)||0;
+  const allLands=[
+    ...(mainLandNo||mainLandArea?[{landNo:mainLandNo,landArea:mainLandArea}]:[]),
+    ...extraLands.filter(l=>l.landNo||l.landArea)
+  ];
+  let landAreaStr,landNoStr;
+  if(allLands.length>1){
+    const parts=allLands.map(l=>l.landArea?l.landArea+'坪':'').filter(Boolean);
+    const total=allLands.reduce((s,l)=>s+(parseFloat(l.landArea)||0),0);
+    landAreaStr=parts.join('+')+`（共${total}坪）`;
+    landNoStr=allLands.map(l=>l.landNo).filter(Boolean).join('、');
+  } else {
+    landAreaStr=mainLandArea?mainLandArea+'坪':'—';
+    landNoStr=mainLandNo||g('ev_landno')||'—';
+  }
+
+  // 土增稅：優先讀「萬」欄，若空則 fallback 讀「元」欄自動換算
+  const taxGenWan  = gn('ev_tax_general')  || Math.round(gn('ev_landtax_normal') / 10000) || 0;
+  const taxSelfWan = gn('ev_tax_self')     || Math.round(gn('ev_landtax_self')   / 10000) || 0;
+  const taxCount   = g('ev_tax_count') || '1';
+  const taxStr = (taxGenWan || taxSelfWan)
+    ? `一般 ${taxGenWan}萬、自用 ${taxSelfWan}萬＜共${taxCount}筆＞`
+    : '—';
+
+  const report =
+`地段：${g('ev_district')} ${g('ev_section')}
+地號：${landNoStr}
+土地使用分區：${g('ev_landzone')||'—'}
+建號：${g('ev_buildno')||'—'}
+地址：${g('ev_addr')||'—'}
+社區名稱：${g('ev_community')||'—'}
+建物：${g('ev_buildarea')}坪（${parking}）
+土地：${landAreaStr}
+總樓層：${g('ev_floors')||'—'}層
+屋齡：${g('ev_age')||'—'}年
+土增稅：${taxStr}
+銀行：${g('ev_bank')?g('ev_bank')+'萬':'—'}
+法人：${g('ev_legal')?g('ev_legal')+'萬':'—'}
+私人：${g('ev_private')?g('ev_private')+'萬／'+g('ev_rate')+'分':'—'}
+屋況：${g('ev_condition')||'—'}
+抗性：${g('ev_resistance')||'—'}
+凶宅查詢：${g('ev_jinzhai')||'—'}
+住宅行情：約 ${g('ev_unitprice')||'—'}萬／坪
+估算總價：約 ${totalVal||'—'}萬${hasParkRpt?`（住宅${g('ev_house_val')}萬 + 車位${g('ev_park_val')||'?'}萬）`:''}
+
+客戶職業／收入：${g('ev_job')||'—'}
+借款用途：${g('ev_purpose')||'—'}
+客戶需求：${g('ev_need')||'—'}
+備註：${g('ev_note')||'—'}`;
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><meta charset="UTF-8"><title>案件評估表 - ${c.name}</title>
+    <style>
+      body{font-family:'Noto Sans TC',sans-serif;padding:30px;max-width:600px;margin:0 auto;color:#1A1916;line-height:2}
+      h3{margin-bottom:16px;font-size:16px}
+      pre{white-space:pre-wrap;font-family:inherit;font-size:15px;line-height:2}
+      .btns{display:flex;gap:10px;margin-bottom:20px}
+      .btn{border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;font-family:inherit}
+      @media print { .btns{display:none} }
+    </style></head>
+    <body>
+      <div class="btns">
+        <button class="btn" style="background:#2B5BE2;color:#fff" onclick="window.print()">🖨️ 列印 / 儲存PDF</button>
+        <button class="btn" style="background:#1D8C5E;color:#fff" onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent).then(()=>alert('已複製！'))">📋 複製文字</button>
+      </div>
+      <h3>【案件評估表】${c.name}　${c.phone}</h3>
+      <pre>${report}</pre>
+    </body></html>
+  `);
+  win.document.close();
+}
+
+
+
+function sSTab(i,el){
+  sSTabTo(i);
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+function sSTabTo(i){
+  [0,1,2,3,4].forEach(j=>document.getElementById('sp'+j).style.display=j===i?'block':'none');
+  document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===i));
+}
+
+function renderLogs(){
+  document.getElementById('logList').innerHTML=tempLogs.length
+    ?tempLogs.map((l,i)=>`<div class="litem">
+        <button class="ldel" onclick="removeLog(${i})">✕</button>
+        <div class="ldate">${l.date}</div>
+        <div class="ltext">${l.text}</div>
+      </div>`).join('')
+    :'<p style="font-size:12px;color:var(--t3);margin-bottom:10px">尚無聯絡記錄</p>';
+}
+function addLog(){
+  const d=document.getElementById('fLogDate').value;
+  const t=document.getElementById('fLogText').value.trim();
+  if(!d||!t){alert('請填寫日期和記錄內容');return;}
+  tempLogs.unshift({date:d,text:t});
+  document.getElementById('fLogText').value='';
+  renderLogs();
+}
+function removeLog(i){
+  const log = tempLogs[i];
+  if(log && editId){
+    // 記錄刪除的 key，避免下次匯入又帶回來
+    const c = clients.find(x=>x.id===editId);
+    if(c){
+      if(!c.deletedLogKeys) c.deletedLogKeys=[];
+      const key = (log.date||'')+(log.text||'').slice(0,20);
+      if(!c.deletedLogKeys.includes(key)) c.deletedLogKeys.push(key);
+    }
+  }
+  tempLogs.splice(i,1);renderLogs();
+}
+
+// ── Extra Loans ───────────────────────────────────────────
+let extraLoans=[];
+let extraLands=[];
+
+function renderExtraLands(){
+  const container=document.getElementById('extraLandList');if(!container)return;
+  const iStyle='background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none';
+  container.innerHTML=extraLands.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px">
+    <input placeholder="地號" value="${l.landNo||''}" onchange="extraLands[${i}].landNo=this.value;updateLandTotals()" style="flex:2;${iStyle}"/>
+    <input type="number" placeholder="坪" value="${l.landArea||''}" onchange="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals()" style="flex:1;${iStyle}"/>
+    <button onclick="extraLands.splice(${i},1);renderExtraLands()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px">✕</button>
+  </div>`).join('');
+  updateLandTotals();
+}
+function addExtraLand(){extraLands.push({landNo:'',landArea:0});renderExtraLands();}
+function updateLandTotals(){
+  const mainArea=parseFloat(document.getElementById('fLandArea')?.value)||0;
+  const extraTotal=extraLands.reduce((s,l)=>s+(parseFloat(l.landArea)||0),0);
+  const total=mainArea+extraTotal;
+  const totalEl=document.getElementById('extraLandTotal');
+  if(totalEl) totalEl.textContent=extraLands.length>0&&total>0?`合計：${total}坪`:'';
+  // 同步到房價評估
+  const mainNo=document.getElementById('fLandNo')?.value||'';
+  const allNos=[mainNo,...extraLands.map(l=>l.landNo)].filter(Boolean);
+  syncToEval('ev_landno', allNos.join('、'));
+  syncToEval('ev_landarea', total||mainArea||'');
+  // 筆數 = 有地號的筆數
+  const landCount=allNos.length;
+  if(landCount>0) syncToEval('ev_tax_count', landCount);
+}
+
+function renderExtraLoans(){
+  const container=document.getElementById('extraLoanList');if(!container)return;
+  container.innerHTML=extraLoans.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px">
+    <input placeholder="名稱（例：信貸）" value="${l.name||''}" onchange="extraLoans[${i}].name=this.value" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
+    <input type="number" placeholder="金額（萬）" value="${l.amount||''}" onchange="extraLoans[${i}].amount=this.value" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
+    <button onclick="extraLoans.splice(${i},1);renderExtraLoans()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;flex-shrink:0">✕</button>
+  </div>`).join('');
+  refreshLoanSection();
+}
+function addExtraLoan(){extraLoans.push({name:'',amount:''});renderExtraLoans();}
+
+
+let finProofs=[];
+function renderFinProofs(){
+  const container=document.getElementById('finProofList');if(!container)return;
+  container.innerHTML=finProofs.map((fp,i)=>`
+    <div style="display:flex;align-items:center;gap:6px">
+      <select onchange="finProofs[${i}].type=this.value" style="flex:0 0 80px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-family:inherit;outline:none;-webkit-appearance:none">
+        ${['薪轉','扣憑','勞健保','薪資單'].map(t=>`<option value="${t}" ${fp.type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <input placeholder="月/年 金額" value="${fp.value||''}" onchange="finProofs[${i}].value=this.value" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
+      <button onclick="finProofs.splice(${i},1);renderFinProofs()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0">✕</button>
+    </div>`).join('');
+}
+function addFinProof(){finProofs.push({type:'薪轉',value:''});renderFinProofs();}
+
+function openLandZoneQuery(){
+  const district = (document.getElementById('ev_district')?.value||'').trim();
+  const section  = (document.getElementById('ev_section')?.value||'').trim();
+  const landno   = (document.getElementById('ev_landno')?.value||'').trim();
+  const parts = [district, section, landno].filter(Boolean);
+  if(parts.length){
+    navigator.clipboard.writeText(parts.join(' ')).catch(()=>{});
+    showToast('📋 已複製：' + parts.join(' ') + '　貼入查詢欄即可');
+  }
+  window.open('https://luz.nlma.gov.tw/web/default.aspx', '_blank');
+}
+
+function calcAge(){
+  const y=parseInt(document.getElementById('fBirthY').value)||0;
+  const m=parseInt(document.getElementById('fBirthM').value)||0;
+  const d=parseInt(document.getElementById('fBirthD').value)||0;
+  const el=document.getElementById('ageDisplay');
+  if(!y||!m||!d||m<1||m>12||d<1||d>31){el.style.display='none';return;}
+  const adYear=y+1911;
+  const today=new Date();
+  let age=today.getFullYear()-adYear;
+  if(today.getMonth()+1<m||(today.getMonth()+1===m&&today.getDate()<d)) age--;
+  if(age<0||age>120){el.style.display='none';return;}
+  el.style.display='';
+  el.textContent=age+' 歲';
+}
+
+// ── Properties (多筆不動產) ───────────────────────────────
+let properties = [];
+let curPropIdx = 0;
+
+function emptyProperty(n){
+  return {pid:Date.now()+n,label:`不動產${n+1}`,addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',
+    area:0,mainArea:0,subArea:0,commonArea:0,parkArea:0,landArea:0,
+    bank:0,legal:0,private:0,extraLoans:[],extraLands:[],driveUrl:'',
+    parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
+}
+
+function migrateProperties(c){
+  if(c.properties&&c.properties.length) return c.properties.map(p=>({...emptyProperty(0),...p}));
+  const p=emptyProperty(0);
+  if(c.buildNo) p.label=`建${c.buildNo.replace(/-0+$/,'')}`;
+  Object.assign(p,{addr:c.addr||'',district:c.district||extractDistrict(c.addr||''),landzone:c.landzone||'',purpose:c.purpose||'',buildNo:c.buildNo||'',landNo:c.landNo||'',
+    area:c.area||0,mainArea:c.mainArea||0,subArea:c.subArea||0,commonArea:c.commonArea||0,
+    parkArea:c.parkArea||0,landArea:c.landArea||0,bank:c.bank||0,legal:c.legal||0,private:c.private||0,
+    extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',
+    parkType:c.parkType||'無',parkTitle:c.parkTitle||'非獨立',parkVal:c.parkVal||0,
+    landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0});
+  return [p];
+}
+
+function renderPropTabs(){
+  const el=document.getElementById('propTabs');
+  if(!el) return;
+  el.innerHTML=properties.map((p,i)=>`
+    <button data-propidx="${i}" onclick="switchProperty(${i})" ondblclick="startRenameTab(event,${i})" title="雙擊重新命名" style="border:none;border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap;${i===curPropIdx?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--t2)'}">
+      ${p.label||`不動產${i+1}`}${properties.length>1?`<span onclick="event.stopPropagation();removeProperty(${i})" style="margin-left:5px;opacity:.7;font-size:11px">✕</span>`:''}
+    </button>`).join('');
+}
+
+function startRenameTab(e,idx){
+  e.stopPropagation();
+  const btn=document.querySelector(`#propTabs [data-propidx="${idx}"]`);
+  if(!btn) return;
+  const cur=properties[idx].label||`不動產${idx+1}`;
+  const isActive=idx===curPropIdx;
+  btn.innerHTML=`<input type="text" value="${cur}" onclick="event.stopPropagation()"
+    style="width:88px;border:none;background:${isActive?'rgba(255,255,255,.2)':'var(--bg)'};font-weight:600;font-size:12px;color:inherit;outline:none;border-bottom:1px solid ${isActive?'rgba(255,255,255,.7)':'var(--accent)'};padding:0 2px;font-family:inherit"
+    onblur="finishRenameTab(this,${idx})"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){renderPropTabs();}">`;
+  btn.querySelector('input').focus();
+  btn.querySelector('input').select();
+}
+
+function finishRenameTab(inp,idx){
+  const v=inp.value.trim();
+  if(v) properties[idx].label=v;
+  renderPropTabs();
+}
+
+function savePropFields(){
+  const p=properties[curPropIdx]; if(!p) return;
+  p.addr=document.getElementById('fAddr')?.value.trim()||'';
+  p.district=document.getElementById('fDistrict')?.value.trim()||'';
+  p.landzone=document.getElementById('fLandzone')?.value.trim()||'';
+  p.purpose=document.getElementById('fPurpose')?.value.trim()||'';
+  p.buildNo=document.getElementById('fBuildNo')?.value.trim()||'';
+  p.landNo=document.getElementById('fLandNo')?.value.trim()||'';
+  p.area=parseFloat(document.getElementById('fArea')?.value)||0;
+  p.mainArea=parseFloat(document.getElementById('fMainArea')?.value)||0;
+  p.subArea=parseFloat(document.getElementById('fSubArea')?.value)||0;
+  p.commonArea=parseFloat(document.getElementById('fCommonArea')?.value)||0;
+  p.parkArea=parseFloat(document.getElementById('fParkArea')?.value)||0;
+  p.landArea=parseFloat(document.getElementById('fLandArea')?.value)||0;
+  p.landtaxNormal=parseFloat(document.getElementById('fLandtaxNormal')?.value)||0;
+  p.landtaxSelf=parseFloat(document.getElementById('fLandtaxSelf')?.value)||0;
+  p.bank=parseFloat(document.getElementById('fBank')?.value)||0;
+  p.legal=parseFloat(document.getElementById('fLegal')?.value)||0;
+  p.private=parseFloat(document.getElementById('fPrivate')?.value)||0;
+  p.driveUrl=document.getElementById('fDriveUrl')?.value.trim()||'';
+  p.extraLoans=[...extraLoans];
+  p.extraLands=[...extraLands];
+  if(p.buildNo) p.label=`建${p.buildNo.replace(/-0+$/,'')}`;
+  else if(p.addr){const m=p.addr.match(/[區鄉鎮市](.+)$/);p.label=(m?m[1]:p.addr).slice(0,14);}
+  else p.label=`不動產${curPropIdx+1}`;
+}
+
+function loadPropFields(idx){
+  const p=properties[idx]; if(!p) return;
+  document.getElementById('fAddr').value=p.addr||'';
+  document.getElementById('fDistrict').value=p.district||extractDistrict(p.addr||'');
+  document.getElementById('fLandzone').value=p.landzone||'';
+  document.getElementById('fPurpose').value=p.purpose||'';
+  document.getElementById('fBuildNo').value=p.buildNo||'';
+  document.getElementById('fLandNo').value=p.landNo||'';
+  const ca=(p.mainArea||0)+(p.subArea||0)+(p.commonArea||0);
+  document.getElementById('fArea').value=p.area||(ca>0?Math.round(ca*100)/100:'');
+  document.getElementById('fMainArea').value=p.mainArea||'';
+  document.getElementById('fSubArea').value=p.subArea||'';
+  document.getElementById('fCommonArea').value=p.commonArea||'';
+  document.getElementById('fParkArea').value=p.parkArea||'';
+  document.getElementById('fLandArea').value=p.landArea||'';
+  document.getElementById('fLandtaxNormal').value=p.landtaxNormal||'';
+  document.getElementById('fLandtaxSelf').value=p.landtaxSelf||'';
+  document.getElementById('fBank').value=p.bank||'';
+  document.getElementById('fLegal').value=p.legal||'';
+  document.getElementById('fPrivate').value=p.private||'';
+  document.getElementById('fDriveUrl').value=p.driveUrl||'';
+  const btnO=document.getElementById('btnOpenDrive'),btnC=document.getElementById('btnDrive');
+  if(p.driveUrl){btnO.style.display='';btnC.textContent='✅ 已建立';}
+  else{btnO.style.display='none';btnC.textContent='📁 建立';}
+  extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
+  extraLands=[...(p.extraLands||[])]; renderExtraLands();
+}
+
+function switchProperty(idx){
+  savePropFields(); curPropIdx=idx; loadPropFields(idx); renderPropTabs();
+}
+
+function addProperty(){
+  savePropFields();
+  properties.push(emptyProperty(properties.length));
+  curPropIdx=properties.length-1;
+  loadPropFields(curPropIdx); renderPropTabs();
+  showToast('➕ 已新增不動產');
+}
+
+function removeProperty(idx){
+  if(properties.length<=1){showToast('至少需要保留一筆不動產');return;}
+  if(!confirm(`確定刪除「${properties[idx].label}」？`)) return;
+  properties.splice(idx,1);
+  curPropIdx=Math.min(curPropIdx,properties.length-1);
+  loadPropFields(curPropIdx); renderPropTabs();
+}
+
+function jumpToEval(){
+  savePropFields();
+  const c=editId?(clients.find(x=>x.id===editId)||{}):{};
+  const p=properties[curPropIdx]||{};
+  sSTabTo(4);
+  document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===4));
+  renderPriceEval({...c,...p});
+  updateEvalIndicator();
+}
+
+function updateEvalIndicator(){
+  const p=properties[curPropIdx]||{};
+  const el=document.getElementById('evalPropIndicator');
+  if(!el) return;
+  el.textContent=`← 返回不動產　｜　📊 評估中：${[p.label,p.addr].filter(Boolean).join('　')||'不動產'}`;
+  el.style.display='';
+}
+
+// ── 謄本 Import ───────────────────────────────────────────
+let tenParsed=null;
+let tenTargetClientId=null;
+const BANK_KW=['銀行','合作社','農會','漁會','儲蓄'];
+const LEGAL_KW=['資產管理','融資','租賃','投資'];
+
+if(typeof pdfjsLib!=='undefined'){
+  // Use empty string → PDF.js runs in main thread (avoids CORS issues with local file://)
+  pdfjsLib.GlobalWorkerOptions.workerSrc='';
+}
+
+function openTenModal(){
+  tenParsed=null;
+  tenTargetClientId=null;
+  document.getElementById('tenFiles').value='';
+  document.getElementById('tenFileList').innerHTML='';
+  document.getElementById('tenPreview').innerHTML='';
+  document.getElementById('tenTarget').style.display='none';
+  document.getElementById('tenClientSearch').style.display='none';
+  const newRadio=document.querySelector('input[name="tenMode"][value="new"]');
+  if(newRadio) newRadio.checked=true;
+  document.getElementById('tenGo').disabled=true;
+  document.getElementById('tenBg').classList.add('open');
+}
+function closeTenModal(){document.getElementById('tenBg').classList.remove('open');}
+
+function normNum(s){
+  return s
+    .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/，/g,',')   // full-width comma in amounts
+    .replace(/　/g,' ');  // full-width space
+}
+
+function detectTenType(text){
+  // Content-based detection first (more reliable than title-only matching)
+  if(/層次面積|建築完成日期|主要構造|主要用途/.test(text)) return 'biao';
+  if(/所有權人姓名|所有權人統一編號|登記原因.*(?:買賣|繼承|贈與)/.test(text)) return 'suo';
+  if(/擔保債權總金額|最高限額|設定權利範圍|抵押權/.test(text)) return 'ta';
+  // Title-based fallback
+  if(/建物標示部|標示部/.test(text)) return 'biao';
+  if(/土地標示部/.test(text)) return 'land';
+  if(/建物所有權部|所有權部/.test(text)) return 'suo';
+  if(/建物他項權利部|土地他項權利部/.test(text)) return 'ta';
+  return 'unknown';
+}
+
+function parseBiao(text){
+  const t=normNum(text); const r={};
+  r.city=(t.match(/縣市(?:名稱)?\s*([一-鿿]+?[市縣])/)||[])[1]||'';
+  r.dist=(t.match(/[鄉縣]鎮市區\s*([一-鿿]+?[區鄉鎮市])/)||[])[1]||'';
+  r.purpose=(t.match(/地段\s*\d*\s*([一-鿿]+?段(?:[一-鿿]+小段)?)/)||[])[1]||'';
+  r.buildNo=(t.match(/建號\s*0*(\d{3,6}[-－]\d{3})/)||[])[1]||
+            (t.match(/0*(\d{3,6}[-－]\d{3})\s*建號/)||[])[1]||'';
+  const rawAddr=(t.match(/建物門牌\s*([^\n]+)/)||[])[1]?.trim()||'';
+  // 門牌 usually already contains full address; only prefix city+dist if it doesn't
+  const addrHasCity=r.city&&rawAddr.startsWith(r.city);
+  r.addr=(addrHasCity?rawAddr:(r.city+r.dist+rawAddr)).replace(/\s+/g,'').trim();
+  r.landNo=(t.match(/建物坐落地號[\s\S]{0,40}?(\d{3,6}[-－]\d{3,6})/)||[])[1]||'';
+  const mainM2=parseFloat((t.match(/層次面積\s*([\d.]+)\s*平方公尺/)||[])[1]||0);
+  const subM2=parseFloat((t.match(/附屬建物[\s\S]{0,60}?面積\s*([\d.]+)\s*平方公尺/)||[])[1]||0);
+  const cmM=t.match(/權利範圍\s*(\d+)分之(\d+)\s*[\s\S]{0,20}?面積\s*([\d,]+\.?\d*)\s*平方公尺/);
+  const commonM2=cmM?parseFloat(cmM[3].replace(/,/g,''))*parseInt(cmM[2])/parseInt(cmM[1]):0;
+  const toP=v=>Math.round((v||0)*0.3025*100)/100;
+  r.mainArea=toP(mainM2); r.subArea=toP(subM2); r.commonArea=toP(commonM2);
+  r.area=toP(mainM2+subM2+commonM2);
+  const yrM=t.match(/建築完成日期\s*民國\s*(\d+)\s*年/);
+  if(yrM) r.buildYear=parseInt(yrM[1])+1911;
+  r.floors=parseInt((t.match(/層數\s*0*(\d+)\s*層/)||[])[1]||0);
+  return r;
+}
+
+function parseSuo(text){
+  const t=normNum(text); const r={};
+  r.name=(t.match(/所有權人(?:姓名)?\s*([^\s\n一-鿿]{0}[^\d\s\n(（]{2,8})/)||[])[1]||
+         (t.match(/姓名\s*([^\s\n]{2,8})/)||[])[1]||'';
+  r.idno=(t.match(/統一編號\s*([A-Za-z]\d{9})/)||
+         t.match(/(?:身分證|證統)\s*([A-Za-z]\d{9})/)
+         ||[])[1]||'';
+  r.ownerAddr=(t.match(/住址\s*([^\n]+)/)||[])[1]?.trim()||'';
+  if(/預告登記/.test(t)){
+    const req=(t.match(/請求權人[：:\s]*([^\n,，]+)/)||[])[1]?.trim()||'';
+    const obl=(t.match(/義務人[：:\s]*([^\n,，]+)/)||[])[1]?.trim()||'';
+    r.note=`⚠️ 預告登記：${req}，義務人：${obl}`;
+  }
+  return r;
+}
+
+function parseTa(text){
+  const t=normNum(text); const r={loans:[]};
+  const creditor=(t.match(/權利人(?:姓名)?\s*([^\n]{2,30})/)||[])[1]?.trim()||'';
+  // Amount: try various label formats
+  const amtM=t.match(/擔保債權(?:總金額|金額)\s*(?:新台幣|新臺幣)?\s*([\d,]+)\s*元/) ||
+             t.match(/(?:新台幣|新臺幣)\s*([\d,]+)\s*元/);
+  const amt=amtM?Math.round(parseInt(amtM[1].replace(/,/g,''))/10000):0;
+  const reason=(t.match(/登記原因\s*([^\n]+)/)||[])[1]?.trim()||'';
+  const confirmed=/已確定/.test(t);
+  if(creditor&&amt){
+    const isBank=BANK_KW.some(k=>creditor.includes(k));
+    const isLegal=LEGAL_KW.some(k=>creditor.includes(k));
+    r.loans.push({creditor,amt,type:isBank?'bank':isLegal?'legal':'private',reason,confirmed});
+  }
+  return r;
+}
+
+async function extractPdfText(file){
+  if(typeof pdfjsLib==='undefined') throw new Error('PDF.js 未載入');
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const pages=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const pg=await pdf.getPage(i);
+    const ct=await pg.getTextContent();
+    const items=ct.items.filter(x=>x.str.trim());
+    if(!items.length){pages.push('');continue;}
+    // Group by Y position → same visual row joined without space
+    const rows=new Map();
+    for(const it of items){
+      const y=Math.round(it.transform[5]);
+      if(!rows.has(y)) rows.set(y,[]);
+      rows.get(y).push({x:it.transform[4],s:it.str});
+    }
+    const lines=[...rows.entries()]
+      .sort((a,b)=>b[0]-a[0])
+      .map(([,cells])=>cells.sort((a,b)=>a.x-b.x).map(c=>c.s).join(''));
+    pages.push(lines.join('\n'));
+  }
+  return pages.join('\n');
+}
+
+let _tenRawTexts=[];
+async function handleTenFiles(files){
+  const listEl=document.getElementById('tenFileList');
+  const preEl=document.getElementById('tenPreview');
+  _tenRawTexts=[];
+  if(typeof pdfjsLib==='undefined'){
+    listEl.innerHTML='<div style="color:#D63B3B;font-size:12px;padding:6px 0">❌ PDF.js 未載入，請確認網路連線後重新整理頁面</div>';
+    return;
+  }
+  listEl.innerHTML='<div style="color:var(--t3);font-size:12px;padding:4px 0">⏳ 解析中，請稍候…</div>';
+  preEl.innerHTML=''; document.getElementById('tenGo').disabled=true;
+  tenParsed={biao:null,suo:null,ta:[]};
+  const results=[];
+  for(const file of files){
+    try{
+      const text=await extractPdfText(file);
+      _tenRawTexts.push({name:file.name,text});
+      const type=detectTenType(text);
+      let label='❓ 無法識別';
+      if(type==='biao'){tenParsed.biao=parseBiao(text);label='🏠 標示部';}
+      else if(type==='suo'){tenParsed.suo=parseSuo(text);label='👤 所有權部';}
+      else if(type==='ta'){const r=parseTa(text);tenParsed.ta.push(...r.loans);label='🏦 他項權利部';}
+      else if(type==='land'){label='🌍 土地謄本（略過）';}
+      results.push({name:file.name,label,idx:_tenRawTexts.length-1});
+    }catch(e){
+      _tenRawTexts.push({name:file.name,text:''});
+      results.push({name:file.name,label:'❌ '+(e.message||'解析失敗'),idx:_tenRawTexts.length-1});
+    }
+  }
+  listEl.innerHTML=results.map(r=>`
+    <div style="font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-weight:600">${r.label}</span>
+        <span style="color:var(--t3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span>
+        ${_tenRawTexts[r.idx]?.text?`<span onclick="tenToggleRaw(${r.idx})" style="cursor:pointer;color:var(--accent);font-size:10px;flex-shrink:0">原始▾</span>`:''}
+      </div>
+      <div id="tenRaw${r.idx}" style="display:none;margin-top:4px;background:var(--s2);border-radius:5px;padding:6px;font-size:10px;max-height:90px;overflow-y:auto;word-break:break-all;white-space:pre-wrap;color:var(--t3);line-height:1.5"></div>
+    </div>`).join('');
+  renderTenPreview();
+  document.getElementById('tenGo').disabled=false;
+}
+function tenToggleRaw(idx){
+  const el=document.getElementById('tenRaw'+idx);
+  if(!el) return;
+  if(el.style.display==='none'){
+    el.textContent=(_tenRawTexts[idx]?.text||'').slice(0,600);
+    el.style.display='block';
+  } else el.style.display='none';
+}
+
+function renderTenPreview(){
+  const b=tenParsed?.biao||{}, s=tenParsed?.suo||{}, loans=tenParsed?.ta||[];
+  const bankT=loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0);
+  const legalT=loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0);
+  const privT=loans.filter(l=>l.type==='private').reduce((a,l)=>a+l.amt,0);
+  const rows=[
+    ['姓名',s.name],['身分證',s.idno],['門牌地址',b.addr],['地段',b.purpose],
+    ['建號',b.buildNo],['地號',b.landNo],
+    ['主建物',b.mainArea?b.mainArea+'坪':null],['附屬',b.subArea?b.subArea+'坪':null],
+    ['公設',b.commonArea?b.commonArea+'坪':null],['總坪數',b.area?b.area+'坪':null],
+    ['銀行貸款',bankT?bankT+'萬':null],['法人貸款',legalT?legalT+'萬':null],
+    ['民間借貸',privT?privT+'萬':null],['備註',s.note],
+  ].filter(r=>r[1]);
+  if(!rows.length){document.getElementById('tenPreview').innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">未能解析出任何資料</div>';return;}
+  document.getElementById('tenPreview').innerHTML=`
+    <div style="background:var(--s2);border-radius:var(--rs);padding:12px;margin-top:8px">
+      <div style="font-weight:600;color:var(--accent);font-size:12px;margin-bottom:8px">📋 解析結果預覽</div>
+      ${rows.map(r=>`<div style="display:flex;gap:8px;margin-bottom:4px;font-size:12px">
+        <span style="color:var(--t3);flex-shrink:0;width:64px">${r[0]}</span>
+        <span style="color:var(--text);word-break:break-all">${r[1]}</span>
+      </div>`).join('')}
+    </div>`;
+  document.getElementById('tenTarget').style.display='';
+}
+
+function doTenImport(){
+  if(!tenParsed) return;
+  const mode=document.querySelector('input[name="tenMode"]:checked')?.value||'new';
+  if(mode==='existing'){
+    if(!tenTargetClientId){showToast('⚠️ 請先選擇要加入的客戶');return;}
+    closeTenModal();
+    openEdit(tenTargetClientId);
+  } else {
+    closeTenModal();
+    openAdd();
+  }
+  setTimeout(()=>applyTenParsed(mode),250);
+}
+
+function applyTenParsed(mode){
+  if(!tenParsed) return;
+  const b=tenParsed.biao||{}, s=tenParsed.suo||{}, loans=tenParsed.ta||[];
+  const bankT=loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0);
+  const legalT=loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0);
+  const privT=loans.filter(l=>l.type==='private').reduce((a,l)=>a+l.amt,0);
+  if(mode==='new'){
+    if(s.name) document.getElementById('fName').value=s.name;
+    if(s.idno) document.getElementById('fIdno').value=s.idno;
+  }
+  const newP={
+    pid:Date.now(),
+    label:b.buildNo?`建${b.buildNo.replace(/-0+$/,'')}`:'謄本不動產',
+    addr:b.addr||'',purpose:b.purpose||'',buildNo:b.buildNo||'',landNo:b.landNo||'',
+    area:b.area||0,mainArea:b.mainArea||0,subArea:b.subArea||0,commonArea:b.commonArea||0,
+    parkArea:0,bank:bankT,legal:legalT,private:privT,
+    extraLoans:[],driveUrl:'',parkType:'無',parkTitle:'非獨立',parkVal:0,
+    landtaxNormal:0,landtaxSelf:0,
+  };
+  const isEmpty=p=>!p.buildNo&&!p.addr&&!p.bank&&!p.private;
+  if(properties.length===1&&isEmpty(properties[0])) properties[0]=newP;
+  else properties.push(newP);
+  curPropIdx=properties.length-1;
+  loadPropFields(curPropIdx); renderPropTabs();
+  const notes=[];
+  if(s.note) notes.push(s.note);
+  loans.filter(l=>l.confirmed).forEach(l=>notes.push(`⚠️ 抵押已確定：${l.creditor}`));
+  const noteEl=document.getElementById('fNote');
+  if(notes.length&&noteEl&&!noteEl.value) noteEl.value=notes.join('\n');
+  sSTabTo(1);
+  document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===1));
+  showToast('✅ 謄本匯入完成，請確認後儲存');
+}
+
+function onTenModeChange(){
+  const mode=document.querySelector('input[name="tenMode"]:checked')?.value;
+  const search=document.getElementById('tenClientSearch');
+  if(search) search.style.display=mode==='existing'?'':'none';
+  if(mode==='existing') filterTenClients();
+}
+
+function filterTenClients(){
+  const q=(document.getElementById('tenSearchInput')?.value||'').trim().toLowerCase();
+  const list=document.getElementById('tenClientList');
+  if(!list) return;
+  const filtered=(q
+    ?clients.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.idno||'').includes(q))
+    :clients
+  ).slice(0,40);
+  if(!filtered.length){
+    list.innerHTML='<div style="padding:10px;text-align:center;font-size:12px;color:var(--t3)">找不到客戶</div>';
+    return;
+  }
+  list.innerHTML=filtered.map(c=>`
+    <div onclick="selectTenClient(${c.id})" style="padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;background:${tenTargetClientId===c.id?'var(--abg)':''}"
+      onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=tenTargetClientId===${c.id}?'var(--abg)':''">
+      <span style="font-weight:600;color:var(--text)">${c.name}</span>
+      ${c.phone?`<span style="color:var(--t3);margin-left:8px">${c.phone}</span>`:''}
+      ${c.idno?`<span style="color:var(--t3);margin-left:6px;font-size:11px">${c.idno}</span>`:''}
+    </div>`).join('');
+}
+
+function selectTenClient(id){
+  tenTargetClientId=id;
+  filterTenClients();
+}
+
+async function saveClient(){
+  savePropFields();
+  const name=document.getElementById('fName').value.trim();
+  const phone=document.getElementById('fPhone').value.trim();
+  if(!name){alert('姓名為必填');return;}
+  const btn=document.getElementById('btnSave');
+  btn.disabled=true;btn.textContent='儲存中…';
+  const data={
+    name,phone,
+    idno:document.getElementById('fIdno').value.trim(),
+    heat:document.getElementById('fHeat').value,
+    remind:document.getElementById('fRemind').value,
+    remindTime:(()=>{const h=document.getElementById('fRemindHour').value;const m=document.getElementById('fRemindMin').value;return h&&m?`${h}:${m}`:''})(),
+    remindNote:document.getElementById('fRemindNote').value.trim(),
+    job:document.getElementById('fJob').value.trim(),
+    jobYears:document.getElementById('fJobYears').value.trim(),
+    birthY:parseInt(document.getElementById('fBirthY').value)||0,
+    birthM:parseInt(document.getElementById('fBirthM').value)||0,
+    birthD:parseInt(document.getElementById('fBirthD').value)||0,
+    finProofs:[...finProofs],
+    note:document.getElementById('fNote').value.trim(),
+    addr:document.getElementById('fAddr').value.trim(),
+    area:parseFloat(document.getElementById('fArea').value)||0,
+    mainArea:parseFloat(document.getElementById('fMainArea').value)||0,
+    subArea:parseFloat(document.getElementById('fSubArea').value)||0,
+    commonArea:parseFloat(document.getElementById('fCommonArea').value)||0,
+    parkArea:parseFloat(document.getElementById('fParkArea').value)||0,
+    parkType:document.getElementById('ev_parking')?.value||'無',
+    parkTitle:document.getElementById('ev_park_title')?.value||'非獨立',
+    parkVal:parseFloat(document.getElementById('ev_park_val')?.value)||0,
+    bank:parseFloat(document.getElementById('fBank').value)||0,
+    legal:parseFloat(document.getElementById('fLegal').value)||0,
+    private:parseFloat(document.getElementById('fPrivate').value)||0,
+    extraLoans:[...extraLoans],
+    purpose:document.getElementById('fPurpose').value.trim(),
+    loanPurpose:document.getElementById('ev_purpose')?.value?.trim()||'',
+    evalData:{
+      district:document.getElementById('ev_district')?.value||'',
+      section:document.getElementById('ev_section')?.value||'',
+      landno:document.getElementById('ev_landno')?.value||'',
+      landzone:document.getElementById('ev_landzone')?.value||'',
+      landtaxNormal:document.getElementById('ev_landtax_normal')?.value||'',
+      landtaxSelf:document.getElementById('ev_landtax_self')?.value||'',
+      buildno:document.getElementById('ev_buildno')?.value||'',
+      addr:document.getElementById('ev_addr')?.value||'',
+      community:document.getElementById('ev_community')?.value||'',
+      buildarea:document.getElementById('ev_buildarea')?.value||'',
+      landarea:document.getElementById('ev_landarea')?.value||'',
+      parking:document.getElementById('ev_parking')?.value||'無',
+      parkTitle:document.getElementById('ev_park_title')?.value||'非獨立',
+      parkval:document.getElementById('ev_park_val')?.value||'',
+      floors:document.getElementById('ev_floors')?.value||'',
+      age:document.getElementById('ev_age')?.value||'',
+      taxGeneral:document.getElementById('ev_tax_general')?.value||'',
+      taxSelf:document.getElementById('ev_tax_self')?.value||'',
+      taxCount:document.getElementById('ev_tax_count')?.value||'',
+      condition:document.getElementById('ev_condition')?.value||'',
+      resistance:document.getElementById('ev_resistance')?.value||'',
+      jinzhai:document.getElementById('ev_jinzhai')?.value||'',
+      unitprice:document.getElementById('ev_unitprice')?.value||'',
+      rate:document.getElementById('ev_rate')?.value||'',
+      job:document.getElementById('ev_job')?.value||'',
+      need:document.getElementById('ev_need')?.value||'',
+      evalNote:document.getElementById('ev_note')?.value||'',
+    },
+    buildNo:document.getElementById('fBuildNo').value.trim(),
+    landNo:document.getElementById('fLandNo').value.trim(),
+    driveUrl:document.getElementById('fDriveUrl').value.trim(),
+    logs:[...tempLogs],
+    updatedAt:TODAY,
+    properties:properties.map(p=>({...p})),
+  };
+  if(editId){
+    const idx=clients.findIndex(c=>c.id===editId);
+    clients[idx]={...clients[idx],...data};
+  } else {
+    clients.push({id:nextId++,createdAt:TODAY,debtPhones:[],companyRaw:null,...data});
+  }
+  saveLocal();
+  formDirty=false;
+  btn.disabled=false;btn.textContent='儲存';
+  closeSheet();render();
+  showToast('💾 已儲存');
+  pushToSheet()
+    .then(()=>showToast('✅ 同步完成'))
+    .catch(()=>{});
+}
+
+async function deleteClient(){
+  const c=clients.find(x=>x.id===editId);
+  if(!confirm(`確定刪除「${c?.name}」？\n\n此客戶將加入黑名單，即使之後從總檔或 XLS 匯入也不會再出現。`))return;
+  addToBlacklist(c);
+  clients=clients.filter(x=>x.id!==editId);
+  saveLocal();
+  try{await pushToSheet();showToast('🗑️ 已刪除並加入黑名單');}
+  catch(e){showToast('🗑️ 已刪除並加入黑名單（本地）');}
+  closeSheet();render();
+}
+
+// ── XLS Import ────────────────────────────────────────────
+function openImport(){
+  xlsRows=[];
+  document.getElementById('xlsFile').value='';
+  document.getElementById('imPrev').style.display='none';
+  document.getElementById('imGo').disabled=true;
+  document.getElementById('imDrop').querySelector('p').textContent='點此選擇 XLS / XLSX 檔案';
+  document.getElementById('imBg').classList.add('open');
+}
+function closeImport(){document.getElementById('imBg').classList.remove('open');}
+
+// ── Blacklist UI ──────────────────────────────────────────
+function openBlacklist() {
+  const list = document.getElementById('blList');
+  if(!blacklist.length) {
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">🎉 黑名單為空</div>';
+  } else {
+    list.innerHTML = blacklist.map((b,i)=>`
+      <div style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${b.name||'（無姓名）'}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">
+            ${b.phone||'無電話'}${b.idno?' ・ '+b.idno:''}<br>
+            刪除於 ${b.deletedAt}
+          </div>
+        </div>
+        <button onclick="removeFromBlacklist(${i})" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✅ 恢復</button>
+      </div>
+    `).join('');
+  }
+  document.getElementById('blBg').classList.add('open');
+}
+function closeBlacklist(){document.getElementById('blBg').classList.remove('open');}
+
+function handleXls(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      xlsRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(xlsRows.length<3){showToast('⚠️ 檔案內容為空');return;}
+      const prev=document.getElementById('imPrev');
+      prev.style.display='block';
+      prev.innerHTML=`讀取成功！共 <b>${xlsRows.length-2}</b> 筆資料`;
+      document.getElementById('imGo').disabled=false;
+      document.getElementById('imDrop').querySelector('p').textContent=file.name;
+    }catch(err){showToast('⚠️ 無法讀取檔案');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function doImport(){
+  if(xlsRows.length<3)return;
+  processCompanyData(xlsRows);
+  closeImport();
+}
+
+document.getElementById('sheetBg').addEventListener('click',e=>{if(e.target===document.getElementById('sheetBg'))closeSheet();});
+document.getElementById('imBg').addEventListener('click',e=>{if(e.target===document.getElementById('imBg'))closeImport();});
+
+async function clearAllData() {
+  if(!confirm(`⚠️ 第一次確認\n\n即將清除全部 ${clients.length} 筆客戶資料。\n此動作無法復原，確定要繼續嗎？`)) return;
+  if(!confirm(`🚨 第二次確認\n\n請再次確認：所有資料將被永久刪除，\n包含聯絡記錄、提醒設定等。\n\n確定清除？`)) return;
+  clients = [];
+  nextId = 1;
+  saveLocal(); // 清除本機快取 + Firestore（不動 Google Sheets）
+  render();
+  showToast('🗑️ 已清除所有資料');
+}
+
+// 只清除舊版本 v1，保留 v2 資料
+localStorage.removeItem('loan_crm_v1');
+// ── City Filter ───────────────────────────────────────────
+const ALL_CITIES = ['台北市','新北市','桃園市','基隆市','新竹市','新竹縣','苗栗縣','台中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','台南市','高雄市','屏東縣','宜蘭縣','花蓮縣','台東縣','澎湖縣','金門縣','連江縣'];
+let selectedCities = new Set();
+
+function initCityFilter() {
+  const container = document.getElementById('cityCheckboxes');
+  if(!container) return;
+  container.innerHTML = ALL_CITIES.map(city => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px;border-radius:6px">
+      <input type="checkbox" value="${city}" onchange="onCityChange()" style="cursor:pointer"/>
+      ${city}
+    </label>
+  `).join('');
+}
+
+function toggleCityFilter() {
+  const panel = document.getElementById('cityFilterPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function onCityChange() {
+  selectedCities = new Set();
+  document.querySelectorAll('#cityCheckboxes input:checked').forEach(cb => {
+    selectedCities.add(cb.value);
+  });
+  const count = selectedCities.size;
+  document.getElementById('cityFilterCount').textContent = count ? `(${count})` : '';
+  render();
+}
+
+function selectAllCities() {
+  document.querySelectorAll('#cityCheckboxes input').forEach(cb => cb.checked = true);
+  onCityChange();
+}
+
+function clearAllCities() {
+  document.querySelectorAll('#cityCheckboxes input').forEach(cb => cb.checked = false);
+  onCityChange();
+}
+
+document.addEventListener('click', function(e) {
+  const btn = document.getElementById('cityFilterBtn');
+  const panel = document.getElementById('cityFilterPanel');
+  if(panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+
+// ── Init time dropdowns ───────────────────────────────────
+function initTimeDropdowns(){
+  const hourSel = document.getElementById('fRemindHour');
+  const minSel  = document.getElementById('fRemindMin');
+  if(!hourSel || !minSel) return;
+  hourSel.innerHTML = '<option value="">--</option>' +
+    Array.from({length:24},(_,i)=>{const v=String(i).padStart(2,'0');return `<option value="${v}">${v}</option>`;}).join('');
+  minSel.innerHTML = '<option value="">--</option>' +
+    ['00','05','10','15','20','25','30','35','40','45','50','55'].map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
+// ── Drag to resize sheet (mobile) ────────────────────────
+(function(){
+  const handle = document.querySelector('.shandle');
+  const sheet  = document.querySelector('.sheet');
+  const sbg    = document.getElementById('sheetBg');
+  if(!handle || !sheet) return;
+
+  // 三個磁吸高度（佔視窗比例）
+  const SNAPS = [0.45, 0.72, 0.95];
+
+  let startY=0, startH=0, lastY=0, vel=0, dragging=false;
+
+  function vh(){ return window.innerHeight; }
+
+  // 磁吸：找最近的 snap 點
+  function nearestSnap(h){
+    return SNAPS.map(s=>s*vh()).reduce((a,b)=>Math.abs(b-h)<Math.abs(a-h)?b:a);
+  }
+
+  // 帶動畫滑到目標高度
+  function animateTo(targetH, dur=240){
+    sheet.style.transition = `height ${dur}ms cubic-bezier(.32,1,.46,1)`;
+    sheet.style.height = targetH+'px';
+    setTimeout(()=>{ sheet.style.transition=''; }, dur+20);
+  }
+
+  function onStart(e){
+    if(window.innerWidth >= 900) return;   // PC 不觸發
+    if(e.target.closest('button,input,select,textarea')) return; // 不搶按鈕/表單
+    dragging = true;
+    startY = lastY = e.touches ? e.touches[0].clientY : e.clientY;
+    startH = sheet.offsetHeight;
+    vel = 0;
+    sheet.style.transition = '';           // 拖拉時取消動畫
+  }
+
+  function onMove(e){
+    if(!dragging) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    vel = y - lastY;                       // 正值 = 往下（縮小）
+    lastY = y;
+    const diff = startY - y;
+    const newH = Math.min(Math.max(startH + diff, vh()*0.18), vh()*0.95);
+    sheet.style.height = newH+'px';
+  }
+
+  function onEnd(){
+    if(!dragging) return;
+    dragging = false;
+    const curH = sheet.offsetHeight;
+
+    // 往下快速滑 (vel>14) 或高度低於 22% → 關閉
+    if(vel > 14 || curH < vh()*0.22){
+      sheet.style.transition = 'height .18s ease-in';
+      sheet.style.height = '0px';
+      setTimeout(()=>{
+        sheet.style.transition='';
+        sheet.style.height='';
+        closeSheet();
+      }, 190);
+      return;
+    }
+
+    // 往上快速滑 → 直接展開到最大
+    if(vel < -14){
+      animateTo(vh()*0.95);
+      return;
+    }
+
+    // 一般放開 → 磁吸到最近的 snap 點
+    animateTo(nearestSnap(curH));
+  }
+
+  // 加大 handle 本身的觸控區域
+  handle.style.padding = '10px 0';
+  handle.style.margin  = '2px auto 4px';
+
+  // 把 sheader 也加入拖拉範圍（整個標題列都可以抓）
+  const sheader = document.querySelector('.sheader');
+
+  [handle, sheader].forEach(el=>{
+    if(!el) return;
+    el.addEventListener('mousedown',  onStart);
+    el.addEventListener('touchstart', onStart, {passive:true});
+  });
+  document.addEventListener('mousemove',  onMove);
+  document.addEventListener('touchmove',  onMove, {passive:true});
+  document.addEventListener('mouseup',  onEnd);
+  document.addEventListener('touchend', onEnd);
+
+  // 每次開啟 sheet 時重置為預設高度
+  const _origOpen = window.openSheet;
+  const _origAdd  = window.openAdd;
+  function resetH(){ sheet.style.height = Math.round(vh()*0.72)+'px'; }
+  // 用 MutationObserver 監聽 open class 新增
+  new MutationObserver(()=>{
+    if(sbg.classList.contains('open') && window.innerWidth < 900) resetH();
+  }).observe(sbg,{attributes:true,attributeFilter:['class']});
+})();
+
+
+initCityFilter();
+// 客戶資料由 Firebase auth 狀態監聽器載入（loadFromFirestore），此處略過 loadLocal()
+loadBlacklist();
+loadMemos();
+initTimeDropdowns();
+loadBtnVis();
+// render() 與 autoClassify() 在 auth 登入後才呼叫
+</script>
+</body>
+</html>
