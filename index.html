@@ -420,7 +420,8 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'flex';
 
-    // ── 1. 立刻顯示本地快取（零等待）──
+    // ── 1. 先清空，再載入本地快取（零等待）──
+    clients = []; nextId = 1;
     loadLocal();
     if (typeof autoClassify === 'function') autoClassify();
     if (typeof render === 'function') render();
@@ -441,7 +442,9 @@ auth.onAuthStateChanged(async user => {
     // 啟動定時自動 push
     startAutoPush();
   } else {
-    // 登出清理
+    // 登出清理：清空記憶體資料，避免下一個帳號看到前一個帳號的資料
+    clients = [];
+    nextId  = 1;
     if (sessionListener) { sessionListener(); sessionListener = null; }
     mySessionToken = null;
     currentUser = null;
