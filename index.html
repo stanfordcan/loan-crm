@@ -511,12 +511,14 @@ async function loadFromFirestore() {
       if (raw.data) {
         const d = JSON.parse(raw.data);
         if (d) {
-          clients = (d.clients||[]).map(c => ({
-            ...c,
-            remind     : normalizeDate(c.remind),
-            remindTime : normalizeTime(c.remindTime),
-            logs       : (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
-          }));
+          clients = (d.clients||[])
+            .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
+            .map(c => ({
+              ...c,
+              remind     : normalizeDate(c.remind),
+              remindTime : normalizeTime(c.remindTime),
+              logs       : (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
+            }));
           nextId = d.nextId || 1;
           saveLocal();
           return true;
@@ -1063,12 +1065,14 @@ function loadLocal() {
   try {
     const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
     if(d){
-      clients = (d.clients||[]).map(c => ({
-        ...c,
-        remind: normalizeDate(c.remind),
-        remindTime: normalizeTime(c.remindTime),
-        logs: (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
-      }));
+      clients = (d.clients||[])
+        .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
+        .map(c => ({
+          ...c,
+          remind: normalizeDate(c.remind),
+          remindTime: normalizeTime(c.remindTime),
+          logs: (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
+        }));
       nextId = d.nextId||1;
     }
   } catch(e){}
@@ -1937,13 +1941,14 @@ function processCompanyData(raw) {
       if(debtMatch) ownerName = debtMatch[1];
     }
 
-    const name = (ownerName || '（未知）').trim();
+    const name = ownerName.trim();
 
     // 從所有權部抓身分證字號
     const idnoMatch = ownerRaw.match(/([A-Z]\d{9})/);
     const idno = idnoMatch ? idnoMatch[1] : '';
 
-    if(!phone && !name) { skipped++; return; }
+    // 姓名完全無法辨識的列跳過（不產生「未知」案件）
+    if(!name) { skipped++; return; }
 
     // Parse bank/legal/private from rights column (col 13)
     const rightsRaw = String(row[13]||'');
