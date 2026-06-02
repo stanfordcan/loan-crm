@@ -435,10 +435,6 @@ auth.onAuthStateChanged(async user => {
       }
     }).catch(() => {});
 
-    // ── 3. 登入後自動從 Google Sheets 同步 ──
-    if (GAS_URL) {
-      setTimeout(() => { if (typeof syncData === 'function') syncData(); }, 800);
-    }
     // 啟動定時自動 push
     startAutoPush();
   } else {
