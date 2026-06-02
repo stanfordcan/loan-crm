@@ -1122,8 +1122,8 @@ function loadLocal() {
   try {
     const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
     if(d){
-      // 帳號不符時不載入，避免把上一個帳號的資料帶入
-      if (d.uid && currentUser && d.uid !== currentUser.uid) return false;
+      // uid 不存在（舊快取）或帳號不符時，一律不載入
+      if (!d.uid || !currentUser || d.uid !== currentUser.uid) return false;
       clients = (d.clients||[])
         .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
         .map(c => ({
