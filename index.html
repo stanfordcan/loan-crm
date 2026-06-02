@@ -419,12 +419,22 @@ auth.onAuthStateChanged(async user => {
     // 切換到主畫面
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'flex';
-    // 從 Firestore 載入資料
-    const loaded = await loadFromFirestore();
-    if (!loaded) loadLocal(); // Firestore 無資料時用本地快取
+
+    // ── 1. 立刻顯示本地快取（零等待）──
+    loadLocal();
     if (typeof autoClassify === 'function') autoClassify();
     if (typeof render === 'function') render();
-    // 登入後自動從 Google Sheets 同步（有設定 GAS 才執行）
+
+    // ── 2. 背景比對 Firestore，有更新才刷新畫面 ──
+    syncFromFirestoreIfNewer().then(updated => {
+      if (updated) {
+        if (typeof autoClassify === 'function') autoClassify();
+        if (typeof render === 'function') render();
+        showToast('☁️ 已從雲端載入最新資料');
+      }
+    }).catch(() => {});
+
+    // ── 3. 登入後自動從 Google Sheets 同步 ──
     if (GAS_URL) {
       setTimeout(() => { if (typeof syncData === 'function') syncData(); }, 800);
     }
@@ -527,6 +537,51 @@ async function loadFromFirestore() {
     }
     return false;
   } catch(e) { console.error('Firestore load:', e); return false; }
+}
+
+// 背景比對 Firestore：只有 Firestore 比本地新時才更新
+async function syncFromFirestoreIfNewer() {
+  if (!currentUser || !db) return false;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (!doc.exists) return false;
+    const raw = doc.data();
+
+    // 設定項目（GAS URL 等）不管時間戳，直接套用
+    if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
+    if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
+    if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
+
+    // 比較時間戳
+    let localTs = '';
+    try {
+      const ld = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
+      localTs = (ld && ld.updatedAt) || '';
+    } catch(e){}
+    const firestoreTs = raw.updatedAt || '';
+
+    if (firestoreTs <= localTs) return false; // 本地已是最新，不需要更新
+
+    // Firestore 有更新的資料，覆蓋本地
+    if (!raw.data) return false;
+    const d = JSON.parse(raw.data);
+    if (!d) return false;
+
+    clients = (d.clients||[])
+      .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
+      .map(c => ({
+        ...c,
+        remind     : normalizeDate(c.remind),
+        remindTime : normalizeTime(c.remindTime),
+        logs       : (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
+      }));
+    nextId = d.nextId || 1;
+
+    // 本地快取同步成 Firestore 的時間戳（避免下次重複更新）
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: firestoreTs})); } catch(e){}
+    return true;
+
+  } catch(e) { console.error('Firestore background check:', e); return false; }
 }
 
 // 儲存 URL 設定到 Firestore（不動客戶資料）
@@ -1058,7 +1113,8 @@ function fixPhone(val) {
 }
 
 function saveLocal() {
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId})); } catch(e){}
+  const ts = new Date().toISOString();
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: ts})); } catch(e){}
   saveToFirestore().catch(e => console.error('Firestore sync:', e));
 }
 function loadLocal() {
@@ -1074,8 +1130,10 @@ function loadLocal() {
           logs: (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
         }));
       nextId = d.nextId||1;
+      return true;
     }
   } catch(e){}
+  return false;
 }
 
 // ── Memo ─────────────────────────────────────────────────
