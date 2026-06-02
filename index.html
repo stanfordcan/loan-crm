@@ -1113,14 +1113,17 @@ function fixPhone(val) {
 }
 
 function saveLocal() {
-  const ts = new Date().toISOString();
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: ts})); } catch(e){}
+  const ts  = new Date().toISOString();
+  const uid = currentUser ? currentUser.uid : '';
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: ts, uid})); } catch(e){}
   saveToFirestore().catch(e => console.error('Firestore sync:', e));
 }
 function loadLocal() {
   try {
     const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
     if(d){
+      // 帳號不符時不載入，避免把上一個帳號的資料帶入
+      if (d.uid && currentUser && d.uid !== currentUser.uid) return false;
       clients = (d.clients||[])
         .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
         .map(c => ({
