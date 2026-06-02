@@ -326,23 +326,116 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 let currentUser = null;
+let autoPushTimer  = null; // 定時自動 push 到 Google Sheets
+let mySessionToken = null; // 目前裝置的 session token
+let sessionListener= null; // Firestore session 監聽器
+
+// ── 單一裝置登入：搶佔 session ───────────────────────────
+// 回傳 true = 成功登入；false = 使用者取消（auth.signOut() 已在內部呼叫）
+async function claimSession(uid) {
+  // sessionStorage：同分頁重整保留舊 token，新分頁/新裝置才產生新 token
+  let token = sessionStorage.getItem('crm_session_token');
+  const isNewSession = !token;
+  if (!token) {
+    token = Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem('crm_session_token', token);
+  }
+
+  // 若是全新 session，先檢查 Firestore 是否已有其他裝置在線
+  if (isNewSession) {
+    try {
+      const snap = await db.collection('users').doc(uid).get();
+      if (snap.exists) {
+        const existing = snap.data().sessionToken;
+        if (existing && existing !== token) {
+          // 已有其他裝置在線 → 詢問使用者
+          const proceed = confirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
+          if (!proceed) {
+            // 使用者取消 → 清掉剛產生的 token 並登出
+            sessionStorage.removeItem('crm_session_token');
+            auth.signOut().catch(() => {});
+            return false;
+          }
+        }
+      }
+    } catch(e) { console.error('Session check:', e); }
+  }
+
+  mySessionToken = token;
+  // 將 token 寫入 Firestore（同帳號其他裝置的 token 就此失效）
+  try {
+    await db.collection('users').doc(uid).set({ sessionToken: token }, { merge: true });
+  } catch(e) { console.error('claimSession write:', e); return false; }
+  // 監聽 token 變化：若其他裝置登入則 token 改變 → 強制登出
+  if (sessionListener) { sessionListener(); sessionListener = null; }
+  sessionListener = db.collection('users').doc(uid).onSnapshot(snap => {
+    if (!snap.exists || !mySessionToken) return;
+    const t = snap.data().sessionToken;
+    if (t && t !== mySessionToken) forceLogout();
+  });
+  return true;
+}
+
+// 被其他裝置踢出時執行
+function forceLogout() {
+  if (sessionListener) { sessionListener(); sessionListener = null; }
+  sessionStorage.removeItem('crm_session_token');
+  mySessionToken = null;
+  stopAutoPush();
+  auth.signOut().then(() => {
+    const errEl = document.getElementById('loginErr');
+    if (errEl) {
+      errEl.textContent = '⚠️ 此帳號已在其他裝置登入，您已被自動登出。';
+      errEl.style.display = 'block';
+    }
+  }).catch(() => {});
+}
+
+// 啟動定時 push（每 5 分鐘）
+function startAutoPush() {
+  stopAutoPush();
+  autoPushTimer = setInterval(() => {
+    if (currentUser && GAS_URL) {
+      pushToSheet().catch(() => {});
+    }
+  }, 5 * 60 * 1000);
+}
+
+// 停止定時 push
+function stopAutoPush() {
+  if (autoPushTimer) { clearInterval(autoPushTimer); autoPushTimer = null; }
+}
 
 // 登入狀態監聽（頁面載入 + 重整自動還原）
 auth.onAuthStateChanged(async user => {
   if (user) {
     currentUser = user;
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'flex';
-    // 顯示目前登入帳號
+    // 先更新帳號標籤，但「不」切換畫面，等 claimSession 確認後再顯示主畫面
     const uEl = document.getElementById('loginUserLabel');
     if (uEl) uEl.textContent = user.email;
+    // 搶佔 session（若其他裝置在線則詢問是否繼續）
+    const claimed = await claimSession(user.uid);
+    if (!claimed) return; // 使用者取消，auth.signOut() 已在 claimSession 內呼叫
+    // 切換到主畫面
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
     // 從 Firestore 載入資料
     const loaded = await loadFromFirestore();
     if (!loaded) loadLocal(); // Firestore 無資料時用本地快取
     if (typeof autoClassify === 'function') autoClassify();
     if (typeof render === 'function') render();
+    // 登入後自動從 Google Sheets 同步（有設定 GAS 才執行）
+    if (GAS_URL) {
+      setTimeout(() => { if (typeof syncData === 'function') syncData(); }, 800);
+    }
+    // 啟動定時自動 push
+    startAutoPush();
   } else {
+    // 登出清理
+    if (sessionListener) { sessionListener(); sessionListener = null; }
+    mySessionToken = null;
     currentUser = null;
+    stopAutoPush();
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
   }
@@ -397,6 +490,7 @@ async function saveToFirestore() {
       data: JSON.stringify({clients, nextId}),
       gasUrl: GAS_URL || '',
       companyUrl: COMPANY_URL || '',
+      claudeKey: CLAUDE_API_KEY || '',
       updatedAt: new Date().toISOString()
     });
   } catch(e) { console.error('Firestore save:', e); }
@@ -412,6 +506,7 @@ async function loadFromFirestore() {
       // 載入 GAS URL 設定
       if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
       if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
+      if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
       // 載入客戶資料
       if (raw.data) {
         const d = JSON.parse(raw.data);
@@ -437,7 +532,7 @@ async function saveUrlSettings() {
   if (!currentUser || !db) return;
   try {
     await db.collection('users').doc(currentUser.uid).set(
-      { gasUrl: GAS_URL || '', companyUrl: COMPANY_URL || '' },
+      { gasUrl: GAS_URL || '', companyUrl: COMPANY_URL || '', claudeKey: CLAUDE_API_KEY || '' },
       { merge: true }
     );
   } catch(e) { console.error('Firestore settings save:', e); }
@@ -446,14 +541,16 @@ async function saveUrlSettings() {
 function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
+  document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
   document.getElementById('urlSettingsBg').style.display = 'flex';
 }
 function closeUrlSettings() {
   document.getElementById('urlSettingsBg').style.display = 'none';
 }
 async function applyUrlSettings() {
-  GAS_URL     = document.getElementById('settingsGasUrl').value.trim();
-  COMPANY_URL = document.getElementById('settingsCompanyUrl').value.trim();
+  GAS_URL        = document.getElementById('settingsGasUrl').value.trim();
+  COMPANY_URL    = document.getElementById('settingsCompanyUrl').value.trim();
+  CLAUDE_API_KEY = document.getElementById('settingsClaudeKey').value.trim();
   await saveUrlSettings();
   closeUrlSettings();
   showToast('✅ 設定已儲存');
@@ -785,12 +882,45 @@ async function applyUrlSettings() {
       <input id="settingsCompanyUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"
         style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:12px;font-family:inherit;outline:none;color:var(--text)"/>
     </div>
+    <div class="frow" style="margin-bottom:20px">
+      <label style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px;display:block">🤖 Claude AI 金鑰（選填）</label>
+      <span style="font-size:11px;color:var(--t3);display:block;margin-bottom:6px">填入後，從總檔更新時 AI 會輔助審查模糊重複案例。金鑰只存在你自己的帳號中。</span>
+      <input id="settingsClaudeKey" type="password" placeholder="sk-ant-api03-…"
+        style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:12px;font-family:monospace;outline:none;color:var(--text)"/>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="closeUrlSettings()" style="background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-family:inherit;cursor:pointer">取消</button>
       <button onclick="applyUrlSettings()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">儲存設定</button>
     </div>
   </div>
 </div>
+
+<!-- Claude AI 審查 Modal -->
+<div class="imbg" id="claudeReviewBg" style="display:none;z-index:2100">
+  <div class="immodal" style="max-width:560px;max-height:88vh;overflow-y:auto">
+    <h3 style="margin-bottom:6px">🤖 AI 輔助審查</h3>
+    <div id="claudeReviewStatus" style="font-size:12px;color:var(--t3);margin-bottom:14px">⏳ 分析中…</div>
+    <div id="claudeReviewList" style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="claudeReviewSkipAll()" style="background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-family:inherit;cursor:pointer">全部設為新增</button>
+      <button id="claudeReviewDoneBtn" onclick="claudeReviewApply()" style="display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">✅ 套用決定</button>
+    </div>
+  </div>
+</div>
+<style>
+.cr-case{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.cr-idx{font-size:11px;color:var(--t3);margin-bottom:8px}
+.cr-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.cr-col{background:var(--bg);border-radius:8px;padding:9px 11px}
+.cr-col-title{font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px}
+.cr-row{font-size:12px;color:var(--text);line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr-ai{font-size:12px;background:var(--bg);border-left:3px solid var(--accent);padding:7px 10px;border-radius:0 6px 6px 0;margin-bottom:10px;line-height:1.7}
+.cr-btns{display:flex;gap:8px}
+.cr-btn{flex:1;border:none;border-radius:var(--rs);padding:8px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;opacity:.7;transition:opacity .15s,box-shadow .15s}
+.cr-merge{background:#E8F5E9;color:#2E7D32}
+.cr-new{background:#FEECEC;color:#B71C1C}
+.cr-btn.cr-selected{opacity:1;box-shadow:0 0 0 2px currentColor}
+</style>
 
 <!-- Blacklist Modal -->
 <div class="imbg" id="blBg">
@@ -858,6 +988,7 @@ async function applyUrlSettings() {
 <script>
 let GAS_URL     = 'https://script.google.com/macros/s/AKfycbzD8tf29__2Lqc2YEQeUE-AK36vwge_n1hkMoKK9R8Hym2qyy5Fnlm4myZXUyoERFzA/exec'; // 共用同步 GAS
 let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
+let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1274,21 +1405,22 @@ async function pushToSheet() {
 }
 
 // ── Company Sheet (JSONP) ─────────────────────────────────
-function jsonpFetch(url) {
+function jsonpFetch(url, timeoutMs) {
+  timeoutMs = timeoutMs || 60000; // 預設 60 秒（GAS 冷啟動可能需要 20~40 秒）
   return new Promise((resolve, reject) => {
     const cb = '_cb' + Date.now() + Math.floor(Math.random()*1000);
     const s = document.createElement('script');
     const t = setTimeout(() => {
       cleanup();
-      reject(new Error('Timeout'));
-    }, 15000);
+      reject(new Error('連線逾時（GAS 伺服器無回應）'));
+    }, timeoutMs);
     window[cb] = (data) => {
       cleanup();
       resolve(data);
     };
     s.onerror = () => {
       cleanup();
-      reject(new Error('載入失敗'));
+      reject(new Error('載入失敗（請確認網址正確且已部署）'));
     };
     function cleanup() {
       clearTimeout(t);
@@ -1325,11 +1457,22 @@ function openDriveFolder(){
 }
 
 async function syncFromCompany() {
+  if(!COMPANY_URL){ showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址'); return; }
   const btn=document.getElementById('companyBtn');
-  btn.textContent='⏳ 讀取中…'; btn.disabled=true;
-  showToast('⏳ 正在連接總檔…');
+  btn.disabled=true;
+
+  // 倒數計時顯示（GAS 冷啟動可能需要 20~40 秒）
+  let sec = 0;
+  const ticker = setInterval(() => {
+    sec++;
+    btn.textContent = `⏳ 連接中 ${sec}s`;
+  }, 1000);
+  btn.textContent='⏳ 連接中 0s';
+  showToast('⏳ 正在連接總檔，GAS 冷啟動最多需要 40 秒…');
+
   try {
-    const raw = await jsonpFetch(COMPANY_URL + '?token=' + API_TOKEN);
+    const raw = await jsonpFetch(COMPANY_URL + '?token=' + API_TOKEN, 60000);
+    clearInterval(ticker);
     if(!raw||!Array.isArray(raw)){
       showToast('⚠️ 總檔回傳格式錯誤');
       btn.textContent='🏢 從總檔更新'; btn.disabled=false;
@@ -1337,12 +1480,199 @@ async function syncFromCompany() {
     }
     processCompanyData(raw);
   } catch(e) {
-    showToast('⚠️ 總檔連接失敗：'+e.message);
+    clearInterval(ticker);
+    showToast('⚠️ 總檔連接失敗：' + e.message);
     console.error(e);
   }
   btn.textContent='🏢 從總檔更新'; btn.disabled=false;
 }
 
+// ── Claude AI 輔助去重 ──────────────────────────────────────
+
+// 地址標準化：全形→半形 + 中文樓層→數字（保留樓層，不刪除）
+function normalizeAddr(addr) {
+  if (!addr) return '';
+  // 全形 ASCII → 半形（含 ０-９、Ａ-Ｚ、ａ-ｚ 及符號）
+  let s = addr.replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  // 中文樓層數字 → 阿拉伯數字（二十三樓→23樓、十二樓→12樓、三樓→3樓）
+  const CJ = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
+  s = s.replace(/([一二三四五六七八九])十([一二三四五六七八九])?樓/g, (_, d, u) => (CJ[d]*10+(u?CJ[u]:0))+'樓');
+  s = s.replace(/十([一二三四五六七八九])?樓/g, (_, u) => (10+(u?CJ[u]:0))+'樓');
+  s = s.replace(/([一二三四五六七八九])樓/g, (_, d) => CJ[d]+'樓');
+  // 5F / 5f → 5樓
+  s = s.replace(/(\d+)[Ff]\b/g, '$1樓');
+  return s.trim();
+}
+
+// 找出可能模糊相符的現有客戶（已被精確比對略過的才會到這裡）
+function findFuzzyMatches(incoming, existingClients) {
+  const { name, addr, col7Name } = incoming;
+  const results = [];
+  for (const c of existingClients) {
+    let score = 0;
+    // 姓名相似度：優先用 col7Name（純所有權人），避免 col9 債務人誤判
+    const nameA = (col7Name || name || '').replace(/[○＊*（）\s]/g, '');
+    const nameB = (c.col7Name || c.name || '').replace(/[○＊*（）\s]/g, '');
+    if (nameA && nameA !== '未知' && nameB && nameB !== '未知') {
+      const a = nameA;
+      const b = nameB;
+      if (a.length >= 2 && b.length >= 2) {
+        if (a === b)                               score += 5; // 完全相同
+        else if (a[0] === b[0] && a.length === b.length) score += 3; // 同姓同長
+        else if (a[0] === b[0])                    score += 2; // 同姓
+        else if (a.slice(1) === b.slice(1) && a.length >= 3) score += 2; // 名相同
+      }
+    }
+    // 地址相似度（前 8 字，先標準化）
+    if (addr && c.addr) {
+      const a8 = addr.replace(/\s/g,'').slice(0, 8); // addr 已標準化
+      const b8 = normalizeAddr(c.addr||'').replace(/\s/g,'').slice(0, 8);
+      if (a8 && b8 && a8 === b8)           score += 3;
+      else if (a8 && b8 && a8.slice(0,5) === b8.slice(0,5)) score += 1;
+    }
+    if (score >= 3) results.push({ client: c, score });
+  }
+  return results.sort((a, b) => b.score - a.score).slice(0, 2);
+}
+
+// 呼叫 Anthropic Claude API
+async function callClaudeAPI(pendingCases) {
+  const payload = pendingCases.map((c, i) => {
+    const f = c.fields, cand = c.candidates[0].client;
+    return {
+      index: i,
+      新資料: { 姓名: f.name, 電話: f.phone||'無', 身分證: f.idno||'無', 地址: (f.addr||'').slice(0,30)||'無', 銀行債務: f.bank ? f.bank+'萬' : '不明' },
+      現有客戶: { 姓名: cand.name, 電話: cand.phone||'無', 身分證: cand.idno||'無', 地址: (cand.addr||'').slice(0,30)||'無', 銀行債務: cand.bank ? cand.bank+'萬' : '不明' }
+    };
+  });
+  const prompt = `你是貸款業務系統的客戶資料去重助手。以下是從謄本匯入的新資料，及系統中可能相符的現有客戶。
+
+判斷依據：
+- 姓名可能因遮蔽而不完整（如「王○明」可能是「王大明」）
+- 電話可能已更換
+- 身分證字號若相同則必定是同一人
+- 地址可能是同棟建物的不同表示方式
+
+請以 JSON 陣列回傳（只回傳 JSON，不要其他文字）：
+[{"index":0,"samePerson":true,"confidence":"high","reason":"姓名一致，地址相符"}]
+
+confidence 只能是 "high"、"medium"、"low"。
+
+案例：
+${JSON.stringify(payload, null, 2)}`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const data = await resp.json();
+  const text = data.content[0].text;
+  const m = text.match(/\[[\s\S]*\]/);
+  if (!m) throw new Error('回傳格式錯誤');
+  return JSON.parse(m[0]);
+}
+
+// ── Claude 審查 Modal 狀態 ──────────────────────────────────
+let _crState = null; // { cases, decisions, onComplete, aiResults }
+
+function showClaudeReviewModal(pendingCases, onComplete) {
+  _crState = { cases: pendingCases, decisions: new Array(pendingCases.length).fill(null), onComplete, aiResults: null };
+  document.getElementById('claudeReviewBg').style.display = 'flex';
+  _renderCR(null);
+  callClaudeAPI(pendingCases).then(results => {
+    _crState.aiResults = results;
+    // 高信心案例自動預填
+    results.forEach(r => {
+      if (r.confidence === 'high') _crState.decisions[r.index] = r.samePerson ? 'merge' : 'new';
+    });
+    _renderCR(results);
+  }).catch(e => {
+    console.error('Claude:', e);
+    _renderCR(null, '⚠️ AI 分析失敗（' + e.message + '），請手動判斷');
+  });
+}
+
+const _confLabel = { high:'高', medium:'中', low:'低' };
+
+function _renderCR(aiResults, errMsg) {
+  if (!_crState) return;
+  const statusEl = document.getElementById('claudeReviewStatus');
+  const listEl   = document.getElementById('claudeReviewList');
+  if (!aiResults && !errMsg) {
+    statusEl.textContent = '⏳ Claude 正在分析 ' + _crState.cases.length + ' 筆模糊案例…';
+    listEl.innerHTML = '';
+    return;
+  }
+  statusEl.textContent = errMsg || ('🤖 分析完成，共 ' + _crState.cases.length + ' 筆待確認（高信心已自動預填）');
+  listEl.innerHTML = _crState.cases.map((c, i) => {
+    const f = c.fields, cand = c.candidates[0].client;
+    const ai  = aiResults ? aiResults.find(r => r.index === i) : null;
+    const dec = _crState.decisions[i];
+    const aiHtml = ai
+      ? `<div class="cr-ai">🤖 AI 建議：<strong>${ai.samePerson ? '同一人' : '不同人'}</strong>（信心：${_confLabel[ai.confidence]||ai.confidence}）<br><span style="color:var(--t3);font-size:11px">${ai.reason||''}</span></div>`
+      : (errMsg ? '<div class="cr-ai" style="color:#e57373">⚠️ AI 分析失敗，請手動判斷</div>'
+                : '<div class="cr-ai">⏳ 分析中…</div>');
+    const btnM = `<button class="cr-btn cr-merge${dec==='merge'?' cr-selected':''}" onclick="claudeDecide(${i},'merge')">✅ 同一人，合併</button>`;
+    const btnN = `<button class="cr-btn cr-new${dec==='new'?' cr-selected':''}" onclick="claudeDecide(${i},'new')">❌ 不同人，新增</button>`;
+    return `<div class="cr-case" id="crcase${i}">
+      <div class="cr-idx">第 ${i+1} / ${_crState.cases.length} 筆</div>
+      <div class="cr-cols">
+        <div class="cr-col"><div class="cr-col-title">📥 總檔新資料</div>
+          <div class="cr-row">姓名：${f.name||'（未知）'}</div>
+          <div class="cr-row">電話：${f.phone||'（無）'}</div>
+          <div class="cr-row" style="font-size:11px;color:var(--t3)">地址：${(f.addr||'（無）').slice(0,28)}</div></div>
+        <div class="cr-col"><div class="cr-col-title">👤 現有客戶</div>
+          <div class="cr-row">姓名：${cand.name||'（未知）'}</div>
+          <div class="cr-row">電話：${cand.phone||'（無）'}</div>
+          <div class="cr-row" style="font-size:11px;color:var(--t3)">地址：${(cand.addr||'（無）').slice(0,28)}</div></div>
+      </div>
+      ${aiHtml}
+      <div class="cr-btns">${btnM}${btnN}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('claudeReviewDoneBtn').style.display = '';
+}
+
+function claudeDecide(index, decision) {
+  if (!_crState) return;
+  _crState.decisions[index] = decision;
+  const el = document.getElementById('crcase' + index);
+  if (el) {
+    el.querySelectorAll('.cr-btn').forEach(b => b.classList.remove('cr-selected'));
+    el.querySelector(decision === 'merge' ? '.cr-merge' : '.cr-new')?.classList.add('cr-selected');
+  }
+}
+
+function claudeReviewApply() {
+  if (!_crState) return;
+  const undecided = _crState.decisions.filter(d => d === null).length;
+  if (undecided > 0) { showToast('⚠️ 還有 ' + undecided + ' 筆尚未決定'); return; }
+  document.getElementById('claudeReviewBg').style.display = 'none';
+  const { cases, decisions, onComplete } = _crState;
+  _crState = null;
+  onComplete(decisions.map((dec, i) => ({ decision: dec, fields: cases[i].fields, candidate: cases[i].candidates[0].client })));
+}
+
+function claudeReviewSkipAll() {
+  if (!_crState) return;
+  document.getElementById('claudeReviewBg').style.display = 'none';
+  const { cases, onComplete } = _crState;
+  _crState = null;
+  onComplete(cases.map(c => ({ decision: 'new', fields: c.fields, candidate: c.candidates[0].client })));
+}
+
+// ── 公司總檔匯入 ───────────────────────────────────────────
 function processCompanyData(raw) {
   if(!raw||raw.length<3){showToast('⚠️ 總檔沒有資料');return;}
 
@@ -1399,6 +1729,7 @@ function processCompanyData(raw) {
   }
 
   let added=0, updated=0, skipped=0;
+  const pendingReview = []; // 需要 Claude 審查的模糊案例
   let xinXinBatchDate = ''; // 追蹤新鑫批次日期
 
   rows.forEach(row => {
@@ -1505,6 +1836,9 @@ function processCompanyData(raw) {
     // Remove if only asterisks remain
     if(ownerName.length < 1) ownerName = '';
 
+    // col7Name：純 col 7 所有權人姓名，不含任何 fallback，專用於比對（最可靠）
+    const col7Name = ownerName;
+
     // If name is masked or missing, fallback to restriction col (col 18) for 義務人
     const isMasked = !ownerName || ownerName.includes('*') || ownerName.includes('＊');
     if (isMasked) {
@@ -1513,7 +1847,7 @@ function processCompanyData(raw) {
       if (obligorMatch) ownerName = obligorMatch[1];
     }
 
-    // Final fallback: try debt column (col 9)
+    // Final fallback: try debt column (col 9)（僅供顯示，不用於比對）
     if(!ownerName) {
       const debtRaw = String(row[9]||'');
       const debtMatch = debtRaw.match(/^([\u4e00-\u9fff]{2,6})[、，]/);
@@ -1591,11 +1925,15 @@ function processCompanyData(raw) {
     const areaCalc = mainArea + subArea + commonArea;
     const area = areaFromBI || areaFromCol5 || (areaCalc > 0 ? Math.round(areaCalc*100)/100 : 0);
 
-    // Address (col 4)
-    const addr = String(row[4]||'').replace(/\n/g,' ').trim();
+    // Address (col 4)：標準化全形數字與中文樓層
+    const addr = normalizeAddr(String(row[4]||'').replace(/\n/g,' ').trim());
 
     // Extract buildInfo from col 3 (for display only)
     const buildInfo = String(row[3]||'').trim();
+
+    // 從 col 4（建物標示）直接抓建號，專用於比對身份，不影響不動產頁籤的 buildNo
+    const col4BuildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
+    const col4BuildNo = col4BuildNoMatch ? col4BuildNoMatch[1] : '';
 
     // 從共同擔保建號（col 11）解析建號，去重複只留編號
     const guaranteeRaw = String(row[11]||'');
@@ -1676,21 +2014,27 @@ function processCompanyData(raw) {
       allPhones: allPhones,
     };
 
-    // Check if exists by any phone number OR (name + address)
+    // Check if exists: 0.col4建號 1.手機號碼 2.身分證字號 3.地址（持分除外）
     const normPhones = allPhones.map(p=>p.replace(/[-\s\(\)#]/g,''));
+
+    // 持分判斷：所有權人欄位含「持分」或「分之」表示多人共有，不能用地址唯一識別
+    function hasFen(ownerStr) { return /持分|分之/.test(ownerStr || ''); }
+    const incomingIsFen = hasFen(ownerRaw);
+
     const existing = clients.find(c => {
-      // Match by phone (strongest signal)
+      // 0. col4 建號比對（謄本唯一識別碼，最精確）
+      if(col4BuildNo && c.col4BuildNo && col4BuildNo === c.col4BuildNo) return true;
+      // 1. 手機號碼比對
       if(c.phone) {
         const cp = String(c.phone).replace(/[-\s\(\)#]/g,'');
         if(normPhones.some(p=>p&&cp&&p===cp)) return true;
       }
-      // Match by name - only if address also matches or both have no address
-      if(name && name!=='（未知）' && c.name === name) {
-        const addrA = (c.addr||'').slice(0,10);
-        const addrB = (addr||'').slice(0,10);
-        // 都沒地址，或地址前10字相同，才視為同一人
-        if(!addrA && !addrB) return true;
-        if(addrA && addrB && addrA === addrB) return true;
+      // 2. 身分證字號比對
+      if(idno && c.idno && idno === c.idno) return true;
+      // 3. 地址比對（持分物件跳過，因多人共有相同地址）
+      if(addr && !incomingIsFen && !hasFen(c.companyRaw?.owner)) {
+        const addrA = normalizeAddr(c.addr || '');
+        if(addrA && addrA === addr) return true; // addr 已在 parse 時標準化
       }
       return false;
     });
@@ -1707,6 +2051,8 @@ function processCompanyData(raw) {
       // 空白才補，有值就保留用戶資料
       if(!existing.addr && addr) existing.addr = addr;
       if(!existing.idno && idno) existing.idno = idno;
+      if(col4BuildNo && !existing.col4BuildNo) existing.col4BuildNo = col4BuildNo;
+      if(col7Name && !existing.col7Name) existing.col7Name = col7Name;
       if(bank && !existing.bank) existing.bank = bank;
       if(priv && !existing.private) existing.private = priv;
       if(legal && !existing.legal) existing.legal = legal;
@@ -1737,45 +2083,122 @@ function processCompanyData(raw) {
       existing.updatedAt = TODAY;
       updated++;
     } else {
-      const logs = parseVisitLogs(processText);
-
-      clients.push({
-        id: nextId++,
-        name, phone, idno,
-        debtPhones: allDebtPhones,
-        heat,
-        remind: '', remindTime: '', remindNote: '',
-        job: '', jobYears: '', finProofs: [],
-        note: noteText,
-        addr, area, mainArea, subArea, commonArea, parkArea: 0, bank, private: priv, legal,
-        purpose: sectionName, buildNo, driveUrl: '', landNo: landNos,
-        logs: logs.slice(0,3),
-        companyRaw,
-        createdAt: TODAY, updatedAt: TODAY,
-      });
-      added++;
+      // 沒有精確比對 → 若有 Claude 金鑰則先做模糊比對，進入審查
+      const fuzzy = CLAUDE_API_KEY ? findFuzzyMatches({ name, addr, phone, idno, col7Name }, clients) : [];
+      if (fuzzy.length > 0) {
+        // 暫存等 Claude 審查
+        pendingReview.push({
+          fields: {
+            name, phone, idno, addr, heat, col7Name,
+            area, mainArea, subArea, commonArea,
+            buildNo, col4BuildNo, landNos, sectionName,
+            bank, priv, legal,
+            allDebtPhones, allPhones,
+            processText, noteText, companyRaw
+          },
+          candidates: fuzzy
+        });
+      } else {
+        const logs = parseVisitLogs(processText);
+        clients.push({
+          id: nextId++,
+          name, phone, idno,
+          debtPhones: allDebtPhones,
+          heat,
+          remind: '', remindTime: '', remindNote: '',
+          job: '', jobYears: '', finProofs: [],
+          note: noteText,
+          addr, area, mainArea, subArea, commonArea, parkArea: 0, bank, private: priv, legal,
+          purpose: sectionName, buildNo, col4BuildNo, col7Name, driveUrl: '', landNo: landNos,
+          logs: logs.slice(0,3),
+          companyRaw,
+          createdAt: TODAY, updatedAt: TODAY,
+        });
+        added++;
+      }
     }
   });
 
-  // 去除重複：同電話只保留一筆，同名要比對地址
-  const seen = new Set();
-  clients = clients.filter(c => {
-    const normPhone = (c.phone||'').replace(/[-\s\(\)#]/g,'');
-    const key1 = normPhone && normPhone.length > 5 ? 'p_'+normPhone : null;
-    // 同名同地址才算重複
-    const addrKey = (c.addr||'').slice(0,10);
-    const key2 = c.name && c.name !== '（未知）' ? 'n_'+c.name+'_'+addrKey : null;
-    if((key1 && seen.has(key1)) || (key2 && seen.has(key2))) return false;
-    if(key1) seen.add(key1);
-    if(key2) seen.add(key2);
-    return true;
-  });
+  // ── 最終處理（dedup + 存檔）────────────────────────────
+  function finalize() {
+    const seen = new Set();
+    clients = clients.filter(c => {
+      const normPhone = (c.phone||'').replace(/[-\s\(\)#]/g,'');
+      const key1 = normPhone && normPhone.length > 5 ? 'p_'+normPhone : null;
+      const addrKey = (c.addr||'').slice(0,10);
+      const key2 = c.name && c.name !== '（未知）' ? 'n_'+c.name+'_'+addrKey : null;
+      if((key1 && seen.has(key1)) || (key2 && seen.has(key2))) return false;
+      if(key1) seen.add(key1);
+      if(key2) seen.add(key2);
+      return true;
+    });
+    autoClassify();
+    saveLocal();
+    pushToSheet().catch(()=>{});
+    render();
+    showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆`);
+  }
 
-  autoClassify();
-  saveLocal();
-  pushToSheet().catch(()=>{});
-  render();
-  showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆`);
+  if (pendingReview.length > 0) {
+    showToast(`⏳ 發現 ${pendingReview.length} 筆模糊案例，交由 AI 輔助審查…`);
+    showClaudeReviewModal(pendingReview, (decisions) => {
+      decisions.forEach(d => {
+        const f = d.fields;
+        if (d.decision === 'merge') {
+          // 套用合併邏輯到最相符的現有客戶
+          const ex = d.candidate;
+          ex.companyRaw = f.companyRaw;
+          if(!ex.addr && f.addr) ex.addr = f.addr;
+          if(!ex.idno && f.idno) ex.idno = f.idno;
+          if(f.col4BuildNo && !ex.col4BuildNo) ex.col4BuildNo = f.col4BuildNo;
+          if(f.col7Name && !ex.col7Name) ex.col7Name = f.col7Name;
+          if(f.bank && !ex.bank) ex.bank = f.bank;
+          if(f.priv && !ex.private) ex.private = f.priv;
+          if(f.legal && !ex.legal) ex.legal = f.legal;
+          if(f.area && !ex.area) ex.area = f.area;
+          if(f.mainArea && !ex.mainArea) ex.mainArea = f.mainArea;
+          if(f.subArea && !ex.subArea) ex.subArea = f.subArea;
+          if(f.commonArea && !ex.commonArea) ex.commonArea = f.commonArea;
+          if(f.buildNo && !ex.buildNo) ex.buildNo = f.buildNo;
+          if(f.landNos && !ex.landNo) ex.landNo = f.landNos;
+          if(f.sectionName && !ex.purpose) ex.purpose = f.sectionName;
+          const defaultHeats = ['最新資料',''];
+          if(defaultHeats.includes(ex.heat||'')) ex.heat = f.heat;
+          if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = f.allDebtPhones;
+          if(f.processText){
+            const newLogs = parseVisitLogs(f.processText);
+            const existingKeys = new Set((ex.logs||[]).map(l=>(l.date||'')+(l.text||'').slice(0,20)));
+            const toAdd = newLogs.filter(l=>!existingKeys.has((l.date||'')+(l.text||'').slice(0,20)));
+            if(toAdd.length) ex.logs = [...toAdd,...(ex.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+          }
+          ex.updatedAt = TODAY;
+          updated++;
+        } else {
+          // 新增
+          const logs = parseVisitLogs(f.processText||'');
+          clients.push({
+            id: nextId++,
+            name: f.name, phone: f.phone, idno: f.idno,
+            debtPhones: f.allDebtPhones||[],
+            heat: f.heat,
+            remind:'', remindTime:'', remindNote:'',
+            job:'', jobYears:'', finProofs:[],
+            note: f.noteText||'',
+            addr: f.addr, area: f.area, mainArea: f.mainArea, subArea: f.subArea,
+            commonArea: f.commonArea, parkArea: 0, bank: f.bank, private: f.priv, legal: f.legal,
+            purpose: f.sectionName, buildNo: f.buildNo, col4BuildNo: f.col4BuildNo, col7Name: f.col7Name, driveUrl:'', landNo: f.landNos,
+            logs: logs.slice(0,3),
+            companyRaw: f.companyRaw,
+            createdAt: TODAY, updatedAt: TODAY,
+          });
+          added++;
+        }
+      });
+      finalize();
+    });
+  } else {
+    finalize();
+  }
 }
 
 // ── Toolbar visibility settings ───────────────────────────
