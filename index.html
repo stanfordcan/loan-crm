@@ -1288,7 +1288,9 @@ const toRow = c => [
 ];
 
 const fromRow = (row, i) => {
-  const g = (j) => row[j] ?? '';
+  // gs() 確保字串欄一律回傳字串（Google Sheets 可能把純數字欄轉成 number 型態）
+  const gs = (j) => { const v = row[j]; return (v === null || v === undefined) ? '' : String(v); };
+  const g = gs; // 別名保留，同時讓數字欄（area/bank 等）用 parseFloat 包，不受影響
   let logs = [], finProofs = [];
   try { logs = JSON.parse(g(28)||'[]'); logs = logs.map(l=>({...l, date: normalizeDate(l.date)})); } catch(e){ logs=[]; }
   try { finProofs = JSON.parse(g(9)||'[]'); } catch(e){ finProofs=[]; }
@@ -2415,7 +2417,7 @@ function render(){
   if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
   else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
-  if(q) list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.addr||'').toLowerCase().includes(q)||(c.idno||'').toLowerCase().includes(q)||(c.note||'').toLowerCase().includes(q));
+  if(q) list=list.filter(c=>String(c.name||'').toLowerCase().includes(q)||String(c.phone||'').includes(q)||String(c.addr||'').toLowerCase().includes(q)||String(c.idno||'').toLowerCase().includes(q)||String(c.note||'').toLowerCase().includes(q));
   // 縣市篩選
   if(selectedCities.size > 0) {
     list = list.filter(c => {
@@ -2544,7 +2546,7 @@ function getVisibleList(){
   if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
   else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
-  if(q) list=list.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.addr||'').toLowerCase().includes(q)||(c.idno||'').toLowerCase().includes(q)||(c.note||'').toLowerCase().includes(q));
+  if(q) list=list.filter(c=>String(c.name||'').toLowerCase().includes(q)||String(c.phone||'').includes(q)||String(c.addr||'').toLowerCase().includes(q)||String(c.idno||'').toLowerCase().includes(q)||String(c.note||'').toLowerCase().includes(q));
   if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
   return list;
 }
