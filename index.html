@@ -699,6 +699,11 @@ async function applyUrlSettings() {
       <button class="stab" onclick="sSTab(4,this)">房價評估</button>
     </div>
     <div class="sbody">
+      <!-- 疑似重複警告 -->
+      <div id="dupPanel" style="display:none;margin:0 0 14px;border-radius:10px;background:#FFF8E1;border:1.5px solid #FFD54F;padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:#B45309;margin-bottom:8px">⚠️ 發現 <span id="dupCount">0</span> 筆疑似重複客戶，點擊可查看</div>
+        <div id="dupList" style="display:flex;flex-wrap:wrap;gap:7px"></div>
+      </div>
       <div id="sp0">
         <div class="frow"><label>姓名 *</label><input id="fName" placeholder="客戶姓名"/></div>
         <div class="frow">
@@ -1487,6 +1492,82 @@ async function syncFromCompany() {
     console.error(e);
   }
   btn.textContent='🏢 從總檔更新'; btn.disabled=false;
+}
+
+// ── 疑似重複比對 ───────────────────────────────────────────
+
+function findDupCandidates(c) {
+  if (!c) return [];
+  const normPhone = (c.phone || '').replace(/[-\s()#]/g, '');
+  const normAddr  = normalizeAddr(c.addr || '');
+  const nameA     = (c.col7Name || c.name || '').replace(/[○＊*（）\s]/g, '');
+  const results   = [];
+
+  clients.forEach(function(other) {
+    if (other.id === c.id) return;
+    const reasons = [];
+
+    // 1. 電話完全相同
+    const otherPhone = (other.phone || '').replace(/[-\s()#]/g, '');
+    if (normPhone && normPhone.length >= 8 && otherPhone && normPhone === otherPhone)
+      reasons.push('電話相同');
+
+    // 2. 身分證完全相同
+    if (c.idno && other.idno && c.idno === other.idno)
+      reasons.push('身分證相同');
+
+    // 3. 建號完全相同（謄本唯一碼）
+    if (c.col4BuildNo && other.col4BuildNo && c.col4BuildNo === other.col4BuildNo)
+      reasons.push('建號相同');
+
+    // 4. 地址完全相同（6字以上才算）
+    const otherAddr = normalizeAddr(other.addr || '');
+    if (!reasons.length && normAddr && normAddr.length >= 6 && otherAddr === normAddr)
+      reasons.push('地址相同');
+
+    // 5. 姓名高度相似（無其他線索時才算）
+    if (!reasons.length) {
+      const nameB = (other.col7Name || other.name || '').replace(/[○＊*（）\s]/g, '');
+      if (nameA && nameB && nameA.length >= 2 && nameB.length >= 2) {
+        if (nameA === nameB) reasons.push('姓名相同');
+        else if (nameA[0] === nameB[0] && nameA.length === nameB.length && nameA.length >= 3)
+          reasons.push('疑似同名');
+      }
+    }
+
+    if (reasons.length > 0) results.push({ client: other, reasons: reasons });
+  });
+
+  // 按命中數多的排前面，最多顯示 6 筆
+  results.sort(function(a, b) { return b.reasons.length - a.reasons.length; });
+  return results.slice(0, 6);
+}
+
+function renderDupPanel(c) {
+  const panel   = document.getElementById('dupPanel');
+  const listEl  = document.getElementById('dupList');
+  const countEl = document.getElementById('dupCount');
+  const dups    = findDupCandidates(c);
+
+  if (dups.length === 0) { panel.style.display = 'none'; return; }
+
+  const hColor = {
+    '最新資料':'#2B5BE2','覆訪':'#D97706','已簽約':'#1D8C5E',
+    '無效案件':'#555','新鑫':'#7C3AED','待分類':'#888'
+  };
+
+  countEl.textContent = dups.length;
+  listEl.innerHTML = dups.map(function(d) {
+    const oc = d.client;
+    const col = hColor[oc.heat] || '#888';
+    return '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer;background:#fff;border:1px solid #FFD54F;border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
+      + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (oc.name || '（未知）') + '</div>'
+      + '<div style="font-size:11px;color:#888;margin:1px 0">' + (oc.phone || '（無電話）') + '</div>'
+      + '<div style="font-size:11px;color:' + col + ';font-weight:600">' + oc.heat + '</div>'
+      + '<div style="font-size:10px;color:#B45309;margin-top:2px">' + d.reasons.join('、') + '</div>'
+      + '</div>';
+  }).join('');
+  panel.style.display = 'block';
 }
 
 // ── Claude AI 輔助去重 ──────────────────────────────────────
@@ -2734,6 +2815,7 @@ function openCalendar(id) {
 // ── Sheet modal ───────────────────────────────────────────
 function openAdd(){
   editId=null;formDirty=false;
+  document.getElementById('dupPanel').style.display='none';
   document.getElementById('sheetTitle').textContent='新增客戶';
   document.getElementById('btnDel').style.display='none';
   ['fName','fPhone','fIdno','fAddr','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
@@ -2764,6 +2846,7 @@ function openEdit(id){
   const c=clients.find(x=>x.id===id);
   if(!c)return;
   document.getElementById('sheetTitle').textContent=c.name;
+  renderDupPanel(c);
   document.getElementById('btnDel').style.display='';
   document.getElementById('fName').value=c.name||'';
   document.getElementById('fPhone').value=c.phone||'';
