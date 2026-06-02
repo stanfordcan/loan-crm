@@ -4054,13 +4054,12 @@ document.getElementById('sheetBg').addEventListener('click',e=>{if(e.target===do
 document.getElementById('imBg').addEventListener('click',e=>{if(e.target===document.getElementById('imBg'))closeImport();});
 
 async function clearAllData() {
-  if(!confirm(`⚠️ 第一次確認\n\n即將清除全部 ${clients.length} 筆客戶資料。\n此動作無法復原，確定要繼續嗎？`)) return;
-  if(!confirm(`🚨 第二次確認\n\n請再次確認：所有資料將被永久刪除，\n包含聯絡記錄、提醒設定等。\n\n確定清除？`)) return;
+  if(!confirm(`🗑️ 清除本地快取\n\n將清除這台裝置的本地資料，下次登入時會從雲端重新載入。\n\n雲端（Firestore）資料不受影響。`)) return;
   clients = [];
   nextId = 1;
-  saveLocal(); // 清除本機快取 + Firestore（不動 Google Sheets）
+  try { localStorage.removeItem(LOCAL_KEY); } catch(e){}
   render();
-  showToast('🗑️ 已清除所有資料');
+  showToast('🗑️ 本地快取已清除，雲端資料保留');
 }
 
 // 只清除舊版本 v1，保留 v2 資料
