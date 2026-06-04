@@ -1624,14 +1624,11 @@ function findDupCandidates(c) {
     if (!reasons.length && normAddr && normAddr.length >= 6 && otherAddr === normAddr)
       reasons.push('地址相同');
 
-    // 5. 姓名高度相似（無其他線索時才算）
+    // 5. 姓名完全一樣（無其他線索時才算，且要完全相同才觸發）
     if (!reasons.length) {
       const nameB = (other.col7Name || other.name || '').replace(/[○＊*（）\s]/g, '');
-      if (nameA && nameB && nameA.length >= 2 && nameB.length >= 2) {
-        if (nameA === nameB) reasons.push('姓名相同');
-        else if (nameA[0] === nameB[0] && nameA.length === nameB.length && nameA.length >= 3)
-          reasons.push('疑似同名');
-      }
+      if (nameA && nameB && nameA.length >= 2 && nameB.length >= 2 && nameA === nameB)
+        reasons.push('姓名相同');
     }
 
     if (reasons.length > 0) results.push({ client: other, reasons: reasons });
