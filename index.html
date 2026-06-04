@@ -581,7 +581,7 @@ async function syncFromFirestoreIfNewer() {
     if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
     if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
 
-    // 比較時間戳
+    // 比較時間戳（若本地 clients 是空的，不管時間戳一律從 Firestore 載入）
     let localTs = '';
     try {
       const ld = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
@@ -589,7 +589,7 @@ async function syncFromFirestoreIfNewer() {
     } catch(e){}
     const firestoreTs = raw.updatedAt || '';
 
-    if (firestoreTs <= localTs) return false; // 本地已是最新，不需要更新
+    if (clients.length > 0 && firestoreTs <= localTs) return false; // 本地已是最新，不需要更新
 
     // Firestore 有更新的資料，覆蓋本地
     if (!raw.data) return false;
@@ -606,8 +606,9 @@ async function syncFromFirestoreIfNewer() {
       }));
     nextId = d.nextId || 1;
 
-    // 本地快取同步成 Firestore 的時間戳（避免下次重複更新）
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: firestoreTs})); } catch(e){}
+    // 本地快取同步成 Firestore 的時間戳（含 uid，讓 loadLocal 下次能正常讀取）
+    const uid = currentUser ? currentUser.uid : '';
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: firestoreTs, uid})); } catch(e){}
     return true;
 
   } catch(e) { console.error('Firestore background check:', e); return false; }
