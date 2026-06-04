@@ -1542,15 +1542,16 @@ function jsonpFetch(url, timeoutMs) {
 async function createDriveFolder(){
   const name = document.getElementById('fName').value.trim();
   if(!name){alert('請先填寫客戶姓名');return;}
+  if(!COMPANY_URL){showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址，資料夾會建立在你自己的 Drive');return;}
   const btn = document.getElementById('btnDrive');
   btn.textContent='⏳ 建立中…';btn.disabled=true;
   try{
-    const data = await jsonpFetch(GAS_URL+'?action=createFolder&token='+API_TOKEN+'&name='+encodeURIComponent(name));
+    const data = await jsonpFetch(COMPANY_URL+'?action=createFolder&token='+API_TOKEN+'&name='+encodeURIComponent(name));
     if(data&&data.status==='ok'&&data.url){
       document.getElementById('fDriveUrl').value=data.url;
       document.getElementById('btnOpenDrive').style.display='';
       btn.textContent='✅ 已建立';
-      showToast('📁 資料夾建立成功！');
+      showToast('📁 資料夾已建立在你的 Google Drive');
     } else {
       showToast('⚠️ 建立失敗');btn.textContent='📁 建立';
     }
