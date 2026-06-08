@@ -2256,7 +2256,10 @@ function processCompanyData(raw) {
       if(sectionName && !existing.purpose) existing.purpose = sectionName;
       // 分類：只有還是預設值（追很緊）或空白才更新，用戶改過的分類絕對不動
       const defaultHeats = ['追很緊', '最新資料', ''];
-      if(defaultHeats.includes(existing.heat||'')) existing.heat = heat;
+      // 追蹤ing 舊資料被錯誤分到「覆訪」的也一起更新
+      const canUpdateHeat = defaultHeats.includes(existing.heat||'') ||
+                            (heat === '追很緊' && existing.heat === '覆訪');
+      if(canUpdateHeat) existing.heat = heat;
       // 負債電話：空白才補
       if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
       // 聯絡記錄：只加入新的，不恢復已刪除的
