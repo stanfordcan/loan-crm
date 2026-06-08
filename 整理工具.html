@@ -61,26 +61,27 @@ const CATEGORY_PRIORITY = {
   '無效案件': 6,
   '已塗銷':   5,
   '已簽約':   4,
-  '追蹤ing':  3,
+  '追很緊':   3,  // 追蹤ing 分頁對應此分類
   '覆訪':     2,
+  '新鑫':     1,
   '找':       1,
-  '新鑫':     1,  // 與「找」同級，欄位格式不同（另外處理）
+  '待分類':   1,
   '略過':     0
 };
-const CATEGORY_OPTIONS = ['無效案件','已塗銷','已簽約','追蹤ing','覆訪','找','新鑫','略過'];
+const CATEGORY_OPTIONS = ['無效案件','已塗銷','已簽約','追很緊','覆訪','找','新鑫','待分類','略過'];
 const HEADER_ROWS = 2;
 
-// 關鍵字猜測分類
+// 關鍵字猜測分類（對應 app 現有分類）
 function guessCat(name) {
   const s = name.trim();
   if (/無效|失效|斷聯/.test(s))        return '無效案件';
   if (/塗銷/.test(s))                  return '已塗銷';
   if (/簽約/.test(s))                  return '已簽約';
-  if (/追蹤|ing/i.test(s))             return '追蹤ing';
+  if (/追蹤|ing/i.test(s))             return '追很緊';   // 追蹤ing → 追很緊
   if (/覆訪|回訪/.test(s))             return '覆訪';
-  if (s === '找' || /^找/.test(s))     return '找';
+  if (s === '找' || /^找/.test(s))     return '覆訪';     // 找 → 覆訪
   if (/新鑫/.test(s))                  return '新鑫';
-  return '略過';
+  return '待分類';                                         // 未知分頁 → 待分類
 }
 
 let loadedWb = null;
