@@ -431,7 +431,7 @@ auth.onAuthStateChanged(async user => {
       if (updated) {
         if (typeof autoClassify === 'function') autoClassify();
         if (typeof render === 'function') render();
-        showToast('☁️ 已從雲端載入最新資料');
+        showToast('☁️ 已從雲端同步最新資料');
       }
     }).catch(() => {});
 
@@ -720,7 +720,7 @@ async function applyUrlSettings() {
   <select id="batchHeat" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;flex-shrink:0;-webkit-appearance:none">
     <option value="">移動到…</option>
     <option value="覆訪">🟡 覆訪</option>
-    <option value="最新資料">🔵 最新資料</option>
+    <option value="追很緊">🔵 追很緊</option>
     <option value="新鑫">🟣 新鑫</option>
     <option value="待分類">🟤 待分類</option>
     <option value="已簽約">🟢 已簽約</option>
@@ -812,7 +812,7 @@ async function applyUrlSettings() {
         <div class="frow"><label>追蹤熱度</label>
           <select id="fHeat">
             <option value="待分類">🟤 待分類</option>
-            <option value="最新資料">🔵 最新資料</option>
+            <option value="追很緊">🔵 追很緊</option>
             <option value="覆訪">🟡 覆訪</option>
             <option value="新鑫">🟣 新鑫</option>
             <option value="已簽約">🟢 已簽約</option>
@@ -1305,8 +1305,8 @@ function autoClassify() {
       c.heat = '覆訪';
       changed = true;
     }
-    // 超過7天未分類的「最新資料」→「待分類」
-    if(c.heat === '最新資料' && c.createdAt && c.createdAt <= CUTOFF) {
+    // 超過7天未分類的「追很緊」→「待分類」
+    if(c.heat === '追很緊' && c.createdAt && c.createdAt <= CUTOFF) {
       c.heat = '待分類';
       changed = true;
     }
@@ -1408,7 +1408,7 @@ const fromRow = (row, i) => {
   try { rich = JSON.parse(g(34)||'{}'); } catch(e){ rich={}; }
   return {
     id: parseInt(g(32)) || (i+1),
-    name:g(0), phone:fixPhone(g(1)), idno:g(2), heat:g(3)||'最新資料',
+    name:g(0), phone:fixPhone(g(1)), idno:g(2), heat:g(3)||'追很緊',
     remind:normalizeDate(g(4)), remindTime:normalizeTime(g(5)), remindNote:g(6),
     job:g(7), jobYears:g(8), finProofs,
     addr:g(10),
@@ -1650,7 +1650,7 @@ function renderDupPanel(c) {
   if (dups.length === 0) { panel.style.display = 'none'; return; }
 
   const hColor = {
-    '最新資料':'#2B5BE2','覆訪':'#D97706','已簽約':'#1D8C5E',
+    '追很緊':'#2B5BE2','覆訪':'#D97706','已簽約':'#1D8C5E',
     '無效案件':'#555','新鑫':'#7C3AED','待分類':'#888'
   };
 
@@ -1867,9 +1867,9 @@ function processCompanyData(raw) {
     if(/簽約/.test(s))           return '已簽約';
     if(/新鑫/.test(s))           return '新鑫';
     if(/覆訪|回訪/.test(s))      return '覆訪';
-    if(/追蹤|ing/i.test(s))      return '覆訪';
+    if(/追蹤|ing/i.test(s))      return '追很緊';
     if(/^找$|^找/.test(s))       return '覆訪';
-    return '最新資料';
+    return '追很緊';
   }
 
   // Detect if row is 新鑫 format (col1 looks like ID number, col2 looks like phone)
@@ -2248,8 +2248,8 @@ function processCompanyData(raw) {
       if(buildNo && !existing.buildNo) existing.buildNo = buildNo;
       if(landNos && !existing.landNo) existing.landNo = landNos;
       if(sectionName && !existing.purpose) existing.purpose = sectionName;
-      // 分類：只有還是預設值（最新資料）或空白才更新，用戶改過的分類絕對不動
-      const defaultHeats = ['最新資料', ''];
+      // 分類：只有還是預設值（追很緊）或空白才更新，用戶改過的分類絕對不動
+      const defaultHeats = ['追很緊', ''];
       if(defaultHeats.includes(existing.heat||'')) existing.heat = heat;
       // 負債電話：空白才補
       if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
@@ -2347,7 +2347,7 @@ function processCompanyData(raw) {
           if(f.buildNo && !ex.buildNo) ex.buildNo = f.buildNo;
           if(f.landNos && !ex.landNo) ex.landNo = f.landNos;
           if(f.sectionName && !ex.purpose) ex.purpose = f.sectionName;
-          const defaultHeats = ['最新資料',''];
+          const defaultHeats = ['追很緊',''];
           if(defaultHeats.includes(ex.heat||'')) ex.heat = f.heat;
           if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = f.allDebtPhones;
           if(f.processText){
@@ -2483,8 +2483,8 @@ function remChip(r,rt){
   const cls=s==='over'?'rc-over':s==='today'?'rc-today':s==='soon'?'rc-soon':'rc-ok';
   return`<span class="rchip ${cls}">${label}</span>`;
 }
-const hCls={'待分類':'hp','覆訪':'hw','最新資料':'hc','已簽約':'hd','無效案件':'hf','新鑫':'hx'};
-const hOrd={'待分類':0,'覆訪':1,'最新資料':2,'新鑫':3,'已簽約':4,'無效案件':5};
+const hCls={'待分類':'hp','覆訪':'hw','追很緊':'hc','已簽約':'hd','無效案件':'hf','新鑫':'hx'};
+const hOrd={'待分類':0,'覆訪':1,'追很緊':2,'新鑫':3,'已簽約':4,'無效案件':5};
 const rOrd={over:0,today:1,soon:2,ok:3,null:4};
 
 let showFullTotal = false; // 手機端切換含無效總計
@@ -2554,12 +2554,12 @@ function updateTabs(){
     over: clients.filter(c=>c.remind&&c.remind<TODAY&&!['已簽約','無效案件'].includes(c.heat)).length,
     '待分類': clients.filter(c=>c.heat==='待分類').length,
     '覆訪': clients.filter(c=>c.heat==='覆訪').length,
-    '最新資料': clients.filter(c=>c.heat==='最新資料').length,
+    '追很緊': clients.filter(c=>c.heat==='追很緊').length,
     '新鑫': clients.filter(c=>c.heat==='新鑫').length,
     '已簽約': clients.filter(c=>c.heat==='已簽約').length,
     '無效案件': clients.filter(c=>c.heat==='無效案件').length,
   };
-  const tabs=[{k:'all',l:'全部'},{k:'today',l:'今日'},{k:'over',l:'逾期'},{k:'覆訪',l:'覆訪'},{k:'最新資料',l:'最新資料'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
+  const tabs=[{k:'all',l:'全部'},{k:'today',l:'今日'},{k:'over',l:'逾期'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
   document.getElementById('tabsWrap').innerHTML=tabs.map(t=>{
     const n=cnt[t.k];
     return`<button class="tbtn ${curTab===t.k?'active':''}" onclick="setTab('${t.k}')">${t.l}${n?`<span style="font-size:10px;opacity:.65;margin-left:2px">(${n})</span>`:''}</button>`;
@@ -2926,7 +2926,7 @@ function openAdd(){
   document.getElementById('btnOpenDrive').style.display='none';
   document.getElementById('btnDrive').textContent='📁 建立';
   ['fArea','fMainArea','fSubArea','fCommonArea','fParkArea','fLandArea','fLandtaxNormal','fLandtaxSelf','fBank','fLegal','fPrivate'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('fHeat').value='最新資料';
+  document.getElementById('fHeat').value='追很緊';
   document.getElementById('fRemind').value='';
   document.getElementById('fRemindHour').value='';
   document.getElementById('fRemindMin').value='';
@@ -2953,7 +2953,7 @@ function openEdit(id){
   document.getElementById('fName').value=c.name||'';
   document.getElementById('fPhone').value=c.phone||'';
   document.getElementById('fIdno').value=c.idno||'';
-  document.getElementById('fHeat').value=c.heat||'最新資料';
+  document.getElementById('fHeat').value=c.heat||'追很緊';
   document.getElementById('fRemind').value=c.remind||'';
   const rt = c.remindTime||'';
   document.getElementById('fRemindHour').value = rt ? rt.slice(0,2) : '';
