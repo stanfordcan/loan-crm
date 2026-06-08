@@ -1864,9 +1864,12 @@ function processCompanyData(raw) {
   function sheetToHeat(sheetName) {
     const s = (sheetName||'').trim();
     if(/無效|斷聯|塗銷/.test(s)) return '無效案件';
-    if(/簽約/.test(s)) return '已簽約';
-    if(/新鑫/.test(s)) return '新鑫';
-    return '最新資料'; // 所有匯入資料預設為最新資料
+    if(/簽約/.test(s))           return '已簽約';
+    if(/新鑫/.test(s))           return '新鑫';
+    if(/覆訪|回訪/.test(s))      return '覆訪';
+    if(/追蹤|ing/i.test(s))      return '覆訪';
+    if(/^找$|^找/.test(s))       return '覆訪';
+    return '最新資料';
   }
 
   // Detect if row is 新鑫 format (col1 looks like ID number, col2 looks like phone)
