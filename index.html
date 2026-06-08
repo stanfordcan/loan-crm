@@ -552,7 +552,7 @@ async function loadFromFirestore() {
         if (d) {
           clients = (d.clients||[])
             .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
-            .map(c => ({
+            .map(c => migrateHeat({
               ...c,
               remind     : normalizeDate(c.remind),
               remindTime : normalizeTime(c.remindTime),
@@ -598,7 +598,7 @@ async function syncFromFirestoreIfNewer() {
 
     clients = (d.clients||[])
       .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
-      .map(c => ({
+      .map(c => migrateHeat({
         ...c,
         remind     : normalizeDate(c.remind),
         remindTime : normalizeTime(c.remindTime),
@@ -1147,6 +1147,12 @@ function fixPhone(val) {
   return s;
 }
 
+// 舊分類名稱遷移（最新資料 → 追很緊）
+function migrateHeat(c) {
+  if (c.heat === '最新資料') c.heat = '追很緊';
+  return c;
+}
+
 function saveLocal() {
   const ts  = new Date().toISOString();
   const uid = currentUser ? currentUser.uid : '';
@@ -1161,7 +1167,7 @@ function loadLocal() {
       if (!d.uid || !currentUser || d.uid !== currentUser.uid) return false;
       clients = (d.clients||[])
         .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
-        .map(c => ({
+        .map(c => migrateHeat({
           ...c,
           remind: normalizeDate(c.remind),
           remindTime: normalizeTime(c.remindTime),
@@ -2249,7 +2255,7 @@ function processCompanyData(raw) {
       if(landNos && !existing.landNo) existing.landNo = landNos;
       if(sectionName && !existing.purpose) existing.purpose = sectionName;
       // 分類：只有還是預設值（追很緊）或空白才更新，用戶改過的分類絕對不動
-      const defaultHeats = ['追很緊', ''];
+      const defaultHeats = ['追很緊', '最新資料', ''];
       if(defaultHeats.includes(existing.heat||'')) existing.heat = heat;
       // 負債電話：空白才補
       if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
