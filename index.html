@@ -898,11 +898,12 @@ async function applyUrlSettings() {
           </div>
         </div>
         <div class="fg2">
-          <div class="frow"><label>銀行貸款（萬）</label><input type="number" id="fBank" placeholder="" oninput="syncToEval('ev_bank', this.value);refreshLoanSection()"/></div>
-          <div class="frow"><label>法人／租賃（萬）</label><input type="number" id="fLegal" placeholder="" oninput="syncToEval('ev_legal', this.value);refreshLoanSection()"/></div>
+          <div class="frow"><label>銀行貸款（萬）</label><input type="number" id="fBank" placeholder="" oninput="onLoanInput('bank')"/></div>
+          <div class="frow"><label>法人／租賃（萬）</label><input type="number" id="fLegal" placeholder="" oninput="onLoanInput('legal')"/></div>
         </div>
+        <div id="bankLegalHint" style="display:none;margin:-2px 0 6px"></div>
         <div class="frow"><label>民間借貸（萬）</label>
-          <input type="number" id="fPrivate" placeholder="" oninput="onPrivateInput()"/>
+          <input type="number" id="fPrivate" placeholder="" oninput="onLoanInput('private')"/>
           <div id="privateHint" style="display:none;margin-top:5px"></div>
         </div>
         <div class="frow"><label>其他貸款</label>
@@ -2259,9 +2260,9 @@ function processCompanyData(raw) {
       if(!existing.idno && idno) existing.idno = idno;
       if(col4BuildNo && !existing.col4BuildNo) existing.col4BuildNo = col4BuildNo;
       if(col7Name && !existing.col7Name) existing.col7Name = col7Name;
-      if(bank && !existing.bank) existing.bank = bank;
-      if(priv && !existing.private) existing.private = priv;
-      if(legal && !existing.legal) existing.legal = legal;
+      if(bank && !existing.bank){ existing.bank = bank; existing.loanEstimated = true; }
+      if(priv && !existing.private){ existing.private = priv; if(existing.privateConfirmed===undefined) existing.privateConfirmed = false; }
+      if(legal && !existing.legal){ existing.legal = legal; existing.loanEstimated = true; }
       if(area && !existing.area) existing.area = area;
       if(mainArea && !existing.mainArea) existing.mainArea = mainArea;
       if(subArea && !existing.subArea) existing.subArea = subArea;
@@ -2318,6 +2319,8 @@ function processCompanyData(raw) {
           job: '', jobYears: '', finProofs: [],
           note: noteText,
           addr, area, mainArea, subArea, commonArea, parkArea: 0, bank, private: priv, legal,
+          loanEstimated: (bank>0||legal>0)?true:undefined,
+          privateConfirmed: priv>0?false:undefined,
           purpose: sectionName, buildNo, col4BuildNo, col7Name, driveUrl: '', landNo: landNos,
           logs: logs.slice(0,3),
           companyRaw,
@@ -3544,7 +3547,8 @@ function migrateProperties(c){
     parkArea:c.parkArea||0,landArea:c.landArea||0,bank:c.bank||0,legal:c.legal||0,private:c.private||0,
     extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',
     parkType:c.parkType||'無',parkTitle:c.parkTitle||'非獨立',parkVal:c.parkVal||0,
-    landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0});
+    landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
+    loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed});
   return [p];
 }
 
@@ -3598,6 +3602,7 @@ function savePropFields(){
   p.private=parseFloat(document.getElementById('fPrivate')?.value)||0;
   // 保留民間確認狀態（undefined=手動輸入不提示；false=匯入未確認；true=已確認）
   if(p.private<=0) p.privateConfirmed=undefined;
+  if(p.bank<=0 && p.legal<=0) p.loanEstimated=undefined;
   p.driveUrl=document.getElementById('fDriveUrl')?.value.trim()||'';
   p.extraLoans=[...extraLoans];
   p.extraLands=[...extraLands];
@@ -3632,38 +3637,47 @@ function loadPropFields(idx){
   else{btnO.style.display='none';btnC.textContent='📁 建立';}
   extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
   extraLands=[...(p.extraLands||[])]; renderExtraLands();
-  renderPrivateHint();
+  renderLoanHints();
 }
 
-// 民間借貸「最高限額」提示 + 已確認按鈕
-function onPrivateInput(){
-  syncToEval('ev_private', document.getElementById('fPrivate').value);
+// 貸款金額輸入 + 提示（銀行/租賃÷1.2估算、民間最高限額勾選確認）
+function onLoanInput(which){
+  const map={bank:'ev_bank',legal:'ev_legal',private:'ev_private'};
+  const id={bank:'fBank',legal:'fLegal',private:'fPrivate'}[which];
+  syncToEval(map[which], document.getElementById(id).value);
   refreshLoanSection();
-  renderPrivateHint();
+  renderLoanHints();
 }
-function renderPrivateHint(){
-  const hint=document.getElementById('privateHint');
-  if(!hint) return;
+function renderLoanHints(){
   const p=properties[curPropIdx];
-  const val=parseFloat(document.getElementById('fPrivate')?.value)||0;
-  // 只有「來自匯入、尚未確認」(privateConfirmed===false) 且有金額時才提示
-  if(p && p.privateConfirmed===false && val>0){
-    hint.style.display='';
-    hint.innerHTML=`<div style="display:flex;align-items:center;gap:8px;background:var(--obg);border:1px solid var(--orange);border-radius:7px;padding:6px 9px;font-size:11px;color:var(--orange)">
-      <span style="flex:1">⚠️ 此為謄本「最高限額」設定金額，非實際借款</span>
-      <button onclick="confirmPrivate()" style="background:var(--orange);color:#fff;border:none;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✅ 已確認</button>
-    </div>`;
-  } else if(p && p.privateConfirmed===true && val>0){
-    hint.style.display='';
-    hint.innerHTML=`<div style="font-size:11px;color:var(--green);padding:2px 2px">✅ 已確認實際金額</div>`;
-  } else {
-    hint.style.display='none';
-    hint.innerHTML='';
+  const bank=parseFloat(document.getElementById('fBank')?.value)||0;
+  const legal=parseFloat(document.getElementById('fLegal')?.value)||0;
+  const priv=parseFloat(document.getElementById('fPrivate')?.value)||0;
+  // 銀行/租賃：已自最高限額 ÷1.2 估算（靜態提示）
+  const blHint=document.getElementById('bankLegalHint');
+  if(blHint){
+    if(p && p.loanEstimated && (bank>0||legal>0)){
+      blHint.style.display='';
+      blHint.innerHTML=`<div style="font-size:11px;color:var(--t3);background:var(--s2);border-radius:6px;padding:5px 9px">ℹ️ 銀行／租賃金額已自謄本「最高限額」÷1.2 估算實貸</div>`;
+    } else { blHint.style.display='none'; blHint.innerHTML=''; }
+  }
+  // 民間：最高限額，需勾選確認
+  const pHint=document.getElementById('privateHint');
+  if(pHint){
+    if(p && p.privateConfirmed!==undefined && priv>0){
+      const checked=p.privateConfirmed===true;
+      pHint.style.display='';
+      pHint.innerHTML=`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;${checked?'color:var(--green)':'color:var(--orange)'}">
+        <input type="checkbox" ${checked?'checked':''} onchange="togglePrivateConfirm(this.checked)" style="cursor:pointer">
+        <span>已確認金額</span>
+        ${checked?'':'<span style="flex:1">⚠️ 目前為謄本「最高限額」，非實際借款，請核實後勾選</span>'}
+      </label>`;
+    } else { pHint.style.display='none'; pHint.innerHTML=''; }
   }
 }
-function confirmPrivate(){
+function togglePrivateConfirm(v){
   const p=properties[curPropIdx];
-  if(p){ p.privateConfirmed=true; renderPrivateHint(); showToast('✅ 民間金額已標記為確認'); }
+  if(p){ p.privateConfirmed=v; renderLoanHints(); }
 }
 
 function switchProperty(idx){
@@ -3885,16 +3899,16 @@ function tenToggleRaw(idx){
 
 function renderTenPreview(){
   const b=tenParsed?.biao||{}, s=tenParsed?.suo||{}, loans=tenParsed?.ta||[];
-  const bankT=loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0);
-  const legalT=loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0);
+  const bankT=Math.ceil(loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0)/1.2);
+  const legalT=Math.ceil(loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0)/1.2);
   const privT=loans.filter(l=>l.type==='private').reduce((a,l)=>a+l.amt,0);
   const rows=[
     ['姓名',s.name],['身分證',s.idno],['門牌地址',b.addr],['地段',b.purpose],
     ['建號',b.buildNo],['地號',b.landNo],
     ['主建物',b.mainArea?b.mainArea+'坪':null],['附屬',b.subArea?b.subArea+'坪':null],
     ['公設',b.commonArea?b.commonArea+'坪':null],['總坪數',b.area?b.area+'坪':null],
-    ['銀行貸款',bankT?bankT+'萬':null],['法人貸款',legalT?legalT+'萬':null],
-    ['民間借貸',privT?privT+'萬':null],['備註',s.note],
+    ['銀行貸款',bankT?bankT+'萬(÷1.2估)':null],['法人貸款',legalT?legalT+'萬(÷1.2估)':null],
+    ['民間借貸',privT?privT+'萬(最高限額)':null],['備註',s.note],
   ].filter(r=>r[1]);
   if(!rows.length){document.getElementById('tenPreview').innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">未能解析出任何資料</div>';return;}
   document.getElementById('tenPreview').innerHTML=`
@@ -3925,8 +3939,11 @@ function doTenImport(){
 function applyTenParsed(mode){
   if(!tenParsed) return;
   const b=tenParsed.biao||{}, s=tenParsed.suo||{}, loans=tenParsed.ta||[];
-  const bankT=loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0);
-  const legalT=loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0);
+  // 銀行/租賃：謄本是最高限額，÷1.2 估實貸（與總檔、AI 匯入一致）；民間保留原值待確認
+  const bankRaw=loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0);
+  const legalRaw=loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0);
+  const bankT=Math.ceil(bankRaw/1.2);
+  const legalT=Math.ceil(legalRaw/1.2);
   const privT=loans.filter(l=>l.type==='private').reduce((a,l)=>a+l.amt,0);
   if(mode==='new'){
     if(s.name) document.getElementById('fName').value=s.name;
@@ -3938,6 +3955,8 @@ function applyTenParsed(mode){
     addr:b.addr||'',purpose:b.purpose||'',buildNo:b.buildNo||'',landNo:b.landNo||'',
     area:b.area||0,mainArea:b.mainArea||0,subArea:b.subArea||0,commonArea:b.commonArea||0,
     parkArea:0,bank:bankT,legal:legalT,private:privT,
+    loanEstimated:(bankT>0||legalT>0)?true:undefined,
+    privateConfirmed:privT>0?false:undefined,
     extraLoans:[],driveUrl:'',parkType:'無',parkTitle:'非獨立',parkVal:0,
     landtaxNormal:0,landtaxSelf:0,
   };
@@ -4313,7 +4332,8 @@ function recordToProps(rec){
     np.legal=Math.ceil((parseFloat(p.legal)||0)/1.2);
     // 民間：保留謄本設定金額原值（最高限額），並標記未確認，讓使用者手動核實
     np.private=parseFloat(p.private)||0;
-    np.privateConfirmed=false;
+    if(np.bank>0||np.legal>0) np.loanEstimated=true;
+    if(np.private>0) np.privateConfirmed=false;
     np.label=np.buildNo?('建'+np.buildNo.replace(/-0+$/,'')):(np.addr?np.addr.slice(0,6):'不動產');
     return np;
   });
