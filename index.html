@@ -901,7 +901,10 @@ async function applyUrlSettings() {
           <div class="frow"><label>銀行貸款（萬）</label><input type="number" id="fBank" placeholder="" oninput="syncToEval('ev_bank', this.value);refreshLoanSection()"/></div>
           <div class="frow"><label>法人／租賃（萬）</label><input type="number" id="fLegal" placeholder="" oninput="syncToEval('ev_legal', this.value);refreshLoanSection()"/></div>
         </div>
-        <div class="frow"><label>民間借貸（萬）</label><input type="number" id="fPrivate" placeholder="" oninput="syncToEval('ev_private', this.value);refreshLoanSection()"/></div>
+        <div class="frow"><label>民間借貸（萬）</label>
+          <input type="number" id="fPrivate" placeholder="" oninput="onPrivateInput()"/>
+          <div id="privateHint" style="display:none;margin-top:5px"></div>
+        </div>
         <div class="frow"><label>其他貸款</label>
           <div id="extraLoanList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
           <button onclick="addExtraLoan()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增貸款項目</button>
@@ -3593,6 +3596,8 @@ function savePropFields(){
   p.bank=parseFloat(document.getElementById('fBank')?.value)||0;
   p.legal=parseFloat(document.getElementById('fLegal')?.value)||0;
   p.private=parseFloat(document.getElementById('fPrivate')?.value)||0;
+  // 保留民間確認狀態（undefined=手動輸入不提示；false=匯入未確認；true=已確認）
+  if(p.private<=0) p.privateConfirmed=undefined;
   p.driveUrl=document.getElementById('fDriveUrl')?.value.trim()||'';
   p.extraLoans=[...extraLoans];
   p.extraLands=[...extraLands];
@@ -3627,6 +3632,38 @@ function loadPropFields(idx){
   else{btnO.style.display='none';btnC.textContent='📁 建立';}
   extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
   extraLands=[...(p.extraLands||[])]; renderExtraLands();
+  renderPrivateHint();
+}
+
+// 民間借貸「最高限額」提示 + 已確認按鈕
+function onPrivateInput(){
+  syncToEval('ev_private', document.getElementById('fPrivate').value);
+  refreshLoanSection();
+  renderPrivateHint();
+}
+function renderPrivateHint(){
+  const hint=document.getElementById('privateHint');
+  if(!hint) return;
+  const p=properties[curPropIdx];
+  const val=parseFloat(document.getElementById('fPrivate')?.value)||0;
+  // 只有「來自匯入、尚未確認」(privateConfirmed===false) 且有金額時才提示
+  if(p && p.privateConfirmed===false && val>0){
+    hint.style.display='';
+    hint.innerHTML=`<div style="display:flex;align-items:center;gap:8px;background:var(--obg);border:1px solid var(--orange);border-radius:7px;padding:6px 9px;font-size:11px;color:var(--orange)">
+      <span style="flex:1">⚠️ 此為謄本「最高限額」設定金額，非實際借款</span>
+      <button onclick="confirmPrivate()" style="background:var(--orange);color:#fff;border:none;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✅ 已確認</button>
+    </div>`;
+  } else if(p && p.privateConfirmed===true && val>0){
+    hint.style.display='';
+    hint.innerHTML=`<div style="font-size:11px;color:var(--green);padding:2px 2px">✅ 已確認實際金額</div>`;
+  } else {
+    hint.style.display='none';
+    hint.innerHTML='';
+  }
+}
+function confirmPrivate(){
+  const p=properties[curPropIdx];
+  if(p){ p.privateConfirmed=true; renderPrivateHint(); showToast('✅ 民間金額已標記為確認'); }
 }
 
 function switchProperty(idx){
@@ -4271,9 +4308,12 @@ function recordToProps(rec){
                                 .filter(l=>l.landNo||l.landArea);
     }
     np.area=parseFloat(p.area)|| (np.mainArea+np.subArea+np.commonArea) ||0;
-    np.bank=parseFloat(p.bank)||0;
-    np.legal=parseFloat(p.legal)||0;
+    // 銀行/租賃：謄本設定金額是最高限額(通常實貸×1.2)，÷1.2 估實貸（與總檔匯入一致）
+    np.bank=Math.ceil((parseFloat(p.bank)||0)/1.2);
+    np.legal=Math.ceil((parseFloat(p.legal)||0)/1.2);
+    // 民間：保留謄本設定金額原值（最高限額），並標記未確認，讓使用者手動核實
     np.private=parseFloat(p.private)||0;
+    np.privateConfirmed=false;
     np.label=np.buildNo?('建'+np.buildNo.replace(/-0+$/,'')):(np.addr?np.addr.slice(0,6):'不動產');
     return np;
   });
