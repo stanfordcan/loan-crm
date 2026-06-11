@@ -3538,10 +3538,24 @@ function emptyProperty(n){
     parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
 }
 
+// 不動產子頁標籤：地址優先（取區之後的街路門牌），沒地址才用建號
+function propLabel(p){
+  if(p && p.addr){
+    const m=p.addr.match(/[區鄉鎮市](.+)$/);
+    const s=((m?m[1]:p.addr)||'').trim().slice(0,14);
+    if(s) return s;
+  }
+  if(p && p.buildNo) return '建'+String(p.buildNo).replace(/-0+$/,'');
+  return '';
+}
+
 function migrateProperties(c){
-  if(c.properties&&c.properties.length) return c.properties.map(p=>({...emptyProperty(0),...p}));
+  if(c.properties&&c.properties.length) return c.properties.map((p,i)=>{
+    const np={...emptyProperty(0),...p};
+    np.label = propLabel(np) || np.label || `不動產${i+1}`;
+    return np;
+  });
   const p=emptyProperty(0);
-  if(c.buildNo) p.label=`建${c.buildNo.replace(/-0+$/,'')}`;
   Object.assign(p,{addr:c.addr||'',district:c.district||extractDistrict(c.addr||''),landzone:c.landzone||'',purpose:c.purpose||'',buildNo:c.buildNo||'',landNo:c.landNo||'',
     area:c.area||0,mainArea:c.mainArea||0,subArea:c.subArea||0,commonArea:c.commonArea||0,
     parkArea:c.parkArea||0,landArea:c.landArea||0,bank:c.bank||0,legal:c.legal||0,private:c.private||0,
@@ -3549,6 +3563,7 @@ function migrateProperties(c){
     parkType:c.parkType||'無',parkTitle:c.parkTitle||'非獨立',parkVal:c.parkVal||0,
     landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
     loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed});
+  p.label = propLabel(p) || '不動產';
   return [p];
 }
 
@@ -3606,9 +3621,7 @@ function savePropFields(){
   p.driveUrl=document.getElementById('fDriveUrl')?.value.trim()||'';
   p.extraLoans=[...extraLoans];
   p.extraLands=[...extraLands];
-  if(p.buildNo) p.label=`建${p.buildNo.replace(/-0+$/,'')}`;
-  else if(p.addr){const m=p.addr.match(/[區鄉鎮市](.+)$/);p.label=(m?m[1]:p.addr).slice(0,14);}
-  else p.label=`不動產${curPropIdx+1}`;
+  p.label = propLabel(p) || `不動產${curPropIdx+1}`;
 }
 
 function loadPropFields(idx){
@@ -4336,7 +4349,7 @@ function recordToProps(rec){
     np.private=parseFloat(p.private)||0;
     if(np.bank>0||np.legal>0) np.loanEstimated=true;
     if(np.private>0) np.privateConfirmed=false;
-    np.label=np.buildNo?('建'+np.buildNo.replace(/-0+$/,'')):(np.addr?np.addr.slice(0,6):'不動產');
+    np.label=propLabel(np)||'不動產';
     return np;
   });
 }
@@ -4353,7 +4366,8 @@ function mergePropInto(dst, src){
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
   if(dst.private>0 && dst.privateConfirmed===undefined && src.privateConfirmed===false) dst.privateConfirmed=false;
-  if((!dst.label||dst.label==='不動產') && src.label) dst.label=src.label;
+  // 補進地址後重算標籤（地址優先）
+  dst.label = propLabel(dst) || dst.label || '不動產';
 }
 
 function doAiImport(){
