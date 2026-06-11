@@ -1072,8 +1072,8 @@ async function applyUrlSettings() {
     <p style="margin-bottom:6px">把謄本或表格丟給 AI 整理成固定格式後，貼到下方框框，一鍵匯入。欄位已對應系統，不需模糊比對。</p>
     <details style="margin-bottom:8px;font-size:12px;color:var(--t3)">
       <summary style="cursor:pointer;color:var(--accent)">📋 格式說明（給 AI 的指令）</summary>
-      <div style="background:var(--s2);border-radius:var(--rs);padding:10px;margin-top:6px;line-height:1.6;white-space:pre-wrap;word-break:break-all">請把以下資料整理成這個 JSON 陣列格式，每個人一筆：
-[{"name":"姓名","phone":"電話","idno":"身分證","heat":"待分類","note":"備註","properties":[{"addr":"門牌地址","buildNo":"建號","landNo":"地號","mainArea":主建坪,"subArea":附屬坪,"commonArea":公設坪,"area":總坪,"bank":銀行萬,"legal":法人萬,"private":民間萬}]}]
+      <div style="background:var(--s2);border-radius:var(--rs);padding:10px;margin-top:6px;line-height:1.6;white-space:pre-wrap;word-break:break-all">請把案源評估表整理成這個 JSON 陣列，每個人一筆（eval 為選填，對應評估分頁）：
+[{"name":"姓名","phone":"電話","idno":"身分證","heat":"待分類","note":"備註","loanPurpose":"借款用途","properties":[{"addr":"地址","buildNo":"建號","landNo":"地號","mainArea":建物坪,"area":總坪,"bank":銀行萬,"legal":新鑫萬,"private":民間萬}],"eval":{"district":"區域","section":"地段","landno":"地號","landzone":"使用分區","buildno":"建號","addr":"地址","community":"社區名稱","buildarea":"建物坪","parkval":"車位坪","landarea":"土地坪","floors":"總樓層","age":"屋齡","taxGeneral":"土增稅一般","taxSelf":"土增稅自用","condition":"屋況","resistance":"抗性","jinzhai":"凶宅查詢","unitprice":"行情萬/坪","rate":"利率分","need":"客戶需求萬","job":"職業收入","evalNote":"總價/備註"}}]
 只輸出 JSON，不要其他文字。</div>
     </details>
     <textarea id="aiInput" placeholder='在這裡貼上 AI 整理好的 JSON…' oninput="document.getElementById('aiParseBtn').disabled=!this.value.trim()"
@@ -4138,6 +4138,19 @@ function renderAiPreview(){
   document.getElementById('aiGo').disabled=false;
 }
 
+// 案源評估表欄位 → evalData（key 與系統內部一致）
+function mapEval(rec){
+  const e=rec.eval;
+  if(!e||typeof e!=='object') return null;
+  const o={};
+  const keys=['district','section','landno','landzone','buildno','addr','community',
+    'buildarea','landarea','parking','parkTitle','parkval','floors','age',
+    'taxGeneral','taxSelf','taxCount','condition','resistance','jinzhai',
+    'unitprice','rate','job','need','evalNote'];
+  keys.forEach(k=>{ if(e[k]!==undefined&&e[k]!==null&&e[k]!=='') o[k]=String(e[k]); });
+  return Object.keys(o).length?o:null;
+}
+
 function emptyProp(){
   return {pid:Date.now()+Math.floor(Math.random()*9999),label:'不動產',
     addr:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,
@@ -4187,6 +4200,9 @@ function doAiImport(){
       if(r.note){
         match.note=(match.note? match.note+'\n':'')+String(r.note).trim();
       }
+      if(r.loanPurpose && !match.loanPurpose) match.loanPurpose=String(r.loanPurpose).trim();
+      const evUp=mapEval(r);
+      if(evUp){ match.evalData={...(match.evalData||{}), ...evUp}; }
       if(newProps.length){
         match.properties=match.properties||[];
         // 移除既有的空白不動產佔位
@@ -4216,7 +4232,7 @@ function doAiImport(){
         area:first.area, mainArea:first.mainArea, subArea:first.subArea, commonArea:first.commonArea,
         parkArea:0, parkType:'無', parkTitle:'非獨立', parkVal:0,
         bank:first.bank, legal:first.legal, private:first.private,
-        loanPurpose:'', evalData:{}, driveUrl:'',
+        loanPurpose:String(r.loanPurpose||'').trim(), evalData:mapEval(r)||{}, driveUrl:'',
         properties:newProps.length?newProps:[emptyProp()],
       };
       clients.push(c);
