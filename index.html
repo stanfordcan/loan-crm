@@ -661,6 +661,7 @@ async function applyUrlSettings() {
       <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
       <button class="hbtn hbtn-sync" id="syncBtn" onclick="syncData()">🔄 同步</button>
       <button class="hbtn" id="tenBtn" style="background:#F3E8FF;color:#7C3AED" onclick="openTenModal()">📄 謄本匯入</button>
+      <button class="hbtn" id="aiBtn" style="background:#E0F2FE;color:#0369A1" onclick="openAiImport()">🤖 AI 匯入</button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
       <button class="hbtn" id="selectModeBtn" onclick="toggleSelectMode()" style="background:var(--s2);color:var(--t2)">☑ 選取</button>
       <button class="hbtn" id="clearBtn" style="background:#FDECEC;color:#D63B3B;box-shadow:0 1px 3px rgba(214,59,59,.12)" onclick="clearAllData()">🗑️ 清除</button>
@@ -1060,6 +1061,30 @@ async function applyUrlSettings() {
     <div class="imbtns" style="margin-top:12px;flex-shrink:0">
       <button class="imcancel" onclick="closeTenModal()">取消</button>
       <button class="imgo" id="tenGo" disabled onclick="doTenImport()">✅ 匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI 整理匯入 Modal -->
+<div class="imbg" id="aiBg">
+  <div class="immodal" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <h3>🤖 AI 整理匯入</h3>
+    <p style="margin-bottom:6px">把謄本或表格丟給 AI 整理成固定格式後，貼到下方框框，一鍵匯入。欄位已對應系統，不需模糊比對。</p>
+    <details style="margin-bottom:8px;font-size:12px;color:var(--t3)">
+      <summary style="cursor:pointer;color:var(--accent)">📋 格式說明（給 AI 的指令）</summary>
+      <div style="background:var(--s2);border-radius:var(--rs);padding:10px;margin-top:6px;line-height:1.6;white-space:pre-wrap;word-break:break-all">請把以下資料整理成這個 JSON 陣列格式，每個人一筆：
+[{"name":"姓名","phone":"電話","idno":"身分證","heat":"待分類","note":"備註","properties":[{"addr":"門牌地址","buildNo":"建號","landNo":"地號","mainArea":主建坪,"subArea":附屬坪,"commonArea":公設坪,"area":總坪,"bank":銀行萬,"legal":法人萬,"private":民間萬}]}]
+只輸出 JSON，不要其他文字。</div>
+    </details>
+    <textarea id="aiInput" placeholder='在這裡貼上 AI 整理好的 JSON…' oninput="document.getElementById('aiParseBtn').disabled=!this.value.trim()"
+      style="width:100%;box-sizing:border-box;min-height:120px;padding:10px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:monospace;background:var(--bg);color:var(--text);resize:vertical;outline:none"></textarea>
+    <div style="margin-top:8px">
+      <button class="imgo" id="aiParseBtn" disabled onclick="parseAiImport()" style="width:100%">🔍 解析並預覽</button>
+    </div>
+    <div id="aiPreview" style="flex:1;overflow-y:auto;min-height:0;margin-top:10px"></div>
+    <div class="imbtns" style="margin-top:12px;flex-shrink:0">
+      <button class="imcancel" onclick="closeAiImport()">取消</button>
+      <button class="imgo" id="aiGo" disabled onclick="doAiImport()">✅ 確認匯入</button>
     </div>
   </div>
 </div>
@@ -4035,6 +4060,175 @@ async function deleteClient(){
   try{await pushToSheet();showToast('🗑️ 已刪除並加入黑名單');}
   catch(e){showToast('🗑️ 已刪除並加入黑名單（本地）');}
   closeSheet();render();
+}
+
+// ── AI 整理匯入 ────────────────────────────────────────────
+let _aiParsed = null; // [{record, match}] match = 既有 client 或 null
+
+function openAiImport(){
+  document.getElementById('aiInput').value='';
+  document.getElementById('aiPreview').innerHTML='';
+  document.getElementById('aiParseBtn').disabled=true;
+  document.getElementById('aiGo').disabled=true;
+  _aiParsed=null;
+  document.getElementById('aiBg').classList.add('open');
+}
+function closeAiImport(){document.getElementById('aiBg').classList.remove('open');}
+
+function parseAiImport(){
+  const raw=document.getElementById('aiInput').value.trim();
+  if(!raw){showToast('⚠️ 請先貼上資料');return;}
+  let data;
+  try{
+    // 容錯：去掉可能的 ```json 包裹
+    const clean=raw.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+    data=JSON.parse(clean);
+  }catch(e){
+    showToast('⚠️ JSON 格式錯誤：'+e.message);
+    return;
+  }
+  if(!Array.isArray(data)) data=[data]; // 單筆也接受
+  if(!data.length){showToast('⚠️ 沒有資料');return;}
+
+  _aiParsed = data.map(rec=>{
+    const idno=(rec.idno||'').trim().toUpperCase();
+    const phone=(rec.phone||'').replace(/[^\d]/g,'');
+    let match=null;
+    if(idno) match=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno)||null;
+    if(!match&&phone) match=clients.find(c=>(c.phone||'').replace(/[^\d]/g,'')===phone&&phone.length>=9)||null;
+    return {record:rec, match};
+  }).filter(x=>x.record && (x.record.name||'').trim());
+
+  renderAiPreview();
+}
+
+function renderAiPreview(){
+  const el=document.getElementById('aiPreview');
+  if(!_aiParsed||!_aiParsed.length){
+    el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">沒有可匯入的資料（每筆需有姓名）</div>';
+    document.getElementById('aiGo').disabled=true;
+    return;
+  }
+  el.innerHTML=_aiParsed.map((x,i)=>{
+    const r=x.record;
+    const props=Array.isArray(r.properties)?r.properties:[];
+    const isUpd=!!x.match;
+    const tag=isUpd
+      ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;padding:1px 7px;border-radius:9px">🔄 更新到「${x.match.name}」</span>`
+      : `<span style="background:#DCFCE7;color:#166534;font-size:11px;padding:1px 7px;border-radius:9px">✨ 新增</span>`;
+    const sub=[r.phone,r.idno].filter(Boolean).join(' · ');
+    const propLine=props.map(p=>{
+      const bits=[p.addr,p.buildNo?'建'+p.buildNo:'', p.area?p.area+'坪':'',
+        (p.bank?'銀'+p.bank:''),(p.legal?'法'+p.legal:''),(p.private?'民'+p.private:'')].filter(Boolean);
+      return bits.join(' / ');
+    }).filter(Boolean);
+    return `<div style="background:var(--s2);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1">
+          <input type="checkbox" class="aiChk" data-i="${i}" checked>
+          <span style="font-weight:600;color:var(--text)">${r.name}</span>
+        </label>
+        ${tag}
+      </div>
+      ${sub?`<div style="font-size:11px;color:var(--t3);margin-left:22px">${sub}</div>`:''}
+      ${propLine.map(l=>`<div style="font-size:11px;color:var(--t2);margin-left:22px;margin-top:2px">🏠 ${l}</div>`).join('')}
+      ${isUpd?`<label style="display:flex;align-items:center;gap:5px;margin-left:22px;margin-top:5px;font-size:11px;color:var(--t3);cursor:pointer"><input type="checkbox" class="aiAsNew" data-i="${i}"> 改為新增（不更新既有客戶）</label>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('aiGo').disabled=false;
+}
+
+function emptyProp(){
+  return {pid:Date.now()+Math.floor(Math.random()*9999),label:'不動產',
+    addr:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,
+    parkArea:0,bank:0,legal:0,private:0,extraLoans:[],driveUrl:'',
+    parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
+}
+
+function recordToProps(rec){
+  const props=Array.isArray(rec.properties)?rec.properties:[];
+  if(!props.length) return [];
+  return props.map(p=>{
+    const np=emptyProp();
+    np.addr=String(p.addr||'').trim();
+    np.purpose=String(p.purpose||'').trim();
+    np.buildNo=String(p.buildNo||'').trim();
+    np.landNo=String(p.landNo||'').trim();
+    np.mainArea=parseFloat(p.mainArea)||0;
+    np.subArea=parseFloat(p.subArea)||0;
+    np.commonArea=parseFloat(p.commonArea)||0;
+    np.area=parseFloat(p.area)|| (np.mainArea+np.subArea+np.commonArea) ||0;
+    np.bank=parseFloat(p.bank)||0;
+    np.legal=parseFloat(p.legal)||0;
+    np.private=parseFloat(p.private)||0;
+    np.label=np.buildNo?('建'+np.buildNo.replace(/-0+$/,'')):(np.addr?np.addr.slice(0,6):'不動產');
+    return np;
+  });
+}
+
+function doAiImport(){
+  if(!_aiParsed||!_aiParsed.length){showToast('⚠️ 沒有資料');return;}
+  const chks=[...document.querySelectorAll('.aiChk')];
+  const asNewSet=new Set([...document.querySelectorAll('.aiAsNew')].filter(c=>c.checked).map(c=>+c.dataset.i));
+  let added=0, updated=0;
+
+  chks.forEach(chk=>{
+    if(!chk.checked) return;
+    const i=+chk.dataset.i;
+    const {record:r, match}=_aiParsed[i];
+    const forceNew=asNewSet.has(i);
+    const newProps=recordToProps(r);
+
+    if(match && !forceNew){
+      // 更新既有客戶：補資料、附加不動產，不覆蓋既有備註/記錄
+      if(r.phone && !match.phone) match.phone=String(r.phone).trim();
+      if(r.idno && !match.idno) match.idno=String(r.idno).trim().toUpperCase();
+      if(r.job && !match.job) match.job=String(r.job).trim();
+      if(r.note){
+        match.note=(match.note? match.note+'\n':'')+String(r.note).trim();
+      }
+      if(newProps.length){
+        match.properties=match.properties||[];
+        // 移除既有的空白不動產佔位
+        match.properties=match.properties.filter(p=>p.buildNo||p.addr||p.bank||p.private);
+        newProps.forEach(np=>{
+          const dup=match.properties.find(p=>p.buildNo&&np.buildNo&&p.buildNo===np.buildNo);
+          if(!dup) match.properties.push(np);
+        });
+        if(!match.properties.length) match.properties=[emptyProp()];
+      }
+      match.updatedAt=TODAY;
+      updated++;
+    } else {
+      // 新增客戶
+      const first=newProps[0]||emptyProp();
+      const c={
+        id:nextId++, createdAt:TODAY, updatedAt:TODAY, debtPhones:[], companyRaw:null,
+        name:String(r.name).trim(),
+        phone:String(r.phone||'').trim(),
+        idno:String(r.idno||'').trim().toUpperCase(),
+        heat:r.heat||'待分類',
+        note:String(r.note||'').trim(),
+        job:String(r.job||'').trim(), jobYears:'',
+        remind:'', remindTime:'', remindNote:'',
+        birthY:0,birthM:0,birthD:0, finProofs:[], logs:[], extraLoans:[],
+        addr:first.addr, purpose:first.purpose, buildNo:first.buildNo, landNo:first.landNo,
+        area:first.area, mainArea:first.mainArea, subArea:first.subArea, commonArea:first.commonArea,
+        parkArea:0, parkType:'無', parkTitle:'非獨立', parkVal:0,
+        bank:first.bank, legal:first.legal, private:first.private,
+        loanPurpose:'', evalData:{}, driveUrl:'',
+        properties:newProps.length?newProps:[emptyProp()],
+      };
+      clients.push(c);
+      added++;
+    }
+  });
+
+  saveLocal();
+  closeAiImport();
+  render();
+  showToast(`✅ AI 匯入完成：新增 ${added} 筆，更新 ${updated} 筆`);
+  pushToSheet().then(()=>showToast('☁️ 已同步')).catch(()=>{});
 }
 
 // ── XLS Import ────────────────────────────────────────────
