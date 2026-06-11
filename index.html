@@ -3677,12 +3677,12 @@ function renderLoanHints(){
   // 民間：最高限額，需勾選確認
   const pHint=document.getElementById('privateHint');
   if(pHint){
-    if(p && p.privateConfirmed!==undefined && priv>0){
+    if(p && priv>0){
       const checked=p.privateConfirmed===true;
       pHint.style.display='';
-      pHint.innerHTML=`<label title="目前為謄本最高限額，非實際借款；核實後勾選" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:${checked?'var(--green)':'var(--orange)'}">
+      pHint.innerHTML=`<label title="民間金額常為謄本最高限額，非實際借款；核實後勾選確認" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:${checked?'var(--green)':'var(--orange)'}">
         <input type="checkbox" ${checked?'checked':''} onchange="togglePrivateConfirm(this.checked)" style="cursor:pointer;margin:0">
-        <span>${checked?'已確認金額':'最高限額·待確認'}</span>
+        <span>${checked?'已確認金額':'待確認金額'}</span>
       </label>`;
     } else { pHint.style.display='none'; pHint.innerHTML=''; }
   }
