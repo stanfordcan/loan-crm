@@ -4091,15 +4091,75 @@ function parseAiImport(){
   if(!data.length){showToast('⚠️ 沒有資料');return;}
 
   _aiParsed = data.map(rec=>{
-    const idno=(rec.idno||'').trim().toUpperCase();
-    const phone=(rec.phone||'').replace(/[^\d]/g,'');
-    let match=null;
-    if(idno) match=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno)||null;
-    if(!match&&phone) match=clients.find(c=>(c.phone||'').replace(/[^\d]/g,'')===phone&&phone.length>=9)||null;
-    return {record:rec, match};
+    const m=findAiMatch(rec);
+    // confidence: 'strong'(自動更新) / 'weak'(疑似同名，要使用者決定) / null(新增)
+    // weak 時 decision 預設 'merge'，使用者可改 'new'
+    return {record:rec, match:m.client, reason:m.reason, confidence:m.confidence,
+            decision: m.confidence==='weak' ? 'merge' : (m.client?'merge':'new')};
   }).filter(x=>x.record && (x.record.name||'').trim());
 
   renderAiPreview();
+}
+
+// 建號正規化：去掉段名與前導0，套用「母-子」慣例，全0子號只留母號
+function normBuildNo(s){
+  let v=String(s||'').trim();
+  if(!v) return '';
+  // 取出 數字-數字 或 純數字 的建號核心
+  const m=v.match(/(\d{2,6})\s*[-－]\s*(\d{1,4})/);
+  if(m){
+    const main=String(parseInt(m[1],10));
+    const sub=parseInt(m[2],10);
+    return sub>0 ? main+'-'+sub : main;
+  }
+  const m2=v.match(/(\d{2,6})/);
+  return m2 ? String(parseInt(m2[1],10)) : '';
+}
+function normAddr(s){ return String(s||'').replace(/\s/g,'').replace(/台/g,'臺').slice(0,12); }
+
+// 多層比對：身分證→電話→建號→姓名+地址→只有姓名
+function findAiMatch(rec){
+  const idno=(rec.idno||'').trim().toUpperCase();
+  const phone=(rec.phone||'').replace(/[^\d]/g,'');
+  const name=(rec.name||'').trim();
+  // 蒐集本筆所有建號（含 properties）
+  const recBuilds=[];
+  (Array.isArray(rec.properties)?rec.properties:[]).forEach(p=>{const b=normBuildNo(p.buildNo); if(b) recBuilds.push(b);});
+  const recAddrs=[];
+  (Array.isArray(rec.properties)?rec.properties:[]).forEach(p=>{const a=normAddr(p.addr); if(a) recAddrs.push(a);});
+
+  // 取某 client 的所有建號 / 地址
+  function clientBuilds(c){
+    const arr=[normBuildNo(c.buildNo)];
+    (c.properties||[]).forEach(p=>arr.push(normBuildNo(p.buildNo)));
+    return arr.filter(Boolean);
+  }
+  function clientAddrs(c){
+    const arr=[normAddr(c.addr)];
+    (c.properties||[]).forEach(p=>arr.push(normAddr(p.addr)));
+    return arr.filter(Boolean);
+  }
+
+  // 1. 身分證
+  if(idno){ const c=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno); if(c) return {client:c,reason:'身分證相符',confidence:'strong'}; }
+  // 2. 電話
+  if(phone&&phone.length>=9){ const c=clients.find(c=>(c.phone||'').replace(/[^\d]/g,'')===phone); if(c) return {client:c,reason:'電話相符',confidence:'strong'}; }
+  // 3. 建號（任一相同）
+  if(recBuilds.length){
+    const c=clients.find(c=>clientBuilds(c).some(b=>recBuilds.includes(b)));
+    if(c) return {client:c,reason:'建號相符',confidence:'strong'};
+  }
+  // 4. 姓名 + 地址
+  if(name&&recAddrs.length){
+    const c=clients.find(c=>c.name===name && clientAddrs(c).some(a=>recAddrs.some(ra=>a&&ra&&(a.startsWith(ra)||ra.startsWith(a)))));
+    if(c) return {client:c,reason:'姓名+地址相符',confidence:'strong'};
+  }
+  // 5. 只有姓名 → 疑似同名，交給使用者判斷
+  if(name){
+    const c=clients.find(c=>c.name===name);
+    if(c) return {client:c,reason:'姓名相同（疑似同名，請確認）',confidence:'weak'};
+  }
+  return {client:null,reason:'',confidence:null};
 }
 
 function renderAiPreview(){
@@ -4112,10 +4172,12 @@ function renderAiPreview(){
   el.innerHTML=_aiParsed.map((x,i)=>{
     const r=x.record;
     const props=Array.isArray(r.properties)?r.properties:[];
-    const isUpd=!!x.match;
-    const tag=isUpd
-      ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;padding:1px 7px;border-radius:9px">🔄 更新到「${x.match.name}」</span>`
-      : `<span style="background:#DCFCE7;color:#166534;font-size:11px;padding:1px 7px;border-radius:9px">✨ 新增</span>`;
+    const isStrong=!!x.match && x.confidence==='strong';
+    const isWeak=!!x.match && x.confidence==='weak';
+    let tag;
+    if(isStrong) tag=`<span style="background:#FEF3C7;color:#92400E;font-size:11px;padding:1px 7px;border-radius:9px">🔄 更新到「${x.match.name}」· ${x.reason}</span>`;
+    else if(isWeak) tag=`<span style="background:#FEE2E2;color:#B91C1C;font-size:11px;padding:1px 7px;border-radius:9px">⚠️ 疑似同名</span>`;
+    else tag=`<span style="background:#DCFCE7;color:#166534;font-size:11px;padding:1px 7px;border-radius:9px">✨ 新增</span>`;
     const sub=[r.phone,r.idno].filter(Boolean).join(' · ');
     const HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
     const curHeat=HEATS.includes(r.heat)?r.heat:'待分類';
@@ -4136,11 +4198,34 @@ function renderAiPreview(){
       </div>
       ${sub?`<div style="font-size:11px;color:var(--t3);margin-left:22px">${sub}</div>`:''}
       ${propLine.map(l=>`<div style="font-size:11px;color:var(--t2);margin-left:22px;margin-top:2px">🏠 ${l}</div>`).join('')}
-      ${isUpd?`<label style="display:flex;align-items:center;gap:5px;margin-left:22px;margin-top:5px;font-size:11px;color:var(--t3);cursor:pointer"><input type="checkbox" class="aiAsNew" data-i="${i}"> 改為新增（不更新既有客戶）</label>`:''}
+      ${isStrong?`<label style="display:flex;align-items:center;gap:5px;margin-left:22px;margin-top:5px;font-size:11px;color:var(--t3);cursor:pointer"><input type="checkbox" class="aiAsNew" data-i="${i}"> 改為新增（不更新既有客戶）</label>`:''}
+      ${isWeak?weakMatchBox(x,i):''}
     </div>`;
   }).join('');
   document.getElementById('aiGo').disabled=false;
 }
+
+// 疑似同名：顯示系統既有那筆的資料 + 合併/新增 按鈕讓使用者判斷
+function weakMatchBox(x,i){
+  const c=x.match;
+  const eAddr=c.addr||(c.properties&&c.properties[0]&&c.properties[0].addr)||'';
+  const eBuild=c.buildNo||(c.properties&&c.properties[0]&&c.properties[0].buildNo)||'';
+  const info=[c.phone?'📞'+c.phone:'', c.idno?'🪪'+c.idno:'', eAddr?'🏠'+eAddr:'', eBuild?'建'+eBuild:'']
+    .filter(Boolean).join('　')||'（無其他資料）';
+  return `<div style="margin-left:22px;margin-top:6px;padding:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:7px">
+    <div style="font-size:11px;color:#B91C1C;margin-bottom:4px">系統已有同名客戶「${c.name}」，請判斷是否同一人：</div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:6px">${info}</div>
+    <div style="display:flex;gap:6px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:3px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border)">
+        <input type="radio" name="aiDecide${i}" value="merge" ${x.decision==='merge'?'checked':''} onchange="setAiDecision(${i},'merge')"> ✅ 同一人，合併補資料
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:3px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border)">
+        <input type="radio" name="aiDecide${i}" value="new" ${x.decision==='new'?'checked':''} onchange="setAiDecision(${i},'new')"> 🆕 不同人，建立新客戶
+      </label>
+    </div>
+  </div>`;
+}
+function setAiDecision(i,v){ if(_aiParsed&&_aiParsed[i]) _aiParsed[i].decision=v; }
 
 // 案源評估表欄位 → evalData（key 與系統內部一致）
 function mapEval(rec){
@@ -4192,8 +4277,10 @@ function doAiImport(){
   chks.forEach(chk=>{
     if(!chk.checked) return;
     const i=+chk.dataset.i;
-    const {record:r, match}=_aiParsed[i];
-    const forceNew=asNewSet.has(i);
+    const item=_aiParsed[i];
+    const {record:r, match}=item;
+    // 強配對：勾「改為新增」才當新增；疑似同名/其餘：看 decision
+    const forceNew = asNewSet.has(i) || item.decision==='new';
     const newProps=recordToProps(r);
     // 使用者在預覽選的分類
     const heatEl=document.querySelector(`.aiHeat[data-i="${i}"]`);
