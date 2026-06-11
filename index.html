@@ -4341,6 +4341,21 @@ function recordToProps(rec){
   });
 }
 
+// 把匯入不動產 src 的資料補進既有不動產 dst 的「空格」，有值的不覆蓋
+function mergePropInto(dst, src){
+  ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
+    if(!dst[k] && src[k]) dst[k]=src[k];
+  });
+  ['mainArea','subArea','commonArea','area','landArea','bank','legal','private'].forEach(k=>{
+    if((!dst[k]||dst[k]===0) && src[k]) dst[k]=src[k];
+  });
+  if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
+  // 金額提示旗標：補進金額後一併帶上
+  if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
+  if(dst.private>0 && dst.privateConfirmed===undefined && src.privateConfirmed===false) dst.privateConfirmed=false;
+  if((!dst.label||dst.label==='不動產') && src.label) dst.label=src.label;
+}
+
 function doAiImport(){
   if(!_aiParsed||!_aiParsed.length){showToast('⚠️ 沒有資料');return;}
   const chks=[...document.querySelectorAll('.aiChk')];
@@ -4375,10 +4390,15 @@ function doAiImport(){
       if(newProps.length){
         match.properties=match.properties||[];
         // 移除既有的空白不動產佔位
-        match.properties=match.properties.filter(p=>p.buildNo||p.addr||p.bank||p.private);
+        match.properties=match.properties.filter(p=>p.buildNo||p.addr||p.bank||p.private||p.mainArea||p.area);
         newProps.forEach(np=>{
-          const dup=match.properties.find(p=>p.buildNo&&np.buildNo&&p.buildNo===np.buildNo);
-          if(!dup) match.properties.push(np);
+          // 同建號（正規化後）或同地址 → 視為同一筆，補進空格；否則新增
+          const dup=match.properties.find(p=>
+            (p.buildNo&&np.buildNo&&normBuildNo(p.buildNo)===normBuildNo(np.buildNo)) ||
+            (!p.buildNo&&!np.buildNo&&p.addr&&np.addr&&normAddr(p.addr)===normAddr(np.addr))
+          );
+          if(dup) mergePropInto(dup, np);
+          else match.properties.push(np);
         });
         if(!match.properties.length) match.properties=[emptyProp()];
       }
