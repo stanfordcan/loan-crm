@@ -4117,6 +4117,9 @@ function renderAiPreview(){
       ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;padding:1px 7px;border-radius:9px">🔄 更新到「${x.match.name}」</span>`
       : `<span style="background:#DCFCE7;color:#166534;font-size:11px;padding:1px 7px;border-radius:9px">✨ 新增</span>`;
     const sub=[r.phone,r.idno].filter(Boolean).join(' · ');
+    const HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
+    const curHeat=HEATS.includes(r.heat)?r.heat:'待分類';
+    const heatSel=`<select class="aiHeat" data-i="${i}" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:inherit;cursor:pointer">${HEATS.map(h=>`<option value="${h}"${h===curHeat?' selected':''}>${h}</option>`).join('')}</select>`;
     const propLine=props.map(p=>{
       const bits=[p.addr,p.buildNo?'建'+p.buildNo:'', p.area?p.area+'坪':'',
         (p.bank?'銀'+p.bank:''),(p.legal?'法'+p.legal:''),(p.private?'民'+p.private:'')].filter(Boolean);
@@ -4128,6 +4131,7 @@ function renderAiPreview(){
           <input type="checkbox" class="aiChk" data-i="${i}" checked>
           <span style="font-weight:600;color:var(--text)">${r.name}</span>
         </label>
+        ${heatSel}
         ${tag}
       </div>
       ${sub?`<div style="font-size:11px;color:var(--t3);margin-left:22px">${sub}</div>`:''}
@@ -4191,6 +4195,9 @@ function doAiImport(){
     const {record:r, match}=_aiParsed[i];
     const forceNew=asNewSet.has(i);
     const newProps=recordToProps(r);
+    // 使用者在預覽選的分類
+    const heatEl=document.querySelector(`.aiHeat[data-i="${i}"]`);
+    const chosenHeat=heatEl?heatEl.value:(r.heat||'待分類');
 
     if(match && !forceNew){
       // 更新既有客戶：補資料、附加不動產，不覆蓋既有備註/記錄
@@ -4201,6 +4208,8 @@ function doAiImport(){
         match.note=(match.note? match.note+'\n':'')+String(r.note).trim();
       }
       if(r.loanPurpose && !match.loanPurpose) match.loanPurpose=String(r.loanPurpose).trim();
+      // 既有客戶為「待分類」或空白時，套用選的分類；否則保留原分類
+      if(!match.heat || match.heat==='待分類') match.heat=chosenHeat;
       const evUp=mapEval(r);
       if(evUp){ match.evalData={...(match.evalData||{}), ...evUp}; }
       if(newProps.length){
@@ -4223,7 +4232,7 @@ function doAiImport(){
         name:String(r.name).trim(),
         phone:String(r.phone||'').trim(),
         idno:String(r.idno||'').trim().toUpperCase(),
-        heat:r.heat||'待分類',
+        heat:chosenHeat,
         note:String(r.note||'').trim(),
         job:String(r.job||'').trim(), jobYears:'',
         remind:'', remindTime:'', remindNote:'',
