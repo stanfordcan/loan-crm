@@ -1327,23 +1327,9 @@ function closeMemoModal(){
 
 // ── Auto-classify ────────────────────────────────────────
 function autoClassify() {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
-  const CUTOFF = localDateStr(cutoff);
-  let changed = false;
-  clients.forEach(c => {
-    // 舊資料遷移：追很緊 → 覆訪
-    if(c.heat === '追很緊') {
-      c.heat = '覆訪';
-      changed = true;
-    }
-    // 超過7天未分類的「追很緊」→「待分類」
-    if(c.heat === '追很緊' && c.createdAt && c.createdAt <= CUTOFF) {
-      c.heat = '待分類';
-      changed = true;
-    }
-  });
-  if(changed) saveLocal();
+  // 「追很緊」是正式且永久的分類，不再自動降級成覆訪或待分類。
+  // （舊版會把所有追很緊改成覆訪，導致追蹤ing 匯入後一直跑到覆訪，已移除。）
+  // 保留空函式，維持其他呼叫點不出錯。
 }
 
 // ── Blacklist ─────────────────────────────────────────────
