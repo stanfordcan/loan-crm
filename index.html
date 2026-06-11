@@ -3680,10 +3680,9 @@ function renderLoanHints(){
     if(p && p.privateConfirmed!==undefined && priv>0){
       const checked=p.privateConfirmed===true;
       pHint.style.display='';
-      pHint.innerHTML=`<label style="display:block;width:100%;box-sizing:border-box;cursor:pointer;font-size:11px;line-height:1.5;background:${checked?'var(--gbg)':'var(--obg)'};border-radius:6px;padding:5px 9px;color:${checked?'var(--green)':'var(--orange)'}">
-        <input type="checkbox" ${checked?'checked':''} onchange="togglePrivateConfirm(this.checked)" style="cursor:pointer;vertical-align:middle;margin-right:5px">
-        <span style="vertical-align:middle;font-weight:600">已確認金額</span>
-        ${checked?'':'<span style="display:block;margin-top:2px">⚠️ 目前為謄本「最高限額」，非實際借款，請核實後勾選</span>'}
+      pHint.innerHTML=`<label title="目前為謄本最高限額，非實際借款；核實後勾選" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:${checked?'var(--green)':'var(--orange)'}">
+        <input type="checkbox" ${checked?'checked':''} onchange="togglePrivateConfirm(this.checked)" style="cursor:pointer;margin:0">
+        <span>${checked?'已確認金額':'最高限額·待確認'}</span>
       </label>`;
     } else { pHint.style.display='none'; pHint.innerHTML=''; }
   }
