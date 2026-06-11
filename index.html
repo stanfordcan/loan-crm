@@ -4243,7 +4243,7 @@ function mapEval(rec){
 function emptyProp(){
   return {pid:Date.now()+Math.floor(Math.random()*9999),label:'不動產',
     addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,landArea:0,
-    parkArea:0,bank:0,legal:0,private:0,extraLoans:[],driveUrl:'',
+    parkArea:0,bank:0,legal:0,private:0,extraLoans:[],extraLands:[],driveUrl:'',
     parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
 }
 
@@ -4265,6 +4265,11 @@ function recordToProps(rec){
     np.commonArea=parseFloat(p.commonArea)||0;
     // 土地坪：property 有就用，否則從 eval.landarea 帶過來（不動產分頁用 landArea 大寫）
     np.landArea=parseFloat(p.landArea||p.landarea||ev.landarea)||0;
+    // 多筆土地：extraLands = [{landNo, landArea}, ...] → 地號②③…，系統會自動加總坪數、算土增稅筆數
+    if(Array.isArray(p.extraLands)){
+      np.extraLands=p.extraLands.map(l=>({landNo:String(l.landNo||'').trim(), landArea:parseFloat(l.landArea)||0}))
+                                .filter(l=>l.landNo||l.landArea);
+    }
     np.area=parseFloat(p.area)|| (np.mainArea+np.subArea+np.commonArea) ||0;
     np.bank=parseFloat(p.bank)||0;
     np.legal=parseFloat(p.legal)||0;
