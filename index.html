@@ -4236,7 +4236,9 @@ function renderAiPreview(){
     else tag=`<span style="background:#DCFCE7;color:#166534;font-size:11px;padding:1px 7px;border-radius:9px">✨ 新增</span>`;
     const sub=[r.phone,r.idno].filter(Boolean).join(' · ');
     const HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
-    const curHeat=HEATS.includes(r.heat)?r.heat:'待分類';
+    // 配對到既有客戶 → 預設顯示「該客戶目前分類」；新增 → 用 JSON 的 heat
+    const baseHeat = x.match ? (x.match.heat||'待分類') : (r.heat||'待分類');
+    const curHeat=HEATS.includes(baseHeat)?baseHeat:'待分類';
     const heatSel=`<select class="aiHeat" data-i="${i}" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:inherit;cursor:pointer">${HEATS.map(h=>`<option value="${h}"${h===curHeat?' selected':''}>${h}</option>`).join('')}</select>`;
     const propLine=props.map(p=>{
       const bits=[p.addr,p.buildNo?'建'+p.buildNo:'', p.area?p.area+'坪':'',
@@ -4366,8 +4368,8 @@ function doAiImport(){
         match.note=(match.note? match.note+'\n':'')+String(r.note).trim();
       }
       if(r.loanPurpose && !match.loanPurpose) match.loanPurpose=String(r.loanPurpose).trim();
-      // 既有客戶為「待分類」或空白時，套用選的分類；否則保留原分類
-      if(!match.heat || match.heat==='待分類') match.heat=chosenHeat;
+      // 分類以預覽下拉為準（預設已帶入該客戶目前分類，使用者改了就照改）
+      if(chosenHeat) match.heat=chosenHeat;
       const evUp=mapEval(r);
       if(evUp){ match.evalData={...(match.evalData||{}), ...evUp}; }
       if(newProps.length){
