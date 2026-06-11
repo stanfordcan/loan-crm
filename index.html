@@ -4242,7 +4242,7 @@ function mapEval(rec){
 
 function emptyProp(){
   return {pid:Date.now()+Math.floor(Math.random()*9999),label:'不動產',
-    addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,
+    addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,landArea:0,
     parkArea:0,bank:0,legal:0,private:0,extraLoans:[],driveUrl:'',
     parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
 }
@@ -4263,6 +4263,8 @@ function recordToProps(rec){
     np.mainArea=parseFloat(p.mainArea)||0;
     np.subArea=parseFloat(p.subArea)||0;
     np.commonArea=parseFloat(p.commonArea)||0;
+    // 土地坪：property 有就用，否則從 eval.landarea 帶過來（不動產分頁用 landArea 大寫）
+    np.landArea=parseFloat(p.landArea||p.landarea||ev.landarea)||0;
     np.area=parseFloat(p.area)|| (np.mainArea+np.subArea+np.commonArea) ||0;
     np.bank=parseFloat(p.bank)||0;
     np.legal=parseFloat(p.legal)||0;
@@ -4329,7 +4331,7 @@ function doAiImport(){
         remind:'', remindTime:'', remindNote:'',
         birthY:0,birthM:0,birthD:0, finProofs:[], logs:[], extraLoans:[],
         addr:first.addr, purpose:first.purpose, buildNo:first.buildNo, landNo:first.landNo,
-        district:first.district, landzone:first.landzone,
+        district:first.district, landzone:first.landzone, landArea:first.landArea,
         area:first.area, mainArea:first.mainArea, subArea:first.subArea, commonArea:first.commonArea,
         parkArea:0, parkType:'無', parkTitle:'非獨立', parkVal:0,
         bank:first.bank, legal:first.legal, private:first.private,
