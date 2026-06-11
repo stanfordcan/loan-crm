@@ -4242,7 +4242,7 @@ function mapEval(rec){
 
 function emptyProp(){
   return {pid:Date.now()+Math.floor(Math.random()*9999),label:'不動產',
-    addr:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,
+    addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',area:0,mainArea:0,subArea:0,commonArea:0,
     parkArea:0,bank:0,legal:0,private:0,extraLoans:[],driveUrl:'',
     parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
 }
@@ -4250,12 +4250,16 @@ function emptyProp(){
 function recordToProps(rec){
   const props=Array.isArray(rec.properties)?rec.properties:[];
   if(!props.length) return [];
+  const ev=rec.eval||{};
   return props.map(p=>{
     const np=emptyProp();
     np.addr=String(p.addr||'').trim();
     np.purpose=String(p.purpose||'').trim();
     np.buildNo=String(p.buildNo||'').trim();
     np.landNo=String(p.landNo||'').trim();
+    // 使用分區 / 區：property 自己有就用，否則從 eval 帶過來（填進「不動產分頁」）
+    np.landzone=String(p.landzone||ev.landzone||'').trim();
+    np.district=String(p.district||ev.district||'').trim();
     np.mainArea=parseFloat(p.mainArea)||0;
     np.subArea=parseFloat(p.subArea)||0;
     np.commonArea=parseFloat(p.commonArea)||0;
@@ -4325,6 +4329,7 @@ function doAiImport(){
         remind:'', remindTime:'', remindNote:'',
         birthY:0,birthM:0,birthD:0, finProofs:[], logs:[], extraLoans:[],
         addr:first.addr, purpose:first.purpose, buildNo:first.buildNo, landNo:first.landNo,
+        district:first.district, landzone:first.landzone,
         area:first.area, mainArea:first.mainArea, subArea:first.subArea, commonArea:first.commonArea,
         parkArea:0, parkType:'無', parkTitle:'非獨立', parkVal:0,
         bank:first.bank, legal:first.legal, private:first.private,
