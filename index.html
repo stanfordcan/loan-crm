@@ -933,6 +933,7 @@ async function applyUrlSettings() {
     </div>
     <div class="sfooter">
       <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()">刪除</button>
+      <button class="bdel" id="btnBlack" style="display:none;background:#1F2937;color:#fff" onclick="blacklistClient()">🚫 加黑名單</button>
       <button class="bsave" id="btnSave" onclick="saveClient()">儲存</button>
     </div>
   </div>
@@ -2954,6 +2955,7 @@ function openAdd(){
   document.getElementById('dupPanel').style.display='none';
   document.getElementById('sheetTitle').textContent='新增客戶';
   document.getElementById('btnDel').style.display='none';
+  document.getElementById('btnBlack').style.display='none';
   ['fName','fPhone','fIdno','fAddr','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ageDisplay').style.display='none';
   document.getElementById('fDriveUrl').value='';
@@ -2984,6 +2986,7 @@ function openEdit(id){
   document.getElementById('sheetTitle').textContent=c.name;
   renderDupPanel(c);
   document.getElementById('btnDel').style.display='';
+  document.getElementById('btnBlack').style.display='';
   document.getElementById('fName').value=c.name||'';
   document.getElementById('fPhone').value=c.phone||'';
   document.getElementById('fIdno').value=c.idno||'';
@@ -4053,12 +4056,23 @@ async function saveClient(){
 
 async function deleteClient(){
   const c=clients.find(x=>x.id===editId);
-  if(!confirm(`確定刪除「${c?.name}」？\n\n此客戶將加入黑名單，即使之後從總檔或 XLS 匯入也不會再出現。`))return;
+  if(!confirm(`確定刪除「${c?.name}」？\n\n只會刪除這筆資料，不會加入黑名單，之後仍可從總檔或 AI 匯入重新建立。`))return;
+  clients=clients.filter(x=>x.id!==editId);
+  saveLocal();
+  try{await pushToSheet();showToast('🗑️ 已刪除');}
+  catch(e){showToast('🗑️ 已刪除（本地）');}
+  closeSheet();render();
+}
+
+async function blacklistClient(){
+  const c=clients.find(x=>x.id===editId);
+  if(!c) return;
+  if(!confirm(`🚫 將「${c.name}」加入黑名單並刪除？\n\n加入後即使之後從總檔或 XLS／AI 匯入也不會再出現。可到「黑名單」管理移除。`))return;
   addToBlacklist(c);
   clients=clients.filter(x=>x.id!==editId);
   saveLocal();
-  try{await pushToSheet();showToast('🗑️ 已刪除並加入黑名單');}
-  catch(e){showToast('🗑️ 已刪除並加入黑名單（本地）');}
+  try{await pushToSheet();showToast('🚫 已加入黑名單並刪除');}
+  catch(e){showToast('🚫 已加入黑名單並刪除（本地）');}
   closeSheet();render();
 }
 
