@@ -892,22 +892,25 @@ async function applyUrlSettings() {
               <span id="extraLandTotal" style="font-size:12px;color:var(--t2);font-weight:600"></span>
             </div>
           </div>
-          <!-- 面積 -->
-          <div class="prop-card">
-            <div class="prop-card-hd">📐 面積（坪）</div>
-            <div class="fg3">
-              <div class="frow cmp"><label>主建物</label><input type="number" id="fMainArea" placeholder=""/></div>
-              <div class="frow cmp"><label>附屬</label><input type="number" id="fSubArea" placeholder=""/></div>
-              <div class="frow cmp"><label>公設</label><input type="number" id="fCommonArea" placeholder=""/></div>
+          <!-- 面積 + 土增稅（左欄堆疊） -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="prop-card">
+              <div class="prop-card-hd">📐 面積（坪）</div>
+              <div class="fg3" id="areaGrid">
+                <div class="frow cmp"><label>主建物</label><input type="number" id="fMainArea" placeholder=""/></div>
+                <div class="frow cmp"><label>附屬</label><input type="number" id="fSubArea" placeholder=""/></div>
+                <div class="frow cmp"><label>公設</label><input type="number" id="fCommonArea" placeholder=""/></div>
+                <div class="frow cmp"><label>車位</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
+                <div class="frow cmp"><label id="fLandAreaLabel">土地坪數</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
+                <div class="frow cmp"><label>總面積</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
+              </div>
             </div>
-            <div class="fg3">
-              <div class="frow cmp"><label>車位</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
-              <div class="frow cmp"><label id="fLandAreaLabel">土地坪數</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
-              <div class="frow cmp"><label>總面積</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
-            </div>
-            <div class="fg2">
-              <div class="frow cmp" style="margin-bottom:0"><label>土增稅－一般（元）</label><input type="number" id="fLandtaxNormal" placeholder="" oninput="syncLandtax('normal', this.value)"/></div>
-              <div class="frow cmp" style="margin-bottom:0"><label>土增稅－自用（元）</label><input type="number" id="fLandtaxSelf" placeholder="" oninput="syncLandtax('self', this.value)"/></div>
+            <div class="prop-card">
+              <div class="prop-card-hd">🧾 土地增值稅（元）</div>
+              <div class="fg2">
+                <div class="frow cmp" style="margin-bottom:0"><label>一般</label><input type="number" id="fLandtaxNormal" placeholder="" oninput="syncLandtax('normal', this.value)"/></div>
+                <div class="frow cmp" style="margin-bottom:0"><label>自用</label><input type="number" id="fLandtaxSelf" placeholder="" oninput="syncLandtax('self', this.value)"/></div>
+              </div>
             </div>
           </div>
           <!-- 抵押貸款 -->
@@ -1160,7 +1163,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #1';
+const APP_VERSION = '2026.06.12 #2';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3499,17 +3502,32 @@ function updateLandLabels(){
   if(lbl) lbl.textContent=landAreaLabel(document.getElementById('fLandNo')?.value||'');
 }
 function renderExtraLands(){
-  const container=document.getElementById('extraLandList');if(!container)return;
   const iStyle='width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none';
-  container.innerHTML=extraLands.map((l,i)=>`<div style="border:1px solid var(--border);border-radius:var(--rs);padding:8px;background:var(--bg)">
-    <div style="display:flex;align-items:center;gap:6px">
-      <input placeholder="地號（例：114）" value="${l.landNo||''}" oninput="extraLands[${i}].landNo=this.value;document.getElementById('exLandLbl${i}').textContent=landAreaLabel(this.value);updateLandTotals()" style="flex:1;${iStyle}"/>
+  // 1. 位置卡片：只放地號「號碼」（+刪除）
+  const numC=document.getElementById('extraLandList');
+  if(numC){
+    numC.innerHTML=extraLands.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px">
+      <input placeholder="地號（例：114）" value="${l.landNo||''}" oninput="extraLands[${i}].landNo=this.value;syncExtraAreaLabel(${i});updateLandTotals();updateLandLabels()" style="flex:1;${iStyle}"/>
       <button onclick="extraLands.splice(${i},1);renderExtraLands()" title="刪除這筆地號" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px">✕</button>
-    </div>
-    <label id="exLandLbl${i}" style="display:block;font-size:10px;font-weight:600;color:var(--t2);margin:7px 0 3px;text-transform:none">${landAreaLabel(l.landNo)}</label>
-    <input type="number" placeholder="坪數" value="${l.landArea||''}" oninput="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals()" style="${iStyle}"/>
-  </div>`).join('');
+    </div>`).join('');
+  }
+  // 2. 面積卡片：每筆地號的「坪數格」append 到面積網格（三格一行往下排）
+  const grid=document.getElementById('areaGrid');
+  if(grid){
+    grid.querySelectorAll('.ex-area-cell').forEach(el=>el.remove());
+    extraLands.forEach((l,i)=>{
+      const cell=document.createElement('div');
+      cell.className='frow cmp ex-area-cell';
+      cell.innerHTML=`<label id="exAreaLbl${i}">${landAreaLabel(l.landNo)}</label>`+
+        `<input type="number" placeholder="坪數" value="${l.landArea||''}" oninput="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals()"/>`;
+      grid.appendChild(cell);
+    });
+  }
   updateLandTotals();
+}
+function syncExtraAreaLabel(i){
+  const el=document.getElementById('exAreaLbl'+i);
+  if(el) el.textContent=landAreaLabel(extraLands[i]?extraLands[i].landNo:'');
 }
 function addExtraLand(){extraLands.push({landNo:'',landArea:0});renderExtraLands();}
 function updateLandTotals(){
