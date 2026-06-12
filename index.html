@@ -912,6 +912,19 @@ async function applyUrlSettings() {
           <div id="extraLoanList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
           <button onclick="addExtraLoan()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增貸款項目</button>
         </div>
+        <!-- 估價 / 可貸空間 -->
+        <div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:var(--rs)">
+          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">💰 核定估價</div>
+          <div class="fg2">
+            <div class="frow" style="margin-bottom:8px"><label>核定估價（萬）</label><input type="number" id="fEstVal" placeholder="你拍板的承作價" oninput="calcLoanRoom()"/></div>
+            <div class="frow" style="margin-bottom:8px"><label>可貸成數（%）</label><input type="number" id="fLtvRate" placeholder="例：80" oninput="calcLoanRoom()"/></div>
+          </div>
+          <div id="estRefHint" style="font-size:11px;color:var(--t3);margin-bottom:8px;display:none"></div>
+          <div class="frow" style="margin-bottom:0"><label style="color:var(--green);font-weight:700">可貸空間（萬）＝估價×成數 −既有抵押</label>
+            <input type="number" id="fLoanRoom" placeholder="自動計算" readonly style="background:var(--gbg);font-weight:700;color:var(--green)"/>
+          </div>
+          <div id="loanRoomBreakdown" style="font-size:11px;color:var(--t3);margin-top:5px;display:none"></div>
+        </div>
         <!-- 跳轉房價評估 -->
         <button onclick="jumpToEval()" style="width:100%;margin-top:14px;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 前往此筆房價評估</button>
       </div>
@@ -3621,6 +3634,8 @@ function savePropFields(){
   if(p.private<=0) p.privateConfirmed=undefined;
   if(p.bank<=0 && p.legal<=0) p.loanEstimated=undefined;
   p.driveUrl=document.getElementById('fDriveUrl')?.value.trim()||'';
+  p.estVal=parseFloat(document.getElementById('fEstVal')?.value)||0;
+  p.ltvRate=parseFloat(document.getElementById('fLtvRate')?.value)||0;
   p.extraLoans=[...extraLoans];
   p.extraLands=[...extraLands];
   p.label = propLabel(p) || `不動產${curPropIdx+1}`;
@@ -3650,9 +3665,12 @@ function loadPropFields(idx){
   const btnO=document.getElementById('btnOpenDrive'),btnC=document.getElementById('btnDrive');
   if(p.driveUrl){btnO.style.display='';btnC.textContent='✅ 已建立';}
   else{btnO.style.display='none';btnC.textContent='📁 建立';}
+  document.getElementById('fEstVal').value=p.estVal||'';
+  document.getElementById('fLtvRate').value=p.ltvRate||'';
   extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
   extraLands=[...(p.extraLands||[])]; renderExtraLands();
   renderLoanHints();
+  calcLoanRoom();
 }
 
 // 貸款金額輸入 + 提示（銀行/租賃÷1.2估算、民間最高限額勾選確認）
@@ -3662,6 +3680,37 @@ function onLoanInput(which){
   syncToEval(map[which], document.getElementById(id).value);
   refreshLoanSection();
   renderLoanHints();
+  calcLoanRoom();
+}
+
+// 可貸空間 = 核定估價 × 成數 − 既有抵押(銀行+租賃+民間+其他)
+function calcLoanRoom(){
+  const est=parseFloat(document.getElementById('fEstVal')?.value)||0;
+  const rate=parseFloat(document.getElementById('fLtvRate')?.value)||0;
+  const bank=parseFloat(document.getElementById('fBank')?.value)||0;
+  const legal=parseFloat(document.getElementById('fLegal')?.value)||0;
+  const priv=parseFloat(document.getElementById('fPrivate')?.value)||0;
+  const extra=(extraLoans||[]).reduce((s,l)=>s+(parseFloat(l.amt)||0),0);
+  const existing=bank+legal+priv+extra;
+  const roomEl=document.getElementById('fLoanRoom');
+  const bd=document.getElementById('loanRoomBreakdown');
+  if(est>0&&rate>0){
+    const ceiling=Math.round(est*rate/100);
+    const room=ceiling-existing;
+    if(roomEl) roomEl.value=room;
+    if(bd){ bd.style.display=''; bd.textContent=`估價 ${est}×${rate}% = ${ceiling}萬，扣既有抵押 ${existing}萬`; }
+  } else {
+    if(roomEl) roomEl.value='';
+    if(bd){ bd.style.display='none'; bd.textContent=''; }
+  }
+  // 行情參考（評估頁 行情單價 × 建物坪），有才顯示
+  const ref=document.getElementById('estRefHint');
+  const unit=parseFloat(document.getElementById('ev_unitprice')?.value)||0;
+  const area=parseFloat(document.getElementById('fArea')?.value)||0;
+  if(ref){
+    if(unit>0&&area>0){ ref.style.display=''; ref.textContent=`參考：行情約 ${unit}萬/坪 × ${area}坪 ≈ ${Math.round(unit*area)}萬`; }
+    else { ref.style.display='none'; ref.textContent=''; }
+  }
 }
 function renderLoanHints(){
   const p=properties[curPropIdx];
