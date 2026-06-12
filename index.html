@@ -16,12 +16,12 @@
 .pw-box{background:#fff;border-radius:18px;padding:36px 28px;width:300px;max-width:90vw;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center}
 .pw-box h2{font-size:18px;font-weight:600;margin-bottom:6px;color:#1A1916}
 .pw-box p{font-size:13px;color:#A09D96;margin-bottom:24px}
-.pw-input{width:100%;background:#EFEDE8;border:1px solid #DDD9D0;border-radius:10px;padding:13px 16px;font-size:20px;font-family:inherit;outline:none;text-align:center;letter-spacing:6px;color:#1A1916;-webkit-appearance:none}
-.pw-input:focus{border-color:#2B5BE2;background:#fff}
-.pw-btn{width:100%;margin-top:14px;background:#2B5BE2;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+.pw-input{width:100%;background:#EBEDF0;border:1px solid #DCDFE4;border-radius:10px;padding:13px 16px;font-size:20px;font-family:inherit;outline:none;text-align:center;letter-spacing:6px;color:#202329;-webkit-appearance:none}
+.pw-input:focus{border-color:#3E5F92;background:#fff}
+.pw-btn{width:100%;margin-top:14px;background:#3E5F92;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
 .pw-btn:active{opacity:.88}
-.pw-error{color:#D63B3B;font-size:13px;margin-top:10px;display:none}
-:root{--bg:#F5F4F0;--surface:#fff;--s2:#EFEDE8;--border:#DDD9D0;--text:#1A1916;--t2:#6B6860;--t3:#A09D96;--accent:#2B5BE2;--abg:#EDF1FC;--red:#D63B3B;--rbg:#FDECEC;--green:#1D8C5E;--gbg:#E8F7F1;--orange:#C46A00;--obg:#FFF3E0;--r:14px;--rs:8px;--sh:0 2px 12px rgba(0,0,0,.06)}
+.pw-error{color:#B5564F;font-size:13px;margin-top:10px;display:none}
+:root{--bg:#F3F4F6;--surface:#fff;--s2:#EBEDF0;--border:#DCDFE4;--text:#202329;--t2:#5B626C;--t3:#969CA6;--accent:#3E5F92;--abg:#EAEEF5;--red:#B5564F;--rbg:#F7EDEC;--green:#42816A;--gbg:#EBF2EE;--orange:#A87A45;--obg:#F4EFE6;--r:14px;--rs:8px;--sh:0 2px 10px rgba(30,40,60,.05)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
@@ -65,7 +65,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .ccard:active{opacity:.9}
 .ccard.over{border-left-color:var(--red)}
 .ccard.today{border-left-color:var(--green)}
-.ccard.soon{border-left-color:#0369A1}
+.ccard.soon{border-left-color:var(--accent)}
 /* Pinned card */
 .ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
 /* Heat-based left border (only when no remind-state border) */
@@ -82,14 +82,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .hc{background:var(--abg);color:var(--accent)}
 .hd{background:var(--gbg);color:var(--green)}
 .hf{background:var(--s2);color:var(--t3)}
-.hx{background:#F3E8FF;color:#7C3AED}
-.hp{background:#F0EDE8;color:#7C6F5E}
+.hx{background:#ECEAF3;color:#6A5E8A}
+.hp{background:var(--s2);color:var(--t2)}
 .cmeta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}
 .mi{font-size:11px;color:var(--t2)}
 .rchip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
 .rc-over{background:var(--rbg);color:var(--red)}
 .rc-today{background:var(--gbg);color:var(--green)}
-.rc-soon{background:#E0F2FE;color:#0369A1}
+.rc-soon{background:var(--abg);color:var(--accent)}
 .rc-ok{background:var(--abg);color:var(--accent)}
 .clog{font-size:11px;color:var(--t2);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .empty{text-align:center;padding:50px 20px;color:var(--t3);font-size:13px}
@@ -225,9 +225,10 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 /* ── Dark Mode ────────────────────────────────────────────── */
 @media(prefers-color-scheme:dark){
   :root{
-    --bg:#1C1B18;--surface:#252420;--s2:#2E2C28;--border:#3A3830;
-    --text:#F0EDE8;--t2:#A09D96;--t3:#6B6860;
-    --abg:#1E2A4A;--rbg:#3A1A1A;--gbg:#1A3028;--obg:#3A2800;
+    --bg:#181A1E;--surface:#212429;--s2:#292D33;--border:#373B43;
+    --text:#E7E9ED;--t2:#9AA0AB;--t3:#686E78;
+    --accent:#7FA0D4;--abg:#222D40;
+    --red:#CB8480;--rbg:#382422;--green:#74A98E;--gbg:#1E2E27;--orange:#C29B6B;--obg:#322A1D;
     --sh:0 2px 12px rgba(0,0,0,.3)
   }
   .pw-screen{background:#1C1B18}
@@ -672,11 +673,11 @@ async function applyUrlSettings() {
       <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
       <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
       <button class="hbtn hbtn-sync" id="syncBtn" onclick="syncData()">🔄 同步</button>
-      <button class="hbtn" id="tenBtn" style="background:#F3E8FF;color:#7C3AED" onclick="openTenModal()">📄 謄本匯入</button>
-      <button class="hbtn" id="aiBtn" style="background:#E0F2FE;color:#0369A1" onclick="openAiImport()">🤖 AI 匯入</button>
+      <button class="hbtn" id="tenBtn" style="background:#ECEAF3;color:#6A5E8A" onclick="openTenModal()">📄 謄本匯入</button>
+      <button class="hbtn" id="aiBtn" style="background:var(--abg);color:var(--accent)" onclick="openAiImport()">🤖 AI 匯入</button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
       <button class="hbtn" id="selectModeBtn" onclick="toggleSelectMode()" style="background:var(--s2);color:var(--t2)">☑ 選取</button>
-      <button class="hbtn" id="clearBtn" style="background:#FDECEC;color:#D63B3B;box-shadow:0 1px 3px rgba(214,59,59,.12)" onclick="clearAllData()">🗑️ 清除</button>
+      <button class="hbtn" id="clearBtn" style="background:var(--rbg);color:var(--red)" onclick="clearAllData()">🗑️ 清除</button>
       <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="試算表設定">⚙️ 設定</button>
       <button class="hbtn hbtn-sync" id="logoutBtn" onclick="doLogout()" title="登出">🚪 登出</button>
       <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">⚙️</button>
@@ -1033,7 +1034,7 @@ async function applyUrlSettings() {
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px">☁️ 雲端備份</div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:10px">每次儲存資料時自動備份到雲端，資料不慎清除時可從這裡還原。</div>
-      <button onclick="restoreBackup()" style="width:100%;background:#FFF3E0;color:#C46A00;border:1.5px solid #FFD54F;border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🔄 從備份還原</button>
+      <button onclick="restoreBackup()" style="width:100%;background:var(--obg);color:var(--orange);border:1.5px solid var(--orange);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🔄 從備份還原</button>
     </div>
   </div>
 </div>
@@ -1712,8 +1713,8 @@ function renderDupPanel(c) {
   if (dups.length === 0) { panel.style.display = 'none'; return; }
 
   const hColor = {
-    '追很緊':'#2B5BE2','覆訪':'#D97706','已簽約':'#1D8C5E',
-    '無效案件':'#555','新鑫':'#7C3AED','待分類':'#888'
+    '追很緊':'#3E5F92','覆訪':'#A87A45','已簽約':'#42816A',
+    '無效案件':'#6B7280','新鑫':'#6A5E8A','待分類':'#969CA6'
   };
 
   countEl.textContent = dups.length;
