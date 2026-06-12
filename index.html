@@ -885,9 +885,11 @@ async function applyUrlSettings() {
               <div class="frow cmp"><label>使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
               <div class="frow cmp"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value)"/></div>
             </div>
-            <div class="frow cmp" style="margin-bottom:6px"><label>地號</label><input id="fLandNo" placeholder="" oninput="syncToEval('ev_landno', this.value);updateLandTotals();updateLandLabels()"/></div>
-            <div id="extraLandList" style="display:flex;flex-direction:column;gap:5px"></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <label style="display:block;font-size:10px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">地號</label>
+            <div id="landNoGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+              <input id="fLandNo" placeholder="地號" oninput="syncToEval('ev_landno', this.value);updateLandTotals();updateLandLabels()" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
               <button onclick="addExtraLand()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">＋ 新增地號</button>
               <span id="extraLandTotal" style="font-size:12px;color:var(--t2);font-weight:600"></span>
             </div>
@@ -1163,7 +1165,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #5';
+const APP_VERSION = '2026.06.12 #6';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3512,13 +3514,18 @@ function updateLandLabels(){
 }
 function renderExtraLands(){
   const iStyle='width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none';
-  // 1. 位置卡片：只放地號「號碼」（+刪除）
-  const numC=document.getElementById('extraLandList');
-  if(numC){
-    numC.innerHTML=extraLands.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px">
-      <input placeholder="地號（例：114）" value="${l.landNo||''}" oninput="extraLands[${i}].landNo=this.value;syncExtraAreaLabel(${i});updateLandTotals();updateLandLabels()" style="flex:1;${iStyle}"/>
-      <button onclick="extraLands.splice(${i},1);renderExtraLands()" title="刪除這筆地號" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px">✕</button>
-    </div>`).join('');
+  // 1. 位置卡片：地號「號碼」格，5 格一行的網格（主地號為第一格，新增的往右接）
+  const grid1=document.getElementById('landNoGrid');
+  if(grid1){
+    grid1.querySelectorAll('.ex-landno-cell').forEach(el=>el.remove());
+    extraLands.forEach((l,i)=>{
+      const cell=document.createElement('div');
+      cell.className='ex-landno-cell';
+      cell.style.position='relative';
+      cell.innerHTML=`<input placeholder="地號" value="${l.landNo||''}" oninput="extraLands[${i}].landNo=this.value;syncExtraAreaLabel(${i});updateLandTotals();updateLandLabels()" style="${iStyle.replace('padding:8px 10px','padding:8px 20px 8px 10px')}"/>`+
+        `<button onclick="extraLands.splice(${i},1);renderExtraLands()" title="刪除這筆地號" style="position:absolute;right:3px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;line-height:1;padding:2px">✕</button>`;
+      grid1.appendChild(cell);
+    });
   }
   // 2. 面積卡片：每筆地號的「坪數格」append 到面積網格（三格一行往下排）
   const grid=document.getElementById('areaGrid');
