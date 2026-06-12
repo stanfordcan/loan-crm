@@ -121,6 +121,15 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .frow input:focus,.frow select:focus,.frow textarea:focus{border-color:var(--accent);background:#fff}
 .frow textarea{height:85px;resize:none;line-height:1.5}
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+/* 不動產分頁：分群卡片 */
+.prop-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+.prop-grid .prop-full{grid-column:1/-1}
+.prop-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.prop-card-hd{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.frow.cmp{margin-bottom:8px}
+.frow.cmp label{font-size:10px;margin-bottom:3px}
+.frow.cmp input{padding:8px 10px;font-size:13px}
 .rbox{background:var(--abg);border-radius:var(--rs);padding:13px;margin-bottom:12px;border:1px solid #C5D5F8}
 .rbox>label{font-size:12px;font-weight:600;color:var(--accent);display:block;margin-bottom:9px}
 /* Logs */
@@ -289,6 +298,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
   .pc-container .form-section-hd {
     column-span:all;
   }
+  /* 不動產分頁：不走報紙雙欄，改用卡片網格 */
+  .pc-container #sp1.prop-tab{column-count:1;column-gap:0}
+  .pc-container .prop-grid{grid-template-columns:1fr 1fr;gap:12px}
   /* PC 熱度徽章稍大 */
   .pc-container .hbadge{font-size:13px;padding:4px 12px}
   /* PC 卡片內身分證欄位較明顯 */
@@ -852,78 +864,91 @@ async function applyUrlSettings() {
           </div>
         </div>
       </div>
-      <div id="sp1" style="display:none">
+      <div id="sp1" class="prop-tab" style="display:none">
         <!-- 不動產切換列 -->
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
           <div id="propTabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
           <button onclick="addProperty()" title="新增不動產" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid #b8e0ce;border-radius:var(--rs);padding:5px 11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1">＋</button>
         </div>
-        <div class="frow"><label>門牌地址</label><input id="fAddr" placeholder="" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/></div>
-        <div class="fg2">
-          <div class="frow"><label>地段（區）</label><input id="fDistrict" placeholder="例：松山區" oninput="syncToEval('ev_district', this.value)"/></div>
-          <div class="frow"><label>地段號</label><input id="fPurpose" placeholder="" oninput="syncToEval('ev_section', this.value)"/></div>
-        </div>
-        <div class="frow"><label>土地使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
-        <div class="fg2">
-          <div class="frow"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value)"/></div>
-          <div class="frow"><label>地號①</label><input id="fLandNo" placeholder="" oninput="syncToEval('ev_landno', this.value);updateLandTotals()"/></div>
-        </div>
-        <div id="extraLandList" style="display:flex;flex-direction:column;gap:5px;margin-top:4px"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-          <button onclick="addExtraLand()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">＋ 新增地號</button>
-          <span id="extraLandTotal" style="font-size:12px;color:var(--t2);font-weight:600"></span>
-        </div>
-        <div class="form-section-hd">📐 面積</div>
-        <div class="fg2">
-          <div class="frow"><label>總面積（坪）</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
-          <div class="frow"><label>主建物（坪）</label><input type="number" id="fMainArea" placeholder=""/></div>
-        </div>
-        <div class="fg2">
-          <div class="frow"><label>附屬（坪）</label><input type="number" id="fSubArea" placeholder=""/></div>
-          <div class="frow"><label>公設（坪）</label><input type="number" id="fCommonArea" placeholder=""/></div>
-        </div>
-        <div class="fg2">
-          <div class="frow"><label>車位坪數（手動填）</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
-          <div class="frow"><label>土地①（坪）</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
-        </div>
-        <div class="fg2">
-          <div class="frow"><label>土增稅－一般（元）</label><input type="number" id="fLandtaxNormal" placeholder="" oninput="syncLandtax('normal', this.value)"/></div>
-          <div class="frow"><label>土增稅－自用（元）</label><input type="number" id="fLandtaxSelf" placeholder="" oninput="syncLandtax('self', this.value)"/></div>
-        </div>
-        <div class="frow"><label>Google Drive 資料夾</label>
-          <div style="display:flex;gap:8px">
-            <input id="fDriveUrl" placeholder="尚未建立" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);font-family:inherit;outline:none" readonly/>
-            <button id="btnDrive" onclick="createDriveFolder()" style="background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">📁 建立</button>
-            <button id="btnOpenDrive" onclick="openDriveFolder()" style="display:none;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔗 開啟</button>
+        <div class="prop-grid">
+          <!-- 位置與標示 -->
+          <div class="prop-card prop-full">
+            <div class="prop-card-hd">📍 位置與標示</div>
+            <div class="frow cmp"><label>門牌地址</label><input id="fAddr" placeholder="" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/></div>
+            <div class="fg2">
+              <div class="frow cmp"><label>地段（區）</label><input id="fDistrict" placeholder="例：松山區" oninput="syncToEval('ev_district', this.value)"/></div>
+              <div class="frow cmp"><label>地段號</label><input id="fPurpose" placeholder="" oninput="syncToEval('ev_section', this.value)"/></div>
+            </div>
+            <div class="fg2">
+              <div class="frow cmp"><label>使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
+              <div class="frow cmp"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value)"/></div>
+            </div>
+            <div class="frow cmp" style="margin-bottom:6px"><label>地號①</label><input id="fLandNo" placeholder="" oninput="syncToEval('ev_landno', this.value);updateLandTotals()"/></div>
+            <div id="extraLandList" style="display:flex;flex-direction:column;gap:5px"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <button onclick="addExtraLand()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">＋ 新增地號</button>
+              <span id="extraLandTotal" style="font-size:12px;color:var(--t2);font-weight:600"></span>
+            </div>
           </div>
-        </div>
-        <div class="fg2">
-          <div class="frow"><label>銀行貸款（萬）</label><input type="number" id="fBank" placeholder="" oninput="onLoanInput('bank')"/></div>
-          <div class="frow"><label>法人／租賃（萬）</label><input type="number" id="fLegal" placeholder="" oninput="onLoanInput('legal')"/></div>
-        </div>
-        <div id="bankLegalHint" style="display:none;margin:-2px 0 6px"></div>
-        <div class="frow"><label>民間借貸（萬）</label>
-          <div style="display:flex;align-items:center;gap:9px">
-            <input type="number" id="fPrivate" placeholder="" oninput="onLoanInput('private')" style="width:calc(50% - 4.5px);box-sizing:border-box;flex:0 0 auto"/>
-            <div id="privateHint" style="display:none;flex:0 0 auto"></div>
+          <!-- 面積 -->
+          <div class="prop-card">
+            <div class="prop-card-hd">📐 面積（坪）</div>
+            <div class="fg3">
+              <div class="frow cmp"><label>主建物</label><input type="number" id="fMainArea" placeholder=""/></div>
+              <div class="frow cmp"><label>附屬</label><input type="number" id="fSubArea" placeholder=""/></div>
+              <div class="frow cmp"><label>公設</label><input type="number" id="fCommonArea" placeholder=""/></div>
+            </div>
+            <div class="fg3">
+              <div class="frow cmp"><label>車位</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
+              <div class="frow cmp"><label>土地①</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
+              <div class="frow cmp"><label>總面積</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
+            </div>
+            <div class="fg2">
+              <div class="frow cmp" style="margin-bottom:0"><label>土增稅－一般（元）</label><input type="number" id="fLandtaxNormal" placeholder="" oninput="syncLandtax('normal', this.value)"/></div>
+              <div class="frow cmp" style="margin-bottom:0"><label>土增稅－自用（元）</label><input type="number" id="fLandtaxSelf" placeholder="" oninput="syncLandtax('self', this.value)"/></div>
+            </div>
           </div>
-        </div>
-        <div class="frow"><label>其他貸款</label>
-          <div id="extraLoanList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
-          <button onclick="addExtraLoan()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增貸款項目</button>
-        </div>
-        <!-- 估價 / 可貸空間 -->
-        <div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:var(--rs)">
-          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px">💰 核定估價</div>
-          <div class="fg2">
-            <div class="frow" style="margin-bottom:8px"><label>核定估價（萬）</label><input type="number" id="fEstVal" placeholder="你拍板的承作價" oninput="calcLoanRoom()"/></div>
-            <div class="frow" style="margin-bottom:8px"><label>可貸成數（%）</label><input type="number" id="fLtvRate" placeholder="例：80" oninput="calcLoanRoom()"/></div>
+          <!-- 抵押貸款 -->
+          <div class="prop-card">
+            <div class="prop-card-hd">🏦 抵押貸款（萬）</div>
+            <div class="fg2">
+              <div class="frow cmp"><label>銀行貸款</label><input type="number" id="fBank" placeholder="" oninput="onLoanInput('bank')"/></div>
+              <div class="frow cmp"><label>法人／租賃</label><input type="number" id="fLegal" placeholder="" oninput="onLoanInput('legal')"/></div>
+            </div>
+            <div id="bankLegalHint" style="display:none;margin:-2px 0 6px"></div>
+            <div class="frow cmp"><label>民間借貸</label>
+              <div style="display:flex;align-items:center;gap:9px">
+                <input type="number" id="fPrivate" placeholder="" oninput="onLoanInput('private')" style="width:calc(50% - 4.5px);box-sizing:border-box;flex:0 0 auto"/>
+                <div id="privateHint" style="display:none;flex:0 0 auto"></div>
+              </div>
+            </div>
+            <div class="frow cmp" style="margin-bottom:0"><label>其他貸款</label>
+              <div id="extraLoanList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+              <button onclick="addExtraLoan()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增貸款項目</button>
+            </div>
           </div>
-          <div id="estRefHint" style="font-size:11px;color:var(--t3);margin-bottom:8px;display:none"></div>
-          <div class="frow" style="margin-bottom:0"><label style="color:var(--green);font-weight:700">可貸空間（萬）＝估價×成數 −既有抵押</label>
-            <input type="number" id="fLoanRoom" placeholder="自動計算" readonly style="background:var(--gbg);font-weight:700;color:var(--green)"/>
+          <!-- 核定估價 -->
+          <div class="prop-card prop-full">
+            <div class="prop-card-hd">💰 核定估價</div>
+            <div class="fg2">
+              <div class="frow cmp"><label>核定估價（萬）</label><input type="number" id="fEstVal" placeholder="你拍板的承作價" oninput="calcLoanRoom()"/></div>
+              <div class="frow cmp"><label>可貸成數（%）</label><input type="number" id="fLtvRate" placeholder="例：80" oninput="calcLoanRoom()"/></div>
+            </div>
+            <div id="estRefHint" style="font-size:11px;color:var(--t3);margin-bottom:8px;display:none"></div>
+            <div class="frow cmp" style="margin-bottom:0"><label style="color:var(--green);font-weight:700">可貸空間（萬）＝估價×成數 −既有抵押</label>
+              <input type="number" id="fLoanRoom" placeholder="自動計算" readonly style="background:var(--gbg);font-weight:700;color:var(--green)"/>
+            </div>
+            <div id="loanRoomBreakdown" style="font-size:11px;color:var(--t3);margin-top:5px;display:none"></div>
           </div>
-          <div id="loanRoomBreakdown" style="font-size:11px;color:var(--t3);margin-top:5px;display:none"></div>
+          <!-- Google Drive -->
+          <div class="prop-card prop-full">
+            <div class="prop-card-hd">📁 Google Drive 資料夾</div>
+            <div style="display:flex;gap:8px">
+              <input id="fDriveUrl" placeholder="尚未建立" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 14px;font-size:14px;color:var(--t2);font-family:inherit;outline:none" readonly/>
+              <button id="btnDrive" onclick="createDriveFolder()" style="background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">📁 建立</button>
+              <button id="btnOpenDrive" onclick="openDriveFolder()" style="display:none;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔗 開啟</button>
+            </div>
+          </div>
         </div>
         <!-- 跳轉房價評估 -->
         <button onclick="jumpToEval()" style="width:100%;margin-top:14px;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 前往此筆房價評估</button>
