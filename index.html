@@ -884,7 +884,7 @@ async function applyUrlSettings() {
               <div class="frow cmp"><label>使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
               <div class="frow cmp"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value)"/></div>
             </div>
-            <div class="frow cmp" style="margin-bottom:6px"><label>地號①</label><input id="fLandNo" placeholder="" oninput="syncToEval('ev_landno', this.value);updateLandTotals()"/></div>
+            <div class="frow cmp" style="margin-bottom:6px"><label>地號①</label><input id="fLandNo" placeholder="" oninput="syncToEval('ev_landno', this.value);updateLandTotals();updateLandLabels()"/></div>
             <div id="extraLandList" style="display:flex;flex-direction:column;gap:5px"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
               <button onclick="addExtraLand()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">＋ 新增地號</button>
@@ -901,7 +901,7 @@ async function applyUrlSettings() {
             </div>
             <div class="fg3">
               <div class="frow cmp"><label>車位</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
-              <div class="frow cmp"><label>土地①</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
+              <div class="frow cmp"><label id="fLandAreaLabel">土地坪數</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
               <div class="frow cmp"><label>總面積</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
             </div>
             <div class="fg2">
@@ -3488,13 +3488,22 @@ function removeLog(i){
 let extraLoans=[];
 let extraLands=[];
 
+// 坪數欄標籤：有地號→「114地號面積」；沒有→「土地坪數」
+function landAreaLabel(no){ no=String(no||'').trim(); return no ? no+'地號面積' : '土地坪數'; }
+function updateLandLabels(){
+  const lbl=document.getElementById('fLandAreaLabel');
+  if(lbl) lbl.textContent=landAreaLabel(document.getElementById('fLandNo')?.value||'');
+}
 function renderExtraLands(){
   const container=document.getElementById('extraLandList');if(!container)return;
-  const iStyle='background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none';
-  container.innerHTML=extraLands.map((l,i)=>`<div style="display:flex;align-items:center;gap:6px">
-    <input placeholder="地號" value="${l.landNo||''}" onchange="extraLands[${i}].landNo=this.value;updateLandTotals()" style="flex:2;${iStyle}"/>
-    <input type="number" placeholder="坪" value="${l.landArea||''}" onchange="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals()" style="flex:1;${iStyle}"/>
-    <button onclick="extraLands.splice(${i},1);renderExtraLands()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px">✕</button>
+  const iStyle='width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none';
+  container.innerHTML=extraLands.map((l,i)=>`<div style="border:1px solid var(--border);border-radius:var(--rs);padding:8px;background:var(--bg)">
+    <div style="display:flex;align-items:center;gap:6px">
+      <input placeholder="地號（例：114）" value="${l.landNo||''}" oninput="extraLands[${i}].landNo=this.value;document.getElementById('exLandLbl${i}').textContent=landAreaLabel(this.value);updateLandTotals()" style="flex:1;${iStyle}"/>
+      <button onclick="extraLands.splice(${i},1);renderExtraLands()" title="刪除這筆地號" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px">✕</button>
+    </div>
+    <label id="exLandLbl${i}" style="display:block;font-size:10px;font-weight:600;color:var(--t2);margin:7px 0 3px;text-transform:none">${landAreaLabel(l.landNo)}</label>
+    <input type="number" placeholder="坪數" value="${l.landArea||''}" oninput="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals()" style="${iStyle}"/>
   </div>`).join('');
   updateLandTotals();
 }
@@ -3695,6 +3704,7 @@ function loadPropFields(idx){
   document.getElementById('fLtvRate').value=p.ltvRate||'';
   extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
   extraLands=[...(p.extraLands||[])]; renderExtraLands();
+  updateLandLabels();
   renderLoanHints();
   calcLoanRoom();
 }
