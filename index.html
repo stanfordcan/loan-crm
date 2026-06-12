@@ -957,8 +957,11 @@ async function applyUrlSettings() {
             </div>
           </div>
         </div>
-        <!-- 跳轉房價評估 -->
-        <button onclick="jumpToEval()" style="width:100%;margin-top:14px;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 前往此筆房價評估</button>
+        <!-- 跳轉房價評估 / 貸款試算 -->
+        <div class="fg2" style="margin-top:14px">
+          <button onclick="jumpToEval()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 房價評估</button>
+          <button onclick="openLoanCalc()" style="width:100%;background:#ECEAF3;color:#6A5E8A;border:1px solid #d6cfe6;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">💹 貸款試算</button>
+        </div>
       </div>
       <div id="sp2" style="display:none">
         <div class="log-list" id="logList"></div>
@@ -1141,6 +1144,16 @@ async function applyUrlSettings() {
   </div>
 </div>
 
+<!-- 貸款試算（嵌入式全螢幕）-->
+<div id="loanCalcBg" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(20,25,40,.55);flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0">
+    <span style="font-weight:700;font-size:15px;color:#6A5E8A">💹 貸款試算</span>
+    <span id="loanCalcSub" style="font-size:12px;color:var(--t3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">已帶入此筆不動產的抵押金額，編輯會自動存回</span>
+    <button onclick="closeLoanCalc()" style="background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✕ 關閉</button>
+  </div>
+  <iframe id="loanCalcFrame" title="貸款試算" style="flex:1;border:none;width:100%;background:#f0f2f5"></iframe>
+</div>
+
 <!-- XLS Import Modal -->
 <div class="imbg" id="imBg">
   <div class="immodal">
@@ -1165,7 +1178,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #6';
+const APP_VERSION = '2026.06.12 #7';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3764,7 +3777,7 @@ function calcLoanRoom(){
   const bank=parseFloat(document.getElementById('fBank')?.value)||0;
   const legal=parseFloat(document.getElementById('fLegal')?.value)||0;
   const priv=parseFloat(document.getElementById('fPrivate')?.value)||0;
-  const extra=(extraLoans||[]).reduce((s,l)=>s+(parseFloat(l.amt)||0),0);
+  const extra=(extraLoans||[]).reduce((s,l)=>s+(parseFloat(l.amount)||0),0);
   const existing=bank+legal+priv+extra;
   const roomEl=document.getElementById('fLoanRoom');
   const bd=document.getElementById('loanRoomBreakdown');
@@ -3786,6 +3799,62 @@ function calcLoanRoom(){
     else { ref.style.display='none'; ref.textContent=''; }
   }
 }
+
+// ── 貸款試算（嵌入式 iframe）─────────────────────────────
+let _loanCalcInit = null;
+// 用目前不動產的抵押金額建立試算表初始狀態
+function buildLoanCalcState(c, p){
+  const today = new Date().toISOString().slice(0,10);
+  const mk = (name, wan, isBank) => ({ name, isBank:!!isBank, interestOnly:false,
+    principal: Math.round((parseFloat(wan)||0)*10000), periods:0, grace:0,
+    stages:[{fromMonth:1,rate:0}], startDate:'', lockPeriods:0, penaltyPct:0 });
+  const origLoans = [];
+  if((parseFloat(p.bank)||0)>0)    origLoans.push(mk('銀行貸款', p.bank, true));
+  if((parseFloat(p.legal)||0)>0)   origLoans.push(mk('法人／租賃', p.legal, false));
+  if((parseFloat(p.private)||0)>0) origLoans.push(mk('民間借貸', p.private, false));
+  (p.extraLoans||[]).forEach(l=>{ if((parseFloat(l.amount)||0)>0) origLoans.push(mk(l.name||'其他貸款', l.amount, false)); });
+  if(!origLoans.length) origLoans.push(mk('原貸款（現況）', 0, false));
+  // 方案2 預設金額：可貸空間 = 估價×成數（萬→元）
+  const est=parseFloat(p.estVal)||0, rate=parseFloat(p.ltvRate)||0;
+  const p2 = (est>0&&rate>0) ? Math.round(est*rate/100*10000) : 0;
+  return {
+    header:{ clientName:(c.name||''), agentName:'', date:today },
+    origLoans,
+    loan2:{ name:'方案 2（轉貸後）', principal:p2, periods:0, grace:0, stages:[{fromMonth:1,rate:0}], interestOnly:false },
+    svc:{mode:'percent',percent:'',amount:''}, adv:{mode:'percent',percent:'',amount:''}, deed:{amount:''},
+    ui:{showPayback:true,showDetail:true,showQR:true}
+  };
+}
+function openLoanCalc(){
+  if(typeof savePropFields==='function') savePropFields();
+  const c = editId ? (clients.find(x=>x.id===editId)||{name:''}) : {name:''};
+  const p = properties[curPropIdx] || {};
+  // 有存過就還原，否則用不動產資料建立
+  _loanCalcInit = (p.loanCalcState && p.loanCalcState.origLoans) ? p.loanCalcState : buildLoanCalcState(c, p);
+  const sub=document.getElementById('loanCalcSub');
+  if(sub) sub.textContent = (p.loanCalcState?'已還原上次的試算':'已帶入此筆抵押金額')+'，編輯會自動存回此筆不動產';
+  const f = document.getElementById('loanCalcFrame');
+  f.src = '貸款試算.html?ts=' + Date.now(); // 重新載入乾淨的試算表
+  document.getElementById('loanCalcBg').style.display = 'flex';
+}
+function closeLoanCalc(){
+  document.getElementById('loanCalcBg').style.display = 'none';
+  const f = document.getElementById('loanCalcFrame');
+  if(f) f.src = 'about:blank'; // 卸載，停止輪詢
+}
+// 與 iframe 試算表雙向溝通
+window.addEventListener('message', function(ev){
+  const d = ev.data; if(!d || !d.type) return;
+  if(d.type === 'calc-ready'){
+    const f = document.getElementById('loanCalcFrame');
+    if(f && f.contentWindow && _loanCalcInit){
+      f.contentWindow.postMessage({ type:'crm-init', state:_loanCalcInit }, '*');
+    }
+  } else if(d.type === 'calc-state'){
+    if(properties[curPropIdx]) properties[curPropIdx].loanCalcState = d.state;
+  }
+});
+
 function renderLoanHints(){
   const p=properties[curPropIdx];
   const bank=parseFloat(document.getElementById('fBank')?.value)||0;
