@@ -903,8 +903,10 @@ async function applyUrlSettings() {
         </div>
         <div id="bankLegalHint" style="display:none;margin:-2px 0 6px"></div>
         <div class="frow"><label>民間借貸（萬）</label>
-          <input type="number" id="fPrivate" placeholder="" oninput="onLoanInput('private')"/>
-          <div id="privateHint" style="display:none;margin-top:5px"></div>
+          <div style="display:flex;align-items:center;gap:9px">
+            <input type="number" id="fPrivate" placeholder="" oninput="onLoanInput('private')" style="width:calc(50% - 4.5px);box-sizing:border-box;flex:0 0 auto"/>
+            <div id="privateHint" style="display:none;flex:0 0 auto"></div>
+          </div>
         </div>
         <div class="frow"><label>其他貸款</label>
           <div id="extraLoanList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
@@ -3680,10 +3682,7 @@ function renderLoanHints(){
     if(p && priv>0){
       const checked=p.privateConfirmed===true;
       pHint.style.display='';
-      pHint.innerHTML=`<label title="民間金額常為謄本最高限額，非實際借款；核實後勾選確認" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:${checked?'var(--green)':'var(--orange)'}">
-        <input type="checkbox" ${checked?'checked':''} onchange="togglePrivateConfirm(this.checked)" style="cursor:pointer;margin:0">
-        <span>${checked?'已確認金額':'待確認金額'}</span>
-      </label>`;
+      pHint.innerHTML=`<button type="button" onclick="togglePrivateConfirm(${!checked})" title="${checked?'已確認為實際金額（點擊取消）':'目前為謄本最高限額，非實際借款；核實後點此確認'}" style="width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);border:1.5px solid ${checked?'var(--green)':'var(--orange)'};background:${checked?'var(--gbg)':'var(--obg)'};color:${checked?'var(--green)':'var(--orange)'};font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1;padding:0">${checked?'✓':'?'}</button>`;
     } else { pHint.style.display='none'; pHint.innerHTML=''; }
   }
 }
@@ -4184,27 +4183,35 @@ function normBuildNo(s){
   return m2 ? String(parseInt(m2[1],10)) : '';
 }
 function normAddr(s){ return String(s||'').replace(/\s/g,'').replace(/台/g,'臺').slice(0,12); }
+// 地址核心：去掉縣市區鄉鎮前綴，只留街路門牌（兩邊格式不同也能對上）
+function addrCore(s){
+  const v=String(s||'').replace(/\s/g,'').replace(/台/g,'臺');
+  const idx=Math.max(v.lastIndexOf('區'),v.lastIndexOf('鄉'),v.lastIndexOf('鎮'));
+  return idx>=0 ? v.slice(idx+1) : v;
+}
+// 姓氏（去掉遮罩星號取第一字）：「龔**」→「龔」
+function surnameOf(n){ return String(n||'').replace(/[*＊\s]/g,'').charAt(0); }
+function addrHit(a,b){ return a&&b&&a.length>=4&&(a===b||a.startsWith(b)||b.startsWith(a)); }
 
-// 多層比對：身分證→電話→建號→姓名+地址→只有姓名
+// 多層比對：身分證→電話→建號→地址(+姓氏)→只有姓名
 function findAiMatch(rec){
   const idno=(rec.idno||'').trim().toUpperCase();
   const phone=(rec.phone||'').replace(/[^\d]/g,'');
   const name=(rec.name||'').trim();
-  // 蒐集本筆所有建號（含 properties）
   const recBuilds=[];
   (Array.isArray(rec.properties)?rec.properties:[]).forEach(p=>{const b=normBuildNo(p.buildNo); if(b) recBuilds.push(b);});
   const recAddrs=[];
-  (Array.isArray(rec.properties)?rec.properties:[]).forEach(p=>{const a=normAddr(p.addr); if(a) recAddrs.push(a);});
+  (Array.isArray(rec.properties)?rec.properties:[]).forEach(p=>{const a=addrCore(p.addr); if(a) recAddrs.push(a);});
 
-  // 取某 client 的所有建號 / 地址
+  // 取某 client 的所有建號（含 col4 謄本建號）/ 地址核心
   function clientBuilds(c){
-    const arr=[normBuildNo(c.buildNo)];
-    (c.properties||[]).forEach(p=>arr.push(normBuildNo(p.buildNo)));
+    const arr=[normBuildNo(c.buildNo), normBuildNo(c.col4BuildNo)];
+    (c.properties||[]).forEach(p=>{arr.push(normBuildNo(p.buildNo)); if(p.col4BuildNo) arr.push(normBuildNo(p.col4BuildNo));});
     return arr.filter(Boolean);
   }
   function clientAddrs(c){
-    const arr=[normAddr(c.addr)];
-    (c.properties||[]).forEach(p=>arr.push(normAddr(p.addr)));
+    const arr=[addrCore(c.addr)];
+    (c.properties||[]).forEach(p=>arr.push(addrCore(p.addr)));
     return arr.filter(Boolean);
   }
 
@@ -4212,19 +4219,23 @@ function findAiMatch(rec){
   if(idno){ const c=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno); if(c) return {client:c,reason:'身分證相符',confidence:'strong'}; }
   // 2. 電話
   if(phone&&phone.length>=9){ const c=clients.find(c=>(c.phone||'').replace(/[^\d]/g,'')===phone); if(c) return {client:c,reason:'電話相符',confidence:'strong'}; }
-  // 3. 建號（任一相同）
+  // 3. 建號（任一相同，含 col4）
   if(recBuilds.length){
     const c=clients.find(c=>clientBuilds(c).some(b=>recBuilds.includes(b)));
     if(c) return {client:c,reason:'建號相符',confidence:'strong'};
   }
-  // 4. 姓名 + 地址
-  if(name&&recAddrs.length){
-    const c=clients.find(c=>c.name===name && clientAddrs(c).some(a=>recAddrs.some(ra=>a&&ra&&(a.startsWith(ra)||ra.startsWith(a)))));
-    if(c) return {client:c,reason:'姓名+地址相符',confidence:'strong'};
+  // 4. 地址相符 → 同姓氏/同名直接更新；姓名不同則疑似（交使用者確認）
+  if(recAddrs.length){
+    const c=clients.find(c=>clientAddrs(c).some(a=>recAddrs.some(ra=>addrHit(a,ra))));
+    if(c){
+      if(name && c.name===name) return {client:c,reason:'姓名+地址相符',confidence:'strong'};
+      if(name && surnameOf(name) && surnameOf(name)===surnameOf(c.name)) return {client:c,reason:'地址+姓氏相符',confidence:'strong'};
+      return {client:c,reason:'地址相符（姓名不同，請確認）',confidence:'weak'};
+    }
   }
   // 5. 只有姓名 → 疑似同名，交給使用者判斷
   if(name){
-    const c=clients.find(c=>c.name===name);
+    const c=clients.find(c=>c.name===name || (surnameOf(name) && surnameOf(name)===surnameOf(c.name) && (name.includes('*')||c.name.includes('*'))));
     if(c) return {client:c,reason:'姓名相同（疑似同名，請確認）',confidence:'weak'};
   }
   return {client:null,reason:'',confidence:null};
@@ -4405,10 +4416,11 @@ function doAiImport(){
         // 移除既有的空白不動產佔位
         match.properties=match.properties.filter(p=>p.buildNo||p.addr||p.bank||p.private||p.mainArea||p.area);
         newProps.forEach(np=>{
-          // 同建號（正規化後）或同地址 → 視為同一筆，補進空格；否則新增
+          // 同建號（正規化後，含 col4）或同地址核心 → 視為同一筆，補進空格；否則新增
+          const npB=normBuildNo(np.buildNo);
           const dup=match.properties.find(p=>
-            (p.buildNo&&np.buildNo&&normBuildNo(p.buildNo)===normBuildNo(np.buildNo)) ||
-            (!p.buildNo&&!np.buildNo&&p.addr&&np.addr&&normAddr(p.addr)===normAddr(np.addr))
+            (npB && (normBuildNo(p.buildNo)===npB || normBuildNo(p.col4BuildNo)===npB)) ||
+            (p.addr&&np.addr&&addrHit(addrCore(p.addr),addrCore(np.addr)))
           );
           if(dup) mergePropInto(dup, np);
           else match.properties.push(np);
