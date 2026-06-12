@@ -865,21 +865,23 @@ render();
 
 // ===== 嵌入 CRM 時的雙向溝通（postMessage）=====
 (function(){
-  if (window.parent === window) return; // 非嵌入模式不啟用
+  // 嵌入(iframe)用 window.parent；新視窗(window.open)用 window.opener
+  var host = window.opener || (window.parent !== window ? window.parent : null);
+  if (!host) return; // 獨立開啟，不啟用溝通
   window.addEventListener('message', function(ev){
     const d = ev.data;
     if (!d || d.type !== 'crm-init') return;
     try { if (d.state) applyStateToUI(d.state); }
     catch(e){ console.error('crm-init 套用失敗', e); }
   });
-  try { window.parent.postMessage({ type: 'calc-ready' }, '*'); } catch(e){}
+  try { host.postMessage({ type: 'calc-ready' }, '*'); } catch(e){}
   let _lastJSON = '';
   setInterval(function(){
     try {
       const j = JSON.stringify(state);
       if (j !== _lastJSON) {
         _lastJSON = j;
-        window.parent.postMessage({ type: 'calc-state', state: JSON.parse(j) }, '*');
+        host.postMessage({ type: 'calc-state', state: JSON.parse(j) }, '*');
       }
     } catch(e){}
   }, 1000);

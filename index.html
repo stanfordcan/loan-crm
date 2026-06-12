@@ -1147,16 +1147,6 @@ async function applyUrlSettings() {
   </div>
 </div>
 
-<!-- 貸款試算（嵌入式全螢幕）-->
-<div id="loanCalcBg" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(20,25,40,.55);flex-direction:column">
-  <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0">
-    <span style="font-weight:700;font-size:15px;color:#6A5E8A">💹 貸款試算</span>
-    <span id="loanCalcSub" style="font-size:12px;color:var(--t3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">已帶入此筆不動產的抵押金額，編輯會自動存回</span>
-    <button onclick="closeLoanCalc()" style="background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✕ 關閉</button>
-  </div>
-  <iframe id="loanCalcFrame" title="貸款試算" style="flex:1;border:none;width:100%;background:#f0f2f5"></iframe>
-</div>
-
 <!-- XLS Import Modal -->
 <div class="imbg" id="imBg">
   <div class="immodal">
@@ -1181,7 +1171,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #8';
+const APP_VERSION = '2026.06.12 #9';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3803,8 +3793,10 @@ function calcLoanRoom(){
   }
 }
 
-// ── 貸款試算（嵌入式 iframe）─────────────────────────────
+// ── 貸款試算（新視窗 window.open）─────────────────────────
 let _loanCalcInit = null;
+let _loanCalcWin = null;
+let _loanCalcTargetProp = null;
 // 用目前不動產的抵押金額建立試算表初始狀態
 function buildLoanCalcState(c, p){
   const today = new Date().toISOString().slice(0,10);
@@ -3832,29 +3824,23 @@ function openLoanCalc(){
   if(typeof savePropFields==='function') savePropFields();
   const c = editId ? (clients.find(x=>x.id===editId)||{name:''}) : {name:''};
   const p = properties[curPropIdx] || {};
+  _loanCalcTargetProp = p; // 用參照鎖定這筆不動產，存回時不受切換影響
   // 有存過就還原，否則用不動產資料建立
   _loanCalcInit = (p.loanCalcState && p.loanCalcState.origLoans) ? p.loanCalcState : buildLoanCalcState(c, p);
-  const sub=document.getElementById('loanCalcSub');
-  if(sub) sub.textContent = (p.loanCalcState?'已還原上次的試算':'已帶入此筆抵押金額')+'，編輯會自動存回此筆不動產';
-  const f = document.getElementById('loanCalcFrame');
-  f.src = '貸款試算.html?ts=' + Date.now(); // 重新載入乾淨的試算表
-  document.getElementById('loanCalcBg').style.display = 'flex';
+  _loanCalcWin = window.open('貸款試算.html?ts=' + Date.now(), '_blank');
+  if(!_loanCalcWin){ alert('瀏覽器擋掉了新視窗，請允許此網站的彈出視窗後再試一次。'); return; }
 }
-function closeLoanCalc(){
-  document.getElementById('loanCalcBg').style.display = 'none';
-  const f = document.getElementById('loanCalcFrame');
-  if(f) f.src = 'about:blank'; // 卸載，停止輪詢
-}
-// 與 iframe 試算表雙向溝通
+// 與試算表新視窗雙向溝通
 window.addEventListener('message', function(ev){
   const d = ev.data; if(!d || !d.type) return;
   if(d.type === 'calc-ready'){
-    const f = document.getElementById('loanCalcFrame');
-    if(f && f.contentWindow && _loanCalcInit){
-      f.contentWindow.postMessage({ type:'crm-init', state:_loanCalcInit }, '*');
+    // 回覆「開啟的那個視窗」，把初始資料帶進去
+    if(_loanCalcInit && ev.source){
+      try{ ev.source.postMessage({ type:'crm-init', state:_loanCalcInit }, '*'); }catch(e){}
     }
   } else if(d.type === 'calc-state'){
-    if(properties[curPropIdx]) properties[curPropIdx].loanCalcState = d.state;
+    // 存到工作中的不動產（按「儲存」時跟其他欄位一起寫入，與一般欄位行為一致）
+    if(_loanCalcTargetProp) _loanCalcTargetProp.loanCalcState = d.state;
   }
 });
 
