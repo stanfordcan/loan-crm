@@ -1174,7 +1174,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #14';
+const APP_VERSION = '2026.06.12 #15';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1633,7 +1633,13 @@ async function createDriveFolder(){
       document.getElementById('btnOpenDrive').style.display='';
       btn.textContent='✅ 已建立';
       updateDrivePath();
-      showToast('📁 資料夾已建立在你的 Google Drive');
+      // 立即存檔：建立資料夾是實體動作，連結要馬上留著，不必按儲存
+      if(properties[curPropIdx]) properties[curPropIdx].driveUrl = data.url;
+      if(editId){
+        const cl = clients.find(x=>x.id===editId);
+        if(cl){ cl.properties = properties.map(p=>({...p})); cl.updatedAt = TODAY; try{ saveLocal(); }catch(e){} }
+      }
+      showToast('📁 資料夾已建立並儲存');
     } else {
       showToast('⚠️ 建立失敗');btn.textContent='📁 建立';
     }
