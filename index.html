@@ -1174,7 +1174,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #15';
+const APP_VERSION = '2026.06.12 #16';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2917,7 +2917,7 @@ function handlePhoneClick(e, phone) {
 
 // ── 表單髒標記 ────────────────────────────────────────────
 let formDirty = false;
-document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; });
+document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; scheduleDraftSave(); });
 
 // ── 瀏覽器推播通知 ────────────────────────────────────────
 function initNotifications() {
@@ -3149,9 +3149,13 @@ function openEdit(id){
 }
 
 function closeSheet(){
-  if(formDirty && !confirm('有未儲存的變更，確定要關閉嗎？')) return;
+  // 既有客戶：關閉前自動存一次（含最後 1.5 秒還沒觸發的編輯），不會遺失也不彈提示
+  if(editId){ try{ saveClient(true); }catch(e){} }
+  else if(formDirty && !confirm('有未儲存的變更，確定要關閉嗎？')) return; // 新客戶仍提醒
+  clearTimeout(_draftSaveTimer);
   formDirty=false;
   document.getElementById('sheetBg').classList.remove('open');
+  render();
 }
 
 function renderPriceEval(c) {
@@ -4229,13 +4233,14 @@ function selectTenClient(id){
   filterTenClients();
 }
 
-async function saveClient(){
+async function saveClient(silent){
   savePropFields();
   const name=document.getElementById('fName').value.trim();
   const phone=document.getElementById('fPhone').value.trim();
-  if(!name){alert('姓名為必填');return;}
+  if(!name){ if(silent) return; alert('姓名為必填'); return; }
+  if(silent && !editId) return; // 自動存只更新既有客戶，不新建
   const btn=document.getElementById('btnSave');
-  btn.disabled=true;btn.textContent='儲存中…';
+  if(!silent){ btn.disabled=true;btn.textContent='儲存中…'; }
   const data={
     name,phone,
     idno:document.getElementById('fIdno').value.trim(),
@@ -4309,12 +4314,21 @@ async function saveClient(){
   }
   saveLocal();
   formDirty=false;
+  if(silent) return; // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步
   btn.disabled=false;btn.textContent='儲存';
   closeSheet();render();
   showToast('💾 已儲存');
   pushToSheet()
     .then(()=>showToast('✅ 同步完成'))
     .catch(()=>{});
+}
+
+// 編輯中自動存草稿（既有客戶，打字停 1.5 秒觸發）
+let _draftSaveTimer = null;
+function scheduleDraftSave(){
+  if(!editId) return;
+  clearTimeout(_draftSaveTimer);
+  _draftSaveTimer = setTimeout(()=>{ try{ saveClient(true); }catch(e){} }, 1500);
 }
 
 async function deleteClient(){
