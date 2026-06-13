@@ -955,10 +955,10 @@ async function applyUrlSettings() {
           <!-- Google Drive -->
           <div class="prop-card prop-full">
             <div class="prop-card-hd">📁 Google Drive 資料夾</div>
-            <div style="display:flex;gap:8px">
-              <input id="fDriveUrl" placeholder="尚未建立" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 14px;font-size:14px;color:var(--t2);font-family:inherit;outline:none" readonly/>
-              <button id="btnDrive" onclick="createDriveFolder()" style="background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">📁 建立</button>
-              <button id="btnOpenDrive" onclick="openDriveFolder()" style="display:none;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔗 開啟</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="fDriveUrl" placeholder="尚未建立" style="flex:1 1 0;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;color:var(--t2);font-family:inherit;outline:none;text-overflow:ellipsis" readonly/>
+              <button id="btnDrive" onclick="createDriveFolder()" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:11px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📁 建立</button>
+              <button id="btnOpenDrive" onclick="openDriveFolder()" style="display:none;flex-shrink:0;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:11px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔗 開啟</button>
             </div>
           </div>
         </div>
@@ -1173,7 +1173,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #12';
+const APP_VERSION = '2026.06.12 #13';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
