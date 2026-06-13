@@ -441,6 +441,7 @@ auth.onAuthStateChanged(async user => {
     // ── 1. 先清空，再載入本地快取（零等待）──
     clients = []; nextId = 1;
     loadLocal();
+    if (typeof loadGoogleCalCache === 'function') loadGoogleCalCache();
     if (typeof autoClassify === 'function') autoClassify();
     if (typeof render === 'function') render();
 
@@ -450,6 +451,10 @@ auth.onAuthStateChanged(async user => {
         if (typeof autoClassify === 'function') autoClassify();
         if (typeof render === 'function') render();
         showToast('☁️ 已從雲端同步最新資料');
+      }
+      // 設定載入後，背景同步 Google 行事曆（有填個人 GAS 才做）
+      if (typeof COMPANY_URL !== 'undefined' && COMPANY_URL && typeof syncGoogleCal === 'function') {
+        syncGoogleCal(true).catch(()=>{});
       }
     }).catch(() => {});
 
@@ -782,7 +787,10 @@ async function applyUrlSettings() {
         <button onclick="calMonth(1)" style="background:var(--s2);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;font-size:17px;cursor:pointer;color:var(--t2)">›</button>
       </div>
       <div id="calGrid"></div>
-      <div style="font-size:11px;color:var(--t3);margin-top:8px">點客戶開啟編輯 · 📝橘框為備忘錄 · 紅色為逾期未追</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+        <div style="font-size:11px;color:var(--t3)">點日期看當天 · 📝備忘錄 · 📆Google · 紅色逾期</div>
+        <button id="gcalBtn" onclick="syncGoogleCal()" style="font-size:11px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit">📆 同步Google</button>
+      </div>
     </div>
     <!-- 統計側邊欄 -->
     <div style="width:124px;flex-shrink:0;display:flex;flex-direction:column;gap:10px">
@@ -1198,7 +1206,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #20';
+const APP_VERSION = '2026.06.12 #21';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2675,6 +2683,7 @@ function renderCalendar(){
   const byDay={};
   clients.forEach(c=>{ if(!c.remind) return; (byDay[c.remind]=byDay[c.remind]||[]).push({type:'client',c}); });
   (typeof memos!=='undefined'?memos:[]).forEach(m=>{ if(!m.dueDate||m.done) return; (byDay[m.dueDate]=byDay[m.dueDate]||[]).push({type:'memo',m}); });
+  (googleEvents||[]).forEach(e=>{ if(!e.date) return; (byDay[e.date]=byDay[e.date]||[]).push({type:'google',e}); });
   const startDow=new Date(_calYear,_calMonth,1).getDay();
   const daysInMonth=new Date(_calYear,_calMonth+1,0).getDate();
   const todayStr=localDateStr(new Date());
@@ -2683,17 +2692,17 @@ function renderCalendar(){
   for(let i=0;i<startDow;i++) html+='<div></div>';
   for(let day=1;day<=daysInMonth;day++){
     const ds=`${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const items=(byDay[ds]||[]).slice().sort((a,b)=>{
-      const ta=a.type==='memo'?(a.m.dueTime||'99'):(a.c.remindTime||'99');
-      const tb=b.type==='memo'?(b.m.dueTime||'99'):(b.c.remindTime||'99');
-      return ta.localeCompare(tb);
-    });
+    const itTime=x=> x.type==='memo'?(x.m.dueTime||'99:99') : x.type==='google'?(x.e.allday?'00:00':(x.e.start||'99:99')) : (x.c.remindTime||'99:99');
+    const items=(byDay[ds]||[]).slice().sort((a,b)=>itTime(a).localeCompare(itTime(b)));
     const isToday=ds===todayStr;
     const isOver=ds<todayStr;
     let cell=`<div onclick="openDayView('${ds}')" style="min-height:104px;border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-radius:8px;padding:5px;background:${isToday?'var(--abg)':'var(--bg)'};overflow:hidden;cursor:pointer">`;
     cell+=`<div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?'var(--accent)':(isOver&&items.length?'var(--red)':'var(--t2)')};margin-bottom:3px">${day}</div>`;
     items.slice(0,4).forEach(it=>{
-      if(it.type==='memo'){
+      if(it.type==='google'){
+        const e=it.e; const t=e.allday?'':(e.start?e.start+' ':'');
+        cell+=`<div onclick="event.stopPropagation();openDayView('${ds}')" title="📆 ${calEsc(e.title)}${e.allday?'（全天）':' '+(e.start||'')+'-'+(e.end||'')}" style="font-size:10px;line-height:1.5;background:#fff;border:1px solid #7FA0D4;color:#3E5F92;border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📆 ${t}${calEsc(e.title)}</div>`;
+      } else if(it.type==='memo'){
         const m=it.m; const t=m.dueTime?m.dueTime+' ':'';
         cell+=`<div onclick="event.stopPropagation();openMemoModal()" title="📝 ${calEsc(m.text)}${m.dueTime?' '+m.dueTime:''}" style="font-size:10px;line-height:1.5;background:#fff;border:1px solid var(--orange);color:var(--orange);border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📝 ${t}${calEsc(m.text)}</div>`;
       } else {
@@ -2714,7 +2723,7 @@ function openDayView(ds){
   const items=[];
   clients.forEach(c=>{ if(c.remind===ds) items.push({type:'client', time:c.remindTime||'', c}); });
   (typeof memos!=='undefined'?memos:[]).forEach(m=>{ if(m.dueDate===ds && !m.done) items.push({type:'memo', time:m.dueTime||'', m}); });
-  // 之後 Google 事件： items.push({type:'google', time, end, title})
+  (googleEvents||[]).forEach(e=>{ if(e.date===ds) items.push({type:'google', time:e.allday?'':(e.start||''), e}); });
   items.sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
   const d=new Date(ds+'T00:00:00');
   const wd=['日','一','二','三','四','五','六'][d.getDay()];
@@ -2725,6 +2734,15 @@ function openDayView(ds){
   } else {
     list.innerHTML=items.map(it=>{
       const tm=it.time||'—';
+      if(it.type==='google'){
+        const e=it.e;
+        const range=e.allday?'全天':((e.start||'')+(e.end?'–'+e.end:''));
+        return `<div style="display:flex;gap:10px;align-items:flex-start;padding:11px 6px;border-bottom:1px solid var(--border)">
+          <div style="width:46px;flex-shrink:0;font-size:12px;font-weight:600;color:#3E5F92">${e.allday?'全天':(e.start||'—')}</div>
+          <div style="width:3px;border-radius:2px;background:#7FA0D4;flex-shrink:0;align-self:stretch"></div>
+          <div style="flex:1;min-width:0"><span style="font-size:11px;color:#3E5F92">📆 Google</span><div style="font-size:13px;color:var(--text)">${calEsc(e.title)}</div><div style="font-size:11px;color:var(--t3)">${range}</div></div>
+        </div>`;
+      }
       if(it.type==='memo'){
         const m=it.m;
         return `<div onclick="closeDayView();openMemoModal()" style="display:flex;gap:10px;align-items:flex-start;padding:11px 6px;border-bottom:1px solid var(--border);cursor:pointer">
@@ -2747,6 +2765,30 @@ function openDayView(ds){
   document.getElementById('dayViewBg').style.display='flex';
 }
 function closeDayView(){ const el=document.getElementById('dayViewBg'); if(el) el.style.display='none'; }
+
+// ── Google 行事曆（唯讀，透過個人 GAS 讀取）─────────────────
+let googleEvents = [];
+const GCAL_KEY = 'crm_gcal_v1';
+function loadGoogleCalCache(){
+  try{ const d=JSON.parse(localStorage.getItem(GCAL_KEY)||'null'); if(Array.isArray(d)) googleEvents=d; }catch(e){}
+}
+async function syncGoogleCal(silent){
+  if(!COMPANY_URL){ if(!silent) showToast('⚠️ 請先在 ⚙️ 設定填個人總檔網址（同一個 GAS）'); return; }
+  const btn=document.getElementById('gcalBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ 同步中…'; }
+  try{
+    const data = await jsonpFetch(COMPANY_URL+'?action=getEvents&token='+API_TOKEN, 40000);
+    if(data && data.status==='ok' && Array.isArray(data.events)){
+      googleEvents = data.events;
+      try{ localStorage.setItem(GCAL_KEY, JSON.stringify(googleEvents)); }catch(e){}
+      renderCalendar();
+      if(!silent) showToast('📆 已同步 '+googleEvents.length+' 個 Google 事件');
+    } else {
+      if(!silent) showToast('⚠️ 讀取失敗'+(data&&data.message?'：'+data.message:'（GAS 是否已加 getEvents？）'));
+    }
+  }catch(e){ if(!silent) showToast('⚠️ 連線失敗：'+e.message); }
+  if(btn){ btn.disabled=false; btn.textContent='📆 同步Google'; }
+}
 
 // PC hover：暫時顯示含無效的完整數字
 function totalHover(el, full){
