@@ -956,7 +956,8 @@ async function applyUrlSettings() {
           <div class="prop-card prop-full">
             <div class="prop-card-hd">📁 Google Drive 資料夾</div>
             <div style="display:flex;gap:8px;align-items:center">
-              <input id="fDriveUrl" placeholder="尚未建立" style="flex:1 1 0;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;color:var(--t2);font-family:inherit;outline:none;text-overflow:ellipsis" readonly/>
+              <input type="hidden" id="fDriveUrl"/>
+              <div id="fDrivePath" style="flex:1 1 0;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;color:var(--t3);font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">尚未建立</div>
               <button id="btnDrive" onclick="createDriveFolder()" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:none;border-radius:var(--rs);padding:11px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📁 建立</button>
               <button id="btnOpenDrive" onclick="openDriveFolder()" style="display:none;flex-shrink:0;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:11px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔗 開啟</button>
             </div>
@@ -1173,7 +1174,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.12 #13';
+const APP_VERSION = '2026.06.12 #14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1631,6 +1632,7 @@ async function createDriveFolder(){
       document.getElementById('fDriveUrl').value=data.url;
       document.getElementById('btnOpenDrive').style.display='';
       btn.textContent='✅ 已建立';
+      updateDrivePath();
       showToast('📁 資料夾已建立在你的 Google Drive');
     } else {
       showToast('⚠️ 建立失敗');btn.textContent='📁 建立';
@@ -1642,6 +1644,14 @@ async function createDriveFolder(){
 function openDriveFolder(){
   const url = document.getElementById('fDriveUrl').value;
   if(url) window.open(url,'_blank');
+}
+// 顯示資料夾在雲端的「位置」而非網址：客戶資料 / 客戶名
+function updateDrivePath(){
+  const el = document.getElementById('fDrivePath'); if(!el) return;
+  const url = document.getElementById('fDriveUrl')?.value || '';
+  const name = (document.getElementById('fName')?.value || '').trim();
+  if(url){ el.textContent = '客戶資料 / ' + (name || '此客戶'); el.style.color = 'var(--green)'; }
+  else   { el.textContent = '尚未建立'; el.style.color = 'var(--t3)'; }
 }
 
 async function syncFromCompany() {
@@ -3746,6 +3756,7 @@ function loadPropFields(idx){
   const btnO=document.getElementById('btnOpenDrive'),btnC=document.getElementById('btnDrive');
   if(p.driveUrl){btnO.style.display='';btnC.textContent='✅ 已建立';}
   else{btnO.style.display='none';btnC.textContent='📁 建立';}
+  updateDrivePath();
   document.getElementById('fEstVal').value=p.estVal||'';
   document.getElementById('fLtvRate').value=p.ltvRate||'';
   extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
