@@ -835,6 +835,7 @@ async function applyUrlSettings() {
       <button class="stab" onclick="sSTab(2,this)">聯絡記錄</button>
       <button class="stab" onclick="sSTab(3,this)">公司資料</button>
       <button class="stab" onclick="sSTab(4,this)">房價評估</button>
+      <button class="stab" onclick="sSTab(5,this)">☁️ 雲端</button>
     </div>
     <div class="sbody">
       <!-- 疑似重複警告 -->
@@ -1022,6 +1023,14 @@ async function applyUrlSettings() {
       <div id="sp4" style="display:none">
         <div id="evalPropIndicator" style="display:none;font-size:12px;font-weight:600;color:var(--accent);background:var(--abg);border:1px solid #C5D5F8;border-radius:var(--rs);padding:8px 12px;margin-bottom:10px;cursor:pointer" onclick="sSTabTo(1);document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===1))">← 返回不動產</div>
         <div id="priceEvalPanel"></div>
+      </div>
+      <div id="sp5" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div id="cloudPath" style="flex:1 1 0;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">尚未建立</div>
+          <button id="cloudOpenBtn" onclick="openCloudFolder()" style="display:none;flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📁 在 Drive 開啟</button>
+          <button onclick="renderCloudTab()" title="重新整理" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;cursor:pointer;font-family:inherit">🔄</button>
+        </div>
+        <div id="cloudGrid"></div>
       </div>
     </div>
     <div class="sfooter">
@@ -1218,7 +1227,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.14 #1';
+const APP_VERSION = '2026.06.14 #2';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1698,6 +1707,48 @@ async function createDriveFolder(){
 function openDriveFolder(){
   const url = document.getElementById('fDriveUrl').value;
   if(url) window.open(url,'_blank');
+}
+
+// ☁️ 雲端預覽分頁：列出該筆不動產 Drive 資料夾裡的檔案（縮圖格狀）
+function cloudEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function curDriveUrl(){return ((properties[curPropIdx]||{}).driveUrl||document.getElementById('fDriveUrl')?.value||'').trim();}
+function openCloudFolder(){const url=curDriveUrl(); if(url) window.open(url,'_blank');}
+async function renderCloudTab(){
+  const grid = document.getElementById('cloudGrid');
+  const pathEl = document.getElementById('cloudPath');
+  const openBtn = document.getElementById('cloudOpenBtn');
+  if(!grid) return;
+  const driveUrl = curDriveUrl();
+  const name = (document.getElementById('fName')?.value||'').trim();
+  const addr = (document.getElementById('fAddr')?.value||'').trim();
+  if(pathEl){ pathEl.textContent = driveUrl ? ('客戶資料 / '+(name||'此客戶')+(addr?' / '+addr:'')) : '尚未建立'; pathEl.style.color = driveUrl?'var(--green)':'var(--t3)'; }
+  if(openBtn) openBtn.style.display = driveUrl ? '' : 'none';
+  const msg = (txt,color)=>{ grid.style.display='block'; grid.innerHTML='<p style="font-size:13px;color:'+(color||'var(--t3)')+';text-align:center;padding:30px 0;line-height:1.7">'+txt+'</p>'; };
+  if(!driveUrl){ msg('尚未建立雲端資料夾。<br>請到「不動產」分頁按 📁 建立資料夾。'); return; }
+  if(!COMPANY_URL){ msg('⚠️ 請先在 ⚙️ 設定填入個人總檔網址。'); return; }
+  msg('⏳ 載入資料夾內容中…');
+  const reqUrl = driveUrl; // 記下這次請求對應的資料夾，回來時若已切走就不渲染
+  try{
+    const data = await jsonpFetch(COMPANY_URL+'?action=listFolder&token='+API_TOKEN+'&url='+encodeURIComponent(driveUrl), 40000);
+    if(curDriveUrl()!==reqUrl) return; // 已切換不動產/分頁
+    if(!data || data.status!=='ok'){
+      msg('⚠️ 讀取失敗：'+cloudEsc((data&&data.message)||'未知錯誤')+'<br><span style="color:var(--t3);font-size:12px">（個人 GAS 需先加 listFolder 指令並重新部署，見開發手冊第12章）</span>','var(--red)'); return;
+    }
+    const files = data.files||[];
+    if(!files.length){ msg('📂 資料夾是空的，還沒有檔案。'); return; }
+    grid.style.display='grid';
+    grid.style.gridTemplateColumns='repeat(3,1fr)';
+    grid.style.gap='8px';
+    grid.innerHTML = files.map(f=>`<div data-url="${cloudEsc(f.url)}" onclick="window.open(this.dataset.url,'_blank')" style="min-width:0;cursor:pointer;border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;background:var(--s2)">
+        <div style="width:100%;aspect-ratio:1/1;background:var(--s2);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:28px">
+          <img src="${cloudEsc(f.thumb)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(document.createTextNode('📄'))">
+        </div>
+        <div title="${cloudEsc(f.name)}" style="padding:6px 8px;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cloudEsc(f.name)}</div>
+      </div>`).join('');
+  }catch(e){
+    if(curDriveUrl()!==reqUrl) return;
+    msg('⚠️ 連線失敗：'+cloudEsc(e.message),'var(--red)');
+  }
 }
 // 顯示資料夾在雲端的「位置」而非網址：客戶資料 / 客戶名
 function updateDrivePath(){
@@ -3676,10 +3727,12 @@ function sSTab(i,el){
     renderPriceEval({...c,...p});
     if(typeof updateEvalIndicator==='function') updateEvalIndicator();
   }
+  // 進入「☁️ 雲端」分頁 → 進去才打 GAS 讀資料夾（不要每次 render 都打）
+  if(i===5) renderCloudTab();
 }
 function sSTabTo(i){
   // active 頁設 '' 讓 CSS 決定 display（聯絡記錄 sp2 要用 flex 貼底），其餘 none
-  [0,1,2,3,4].forEach(j=>document.getElementById('sp'+j).style.display=j===i?'':'none');
+  [0,1,2,3,4,5].forEach(j=>document.getElementById('sp'+j).style.display=j===i?'':'none');
   document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===i));
 }
 
