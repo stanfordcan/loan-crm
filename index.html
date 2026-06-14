@@ -138,6 +138,9 @@ input[type=number]{min-width:0}
 .rbox{background:var(--abg);border-radius:var(--rs);padding:13px;margin-bottom:12px;border:1px solid #C5D5F8}
 .rbox>label{font-size:12px;font-weight:600;color:var(--accent);display:block;margin-bottom:9px}
 /* Logs */
+/* 聯絡記錄頁：整塊貼齊底部，新記錄往上長 */
+#sp2{display:flex;flex-direction:column;min-height:100%}
+#sp2>div{margin-top:auto}
 .log-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
 .litem{background:var(--s2);border-radius:var(--rs);padding:11px 13px}
 .ldate{font-size:11px;color:var(--t3);margin-bottom:3px;font-weight:600}
@@ -1215,7 +1218,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.13 #3';
+const APP_VERSION = '2026.06.14 #1';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3664,6 +3667,8 @@ function sSTab(i,el){
   sSTabTo(i);
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
+  // 聯絡記錄頁：進入時捲到最底，讓輸入框可見
+  if(i===2){const sb=document.querySelector('#sp2').closest('.sbody'); if(sb) requestAnimationFrame(()=>{sb.scrollTop=sb.scrollHeight;});}
   // 進入「房價評估」分頁 → 用目前不動產重新渲染（跟「前往此筆房價評估」按鈕一致）
   if(i===4){
     const c=editId?(clients.find(x=>x.id===editId)||{}):{};
@@ -3673,7 +3678,8 @@ function sSTab(i,el){
   }
 }
 function sSTabTo(i){
-  [0,1,2,3,4].forEach(j=>document.getElementById('sp'+j).style.display=j===i?'block':'none');
+  // active 頁設 '' 讓 CSS 決定 display（聯絡記錄 sp2 要用 flex 貼底），其餘 none
+  [0,1,2,3,4].forEach(j=>document.getElementById('sp'+j).style.display=j===i?'':'none');
   document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===i));
 }
 
@@ -3687,7 +3693,7 @@ function renderLogs(){
         <div class="ltext">${l.text}</div>
       </div>`).join('')
     :'<p style="font-size:12px;color:var(--t3);text-align:center;padding:20px 0">尚無聯絡記錄</p>';
-  el.scrollTop = el.scrollHeight; // 捲到最新（最底）
+  const sb=el.closest('.sbody'); if(sb) sb.scrollTop = sb.scrollHeight; // 捲到最底（輸入框）
 }
 function addLog(){
   const d=document.getElementById('fLogDate').value;
