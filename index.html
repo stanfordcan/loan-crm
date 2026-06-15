@@ -771,7 +771,7 @@ async function applyUrlSettings() {
     <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
   </div>
   <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
-    <input class="search-input" id="searchInput" placeholder="🔍 搜尋姓名、電話、身分證、備註…" oninput="render()" style="flex:1;min-width:120px"/>
+    <input class="search-input" id="searchInput" placeholder="🔍 搜尋姓名、電話、身分證、備註、地址、建號…" oninput="render()" style="flex:1;min-width:120px"/>
     <select id="sortSelect" onchange="render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
       <option value="remind">📅 提醒日期</option>
       <option value="deadline">⏰ 到期最近</option>
@@ -794,6 +794,7 @@ async function applyUrlSettings() {
         <div id="cityCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
       </div>
     </div>
+    <button onclick="openMapExport()" title="匯出 Google 我的地圖用的名單" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">🧭 地圖名單</button>
   </div>
   </div><!-- /sticky-top -->
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
@@ -1270,6 +1271,27 @@ async function applyUrlSettings() {
   </div>
 </div>
 
+<!-- 匯出 Google 我的地圖名單 -->
+<div class="imbg" id="mapBg">
+  <div class="immodal" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <h3>🧭 匯出地圖名單</h3>
+    <p style="margin-bottom:8px">勾選要跑現場的客戶 → 下載 CSV → 到 Google「我的地圖」按「匯入」選這個檔 → 地址欄選「<b>地址</b>」、標記名稱選「<b>姓名</b>」。一個客戶有多間房會各自標一個點。</p>
+    <div id="mapCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span id="mapCount" style="font-size:12px;color:var(--t3)"></span>
+      <div style="display:flex;gap:12px">
+        <button onclick="mapSelectAll(true)" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit">全選</button>
+        <button onclick="mapSelectAll(false)" style="font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit">全不選</button>
+      </div>
+    </div>
+    <div id="mapList" style="flex:1;overflow-y:auto;min-height:120px;border:1px solid var(--border);border-radius:var(--rs);padding:4px 6px"></div>
+    <div class="imbtns" style="margin-top:12px;flex-shrink:0">
+      <button class="imcancel" onclick="closeMapExport()">關閉</button>
+      <button class="imgo" onclick="downloadMapCsv()">📥 下載 CSV</button>
+    </div>
+  </div>
+</div>
+
 <!-- 當日排程清單 -->
 <div id="dayViewBg" style="display:none;position:fixed;inset:0;z-index:2500;background:rgba(20,25,40,.5);align-items:center;justify-content:center" onclick="if(event.target===this)closeDayView()">
   <div style="background:var(--bg);border-radius:14px;width:92%;max-width:430px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--sh)">
@@ -1305,7 +1327,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.14 #6';
+const APP_VERSION = '2026.06.14 #7';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3034,6 +3056,79 @@ function hl(text, q){
   }catch(e){return text||'';}
 }
 
+// 搜尋比對：姓名/電話/身分證/備註/主地址 + 所有房產的地址/建號/地號（打第二間以後也找得到）
+function clientMatchesQuery(c,q){
+  if(!q) return true;
+  if(String(c.name||'').toLowerCase().includes(q)) return true;
+  if(String(c.phone||'').includes(q)) return true;
+  if(String(c.idno||'').toLowerCase().includes(q)) return true;
+  if(String(c.note||'').toLowerCase().includes(q)) return true;
+  if(String(c.addr||'').toLowerCase().includes(q)) return true;
+  const props=Array.isArray(c.properties)?c.properties:[];
+  return props.some(p=>String(p.addr||'').toLowerCase().includes(q)
+    || String(p.buildNo||'').toLowerCase().includes(q)
+    || String(p.landNo||'').toLowerCase().includes(q));
+}
+
+// ── 匯出 Google「我的地圖」名單（CSV）──
+const MAP_HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
+let _mapCats=new Set(['待分類','覆訪','追很緊','新鑫']);
+let _mapRows=[];
+function openMapExport(){ buildMapRows(); renderMapCatBar(); renderMapList(); document.getElementById('mapBg').classList.add('open'); }
+function closeMapExport(){ document.getElementById('mapBg').classList.remove('open'); }
+function buildMapRows(){
+  _mapRows=[];
+  clients.forEach(c=>{
+    if(!_mapCats.has(c.heat||'待分類')) return;
+    const props=(Array.isArray(c.properties)&&c.properties.length)?c.properties:[{addr:c.addr,bank:c.bank,legal:c.legal,private:c.private,purpose:c.purpose}];
+    props.forEach(p=>{
+      const addr=String(p.addr||'').trim();
+      if(!addr) return;
+      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',
+        bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',checked:true});
+    });
+  });
+}
+function renderMapCatBar(){
+  document.getElementById('mapCatBar').innerHTML=MAP_HEATS.map(h=>{
+    const on=_mapCats.has(h);
+    return `<button onclick="toggleMapCat('${h}')" style="font-size:12px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--abg)':'var(--s2)'};color:${on?'var(--accent)':'var(--t3)'}">${on?'✓ ':''}${h}</button>`;
+  }).join('');
+}
+function toggleMapCat(h){ if(_mapCats.has(h)) _mapCats.delete(h); else _mapCats.add(h); buildMapRows(); renderMapCatBar(); renderMapList(); }
+function mapSelectAll(v){ _mapRows.forEach(r=>r.checked=v); renderMapList(); }
+function updateMapCount(){ document.getElementById('mapCount').textContent=`共 ${_mapRows.length} 個地址，已選 ${_mapRows.filter(r=>r.checked).length} 個`; }
+function renderMapList(){
+  const el=document.getElementById('mapList');
+  updateMapCount();
+  if(!_mapRows.length){ el.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:24px 0">這些分類目前沒有可匯出的地址</div>'; return; }
+  el.innerHTML=_mapRows.map((r,i)=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" data-i="${i}" ${r.checked?'checked':''} onchange="_mapRows[${i}].checked=this.checked;updateMapCount()" style="margin-top:2px">
+      <span style="flex:1;min-width:0">
+        <span style="font-weight:600;color:var(--text)">${calEsc(r.name)}</span>
+        <span style="font-size:11px;color:var(--t3);margin-left:6px">${calEsc(r.heat)}</span>
+        <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 ${calEsc(r.addr)}</div>
+      </span>
+    </label>`).join('');
+}
+function downloadMapCsv(){
+  const rows=_mapRows.filter(r=>r.checked);
+  if(!rows.length){ showToast('⚠️ 請至少勾選一個地址'); return; }
+  const head=['姓名','地址','電話','分類','銀行(萬)','法人(萬)','民間(萬)','用途','備註'];
+  const esc=v=>{ const s=String(v==null?'':v).replace(/"/g,'""'); return /[",\n\r]/.test(s)?'"'+s+'"':s; };
+  const lines=[head.join(',')];
+  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.bank||'',r.legal||'',r.private||'',r.purpose,String(r.note||'').replace(/\s+/g,' ').trim()].map(esc).join(',')));
+  const csv='﻿'+lines.join('\r\n'); // BOM 讓 Excel/Google 正確讀中文
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const d=new Date(),pad=n=>String(n).padStart(2,'0');
+  const a=document.createElement('a');
+  a.href=url; a.download=`地圖名單_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  showToast(`📥 已下載 ${rows.length} 個地址`);
+}
+
 function render(){
   updateStats();updateTabs();
   const q=document.getElementById('searchInput').value.toLowerCase();
@@ -3041,7 +3136,7 @@ function render(){
   if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
   else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
-  if(q) list=list.filter(c=>String(c.name||'').toLowerCase().includes(q)||String(c.phone||'').includes(q)||String(c.addr||'').toLowerCase().includes(q)||String(c.idno||'').toLowerCase().includes(q)||String(c.note||'').toLowerCase().includes(q));
+  if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   // 縣市篩選
   if(selectedCities.size > 0) {
     list = list.filter(c => {
@@ -3170,7 +3265,7 @@ function getVisibleList(){
   if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
   else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
-  if(q) list=list.filter(c=>String(c.name||'').toLowerCase().includes(q)||String(c.phone||'').includes(q)||String(c.addr||'').toLowerCase().includes(q)||String(c.idno||'').toLowerCase().includes(q)||String(c.note||'').toLowerCase().includes(q));
+  if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
   return list;
 }
