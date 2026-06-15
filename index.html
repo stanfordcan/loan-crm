@@ -937,6 +937,7 @@ async function applyUrlSettings() {
           <div id="finProofList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
           <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增財力證明</button>
         </div>
+        <div class="frow"><label>戶籍地址</label><input id="fCensusAddr" placeholder="與現居不同再填；現場找不到人時可循戶籍地，也用來判斷戶籍地是否另有不動產"/></div>
         <div class="form-section-hd">📅 下次提醒</div>
         <div class="rbox">
           <label>🔔 下次聯絡提醒</label>
@@ -1276,6 +1277,7 @@ async function applyUrlSettings() {
   <div class="immodal" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <h3>🧭 匯出地圖名單</h3>
     <p style="margin-bottom:8px">勾選要跑現場的客戶 → 下載 CSV → 到 Google「我的地圖」按「匯入」選這個檔 → 地址欄選「<b>地址</b>」、標記名稱選「<b>姓名</b>」。一個客戶有多間房會各自標一個點。</p>
+    <input id="mapSearch" oninput="_mapQuery=this.value.trim().toLowerCase();renderMapList()" placeholder="🔍 搜尋姓名、電話、地址…" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
     <div id="mapCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span id="mapCount" style="font-size:12px;color:var(--t3)"></span>
@@ -1327,7 +1329,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.14 #7';
+const APP_VERSION = '2026.06.14 #8';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3064,6 +3066,7 @@ function clientMatchesQuery(c,q){
   if(String(c.idno||'').toLowerCase().includes(q)) return true;
   if(String(c.note||'').toLowerCase().includes(q)) return true;
   if(String(c.addr||'').toLowerCase().includes(q)) return true;
+  if(String(c.censusAddr||'').toLowerCase().includes(q)) return true;
   const props=Array.isArray(c.properties)?c.properties:[];
   return props.some(p=>String(p.addr||'').toLowerCase().includes(q)
     || String(p.buildNo||'').toLowerCase().includes(q)
@@ -3073,8 +3076,9 @@ function clientMatchesQuery(c,q){
 // ── 匯出 Google「我的地圖」名單（CSV）──
 const MAP_HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
 let _mapCats=new Set(['待分類','覆訪','追很緊','新鑫']);
-let _mapRows=[];
-function openMapExport(){ buildMapRows(); renderMapCatBar(); renderMapList(); document.getElementById('mapBg').classList.add('open'); }
+let _mapRows=[]; let _mapQuery='';
+function openMapExport(){ _mapQuery=''; const s=document.getElementById('mapSearch'); if(s) s.value=''; buildMapRows(); renderMapCatBar(); renderMapList(); document.getElementById('mapBg').classList.add('open'); }
+function mapRowMatch(r){ const q=_mapQuery; if(!q) return true; return String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.addr||'').toLowerCase().includes(q); }
 function closeMapExport(){ document.getElementById('mapBg').classList.remove('open'); }
 function buildMapRows(){
   _mapRows=[];
@@ -3096,17 +3100,24 @@ function renderMapCatBar(){
   }).join('');
 }
 function toggleMapCat(h){ if(_mapCats.has(h)) _mapCats.delete(h); else _mapCats.add(h); buildMapRows(); renderMapCatBar(); renderMapList(); }
-function mapSelectAll(v){ _mapRows.forEach(r=>r.checked=v); renderMapList(); }
-function updateMapCount(){ document.getElementById('mapCount').textContent=`共 ${_mapRows.length} 個地址，已選 ${_mapRows.filter(r=>r.checked).length} 個`; }
+function mapSelectAll(v){ _mapRows.forEach(r=>{ if(mapRowMatch(r)) r.checked=v; }); renderMapList(); }
+function updateMapCount(){
+  const vis=_mapRows.filter(mapRowMatch).length;
+  const sel=_mapRows.filter(r=>r.checked).length;
+  document.getElementById('mapCount').textContent=`符合 ${vis} 筆 · 已選 ${sel} 個地址`;
+}
 function renderMapList(){
   const el=document.getElementById('mapList');
   updateMapCount();
   if(!_mapRows.length){ el.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:24px 0">這些分類目前沒有可匯出的地址</div>'; return; }
-  el.innerHTML=_mapRows.map((r,i)=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer">
+  const vis=_mapRows.map((r,i)=>({r,i})).filter(({r})=>mapRowMatch(r));
+  if(!vis.length){ el.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:24px 0">找不到符合搜尋的客戶</div>'; return; }
+  el.innerHTML=vis.map(({r,i})=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" data-i="${i}" ${r.checked?'checked':''} onchange="_mapRows[${i}].checked=this.checked;updateMapCount()" style="margin-top:2px">
       <span style="flex:1;min-width:0">
         <span style="font-weight:600;color:var(--text)">${calEsc(r.name)}</span>
         <span style="font-size:11px;color:var(--t3);margin-left:6px">${calEsc(r.heat)}</span>
+        ${r.phone?`<span style="font-size:11px;color:var(--t3);margin-left:6px">${calEsc(r.phone)}</span>`:''}
         <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 ${calEsc(r.addr)}</div>
       </span>
     </label>`).join('');
@@ -3458,7 +3469,7 @@ function openAdd(){
   document.getElementById('btnDel').style.display='none';
   document.getElementById('btnBlack').style.display='none';
   document.getElementById('btnShare').style.display='none';
-  ['fName','fPhone','fIdno','fAddr','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
+  ['fName','fPhone','fIdno','fAddr','fCensusAddr','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ageDisplay').style.display='none';
   document.getElementById('fDriveUrl').value='';
   document.getElementById('btnOpenDrive').style.display='none';
@@ -3493,6 +3504,7 @@ function openEdit(id){
   document.getElementById('fName').value=c.name||'';
   document.getElementById('fPhone').value=c.phone||'';
   document.getElementById('fIdno').value=c.idno||'';
+  document.getElementById('fCensusAddr').value=c.censusAddr||'';
   document.getElementById('fHeat').value=c.heat||'追很緊';
   document.getElementById('fRemind').value=c.remind||'';
   const rt = c.remindTime||'';
@@ -4700,6 +4712,7 @@ async function saveClient(silent){
     birthD:parseInt(document.getElementById('fBirthD').value)||0,
     finProofs:[...finProofs],
     note:document.getElementById('fNote').value.trim(),
+    censusAddr:document.getElementById('fCensusAddr').value.trim(),
     addr:document.getElementById('fAddr').value.trim(),
     area:parseFloat(document.getElementById('fArea').value)||0,
     mainArea:parseFloat(document.getElementById('fMainArea').value)||0,
