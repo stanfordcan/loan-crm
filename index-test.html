@@ -1089,6 +1089,7 @@ async function applyUrlSettings() {
         </div>
       </div>
       <div id="sp3" style="display:none">
+        <div id="companyPropTabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
         <div class="company-info" id="companyInfoPanel">
           <div class="company-info-title">📊 公司總檔資料</div>
           <div style="font-size:12px;color:var(--t3)">尚無公司資料</div>
@@ -1374,7 +1375,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t3 (多房匯入＋公司資料對應不動產) 2026.06.15';
+const APP_VERSION = '🧪測試版 t4 (公司資料頁可切換不動產) 2026.06.15';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3637,7 +3638,7 @@ function openEdit(id){
     debtArea.style.display='none';
   }
   // Company data tab
-  renderCompanyPanel();
+  _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
@@ -3995,17 +3996,31 @@ function sSTab(i,el){
   }
   // 進入「☁️ 雲端」分頁 → 進去才打 GAS 讀資料夾（不要每次 render 都打）
   if(i===5) renderCloudTab();
-  // 進入「公司資料」分頁 → 顯示「當前這筆不動產」對應的公司總檔資料
-  if(i===3) renderCompanyPanel();
+  // 進入「公司資料」分頁 → 預設選目前不動產，並建立可切換的不動產頁籤
+  if(i===3){ _companyPropIdx=curPropIdx; renderCompanyTabs(); renderCompanyPanel(); }
 }
-// 【測試版】公司資料：顯示目前所選不動產(curPropIdx)對應的公司總檔資料
+// 【測試版】公司資料：頁面上自己的不動產選擇頁籤（_companyPropIdx）
+let _companyPropIdx = 0;
+function renderCompanyTabs(){
+  const el=document.getElementById('companyPropTabs'); if(!el) return;
+  const props=(typeof properties!=='undefined' && properties.length)?properties:[];
+  // 只有一筆不動產就不必顯示選擇器
+  if(props.length<=1){ el.innerHTML=''; return; }
+  if(_companyPropIdx>=props.length) _companyPropIdx=0;
+  el.innerHTML=props.map((p,i)=>{
+    const active=i===_companyPropIdx;
+    const label=p.label||propLabel(p)||('不動產'+(i+1));
+    return `<button onclick="selectCompanyProp(${i})" style="border:none;border-radius:var(--rs);padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;${active?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--t2)'}">${calEsc(label)}</button>`;
+  }).join('');
+}
+function selectCompanyProp(i){ _companyPropIdx=i; renderCompanyTabs(); renderCompanyPanel(); }
 function renderCompanyPanel(){
   const el=document.getElementById('companyInfoPanel'); if(!el) return;
   const c = editId ? (clients.find(x=>x.id===editId)||{}) : {};
-  const p = (typeof properties!=='undefined' && properties[curPropIdx]) ? properties[curPropIdx] : {};
-  const r = p.companyRaw || (curPropIdx===0 ? c.companyRaw : null);
-  const bNo = p.buildNo || (curPropIdx===0 ? (c.buildNo||'') : '');
-  const lNo = p.landNo || (curPropIdx===0 ? (c.landNo||'') : '');
+  const p = (typeof properties!=='undefined' && properties[_companyPropIdx]) ? properties[_companyPropIdx] : {};
+  const r = p.companyRaw || (_companyPropIdx===0 ? c.companyRaw : null);
+  const bNo = p.buildNo || (_companyPropIdx===0 ? (c.buildNo||'') : '');
+  const lNo = p.landNo || (_companyPropIdx===0 ? (c.landNo||'') : '');
   if(r){
     el.innerHTML=`
       <div class="company-info-title">📊 公司總檔資料</div>
