@@ -144,6 +144,33 @@ function jsonp(callback, obj) {
     .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
+// ── 上傳檔案到指定資料夾（CRM ☁️雲端分頁的「⬆️ 上傳」用）──
+// CRM 以 POST 送 JSON：{token, action:'uploadFile', url, filename, mime, data(base64)}
+// 只用既有 Drive 寫入權限，不需重新授權；存檔後「建立新版本」重新部署即可。
+function doPost(e) {
+  var p = {};
+  try { p = JSON.parse(e.postData.contents); } catch(err) { p = {}; }
+  var callback = p.callback || 'callback';
+  if (p.token !== TOKEN) {
+    return jsonp(callback, {status: 'error', message: 'invalid token'});
+  }
+  if (p.action === 'uploadFile') {
+    try {
+      var m = String(p.url || '').match(/folders\/([A-Za-z0-9_-]+)/);
+      var id = m ? m[1] : '';
+      if (!id) return jsonp(callback, {status: 'error', message: 'invalid url'});
+      var folder = DriveApp.getFolderById(id);
+      var bytes = Utilities.base64Decode(p.data || '');
+      var blob = Utilities.newBlob(bytes, p.mime || 'application/octet-stream', p.filename || '上傳檔案');
+      var file = folder.createFile(blob);
+      return jsonp(callback, {status: 'ok', url: file.getUrl(), name: file.getName()});
+    } catch(err) {
+      return jsonp(callback, {status: 'error', message: err.toString()});
+    }
+  }
+  return jsonp(callback, {status: 'error', message: 'unknown action'});
+}
+
 // 跑一次來授權（含 Drive + 試算表 + 行事曆）；不要在編輯器跑 doGet
 function authorize() {
   DriveApp.getRootFolder();

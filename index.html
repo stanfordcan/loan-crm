@@ -1027,9 +1027,11 @@ async function applyUrlSettings() {
       <div id="sp5" style="display:none">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
           <div id="cloudPath" style="flex:1 1 0;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">尚未建立</div>
+          <button id="cloudUploadBtn" onclick="document.getElementById('cloudFileInput').click()" style="display:none;flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid #b8e0ce;border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">⬆️ 上傳</button>
           <button id="cloudOpenBtn" onclick="openCloudFolder()" style="display:none;flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📁 在 Drive 開啟</button>
           <button onclick="renderCloudTab()" title="重新整理" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;cursor:pointer;font-family:inherit">🔄</button>
         </div>
+        <input type="file" id="cloudFileInput" style="display:none" onchange="uploadCloudFile(this)"/>
         <div id="cloudGrid"></div>
       </div>
     </div>
@@ -1227,7 +1229,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.14 #3';
+const APP_VERSION = '2026.06.14 #4';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1723,6 +1725,8 @@ async function renderCloudTab(){
   const addr = (document.getElementById('fAddr')?.value||'').trim();
   if(pathEl){ pathEl.textContent = driveUrl ? ('客戶資料 / '+(name||'此客戶')+(addr?' / '+addr:'')) : '尚未建立'; pathEl.style.color = driveUrl?'var(--green)':'var(--t3)'; }
   if(openBtn) openBtn.style.display = driveUrl ? '' : 'none';
+  const upBtn = document.getElementById('cloudUploadBtn');
+  if(upBtn) upBtn.style.display = driveUrl ? '' : 'none';
   const msg = (txt,color)=>{ grid.style.display='block'; grid.innerHTML='<p style="font-size:13px;color:'+(color||'var(--t3)')+';text-align:center;padding:30px 0;line-height:1.7">'+txt+'</p>'; };
   if(!driveUrl){ msg('尚未建立雲端資料夾。<br>請到「不動產」分頁按 📁 建立資料夾。'); return; }
   if(!COMPANY_URL){ msg('⚠️ 請先在 ⚙️ 設定填入個人總檔網址。'); return; }
@@ -1749,6 +1753,34 @@ async function renderCloudTab(){
     if(curDriveUrl()!==reqUrl) return;
     msg('⚠️ 連線失敗：'+cloudEsc(e.message),'var(--red)');
   }
+}
+// 上傳檔案到該筆不動產的 Drive 資料夾（POST base64 給個人 GAS 的 uploadFile）
+function uploadCloudFile(input){
+  const file = input.files && input.files[0];
+  input.value = ''; // 清掉，讓同一個檔案之後還能再選
+  if(!file) return;
+  const driveUrl = curDriveUrl();
+  if(!driveUrl){ showToast('⚠️ 尚未建立資料夾'); return; }
+  if(!COMPANY_URL){ showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址'); return; }
+  if(file.size > 25*1024*1024){ showToast('⚠️ 檔案太大（上限約 25MB），請壓縮後再傳'); return; }
+  const btn = document.getElementById('cloudUploadBtn');
+  const oldTxt = btn ? btn.textContent : '';
+  if(btn){ btn.textContent='⏳ 上傳中…'; btn.disabled=true; }
+  const reset = ()=>{ if(btn){ btn.textContent=oldTxt; btn.disabled=false; } };
+  const reader = new FileReader();
+  reader.onload = function(){
+    const base64 = String(reader.result||'').split(',')[1] || '';
+    // 跨網域 no-cors：讀不到回應，靠「等一下重抓資料夾」確認結果
+    fetch(COMPANY_URL, {
+      method:'POST', mode:'no-cors',
+      body: JSON.stringify({ token:API_TOKEN, action:'uploadFile', url:driveUrl, filename:file.name, mime:file.type||'application/octet-stream', data:base64 })
+    }).then(()=>{
+      showToast('⬆️ 已送出，更新中…');
+      setTimeout(()=>{ reset(); renderCloudTab(); }, 2500);
+    }).catch(e=>{ reset(); showToast('⚠️ 上傳失敗：'+e.message); });
+  };
+  reader.onerror = function(){ reset(); showToast('⚠️ 讀取檔案失敗'); };
+  reader.readAsDataURL(file);
 }
 // 顯示資料夾在雲端的「位置」而非網址：客戶資料 / 客戶名
 function updateDrivePath(){
