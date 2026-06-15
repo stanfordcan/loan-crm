@@ -1227,7 +1227,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.14 #2';
+const APP_VERSION = '2026.06.14 #3';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4091,7 +4091,7 @@ function openLoanCalc(){
   _loanCalcTargetProp = p; // 用參照鎖定這筆不動產，存回時不受切換影響
   // 有存過就還原，否則用不動產資料建立
   _loanCalcInit = (p.loanCalcState && p.loanCalcState.origLoans) ? p.loanCalcState : buildLoanCalcState(c, p);
-  _loanCalcWin = window.open('貸款試算.html?ts=' + Date.now(), '_blank');
+  _loanCalcWin = window.open('https://stanfordcan.github.io/loan-calculator/?ts=' + Date.now(), '_blank');
   if(!_loanCalcWin){ alert('瀏覽器擋掉了新視窗，請允許此網站的彈出視窗後再試一次。'); return; }
 }
 // 與試算表新視窗雙向溝通
