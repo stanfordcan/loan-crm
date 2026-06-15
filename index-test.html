@@ -2604,6 +2604,34 @@ function processCompanyData(raw) {
 
     if(existing){
       // ── 核心原則：用戶主動改過的欄位，匯入時一律不覆蓋 ──────────
+      // ── 【測試版】多筆不動產：在 companyRaw 被覆蓋前，把這列累積成多筆房產（每筆各自帶公司資料）──
+      (function(){
+        const incBuild = normBuildNo(col4BuildNo) || normBuildNo(buildNo);
+        const incAddrCore = addrCore(addr);
+        // 沒有任何可識別的房產資訊就不處理（避免空列亂加）
+        if(!incBuild && !incAddrCore && !bank && !priv && !legal) return;
+        // 確保 existing 有 properties 陣列（舊扁平資料先轉成 properties[0]，含原本的 companyRaw）
+        if(!existing.properties || !existing.properties.length){
+          existing.properties = migrateProperties(existing);
+        }
+        // 找同建號或同地址核心的既有房產
+        const dup = existing.properties.find(p=>{
+          const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
+          if(incBuild && pBuild && incBuild===pBuild) return true;
+          if(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore)) return true;
+          return false;
+        });
+        const np = emptyProperty(existing.properties.length);
+        np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||'';
+        np.area=area||0; np.mainArea=mainArea||0; np.subArea=subArea||0; np.commonArea=commonArea||0;
+        np.bank=bank||0; np.legal=legal||0; np.private=priv||0;
+        np.companyRaw = companyRaw;   // 這筆房產自己的公司總檔資料
+        if(bank>0||legal>0) np.loanEstimated=true;
+        if(priv>0) np.privateConfirmed=false;
+        np.label=propLabel(np)||('不動產'+(existing.properties.length+1));
+        if(dup){ if(!dup.companyRaw) dup.companyRaw=companyRaw; mergePropInto(dup, np); } // 同一間 → 補空格、補公司資料，不重複
+        else { existing.properties.push(np); }   // 不同間 → 累積成新一筆房產
+      })();
       // 公司資料（總檔來源）：永遠更新，這是總檔的職責
       existing.companyRaw = companyRaw;
       // 空白才補，有值就保留用戶資料
@@ -2641,33 +2669,6 @@ function processCompanyData(raw) {
         if(toAdd.length) existing.logs = [...toAdd, ...(existing.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       }
       // driveUrl、note、remind、job 等用戶欄位：完全不動
-      // ── 【測試版】多筆不動產：同一人但這列是不同建號/地址 → 累積成多筆房產（不再只補空白丟掉）──
-      (function(){
-        const incBuild = normBuildNo(col4BuildNo) || normBuildNo(buildNo);
-        const incAddrCore = addrCore(addr);
-        // 沒有任何可識別的房產資訊就不處理（避免空列亂加）
-        if(!incBuild && !incAddrCore && !bank && !priv && !legal) return;
-        // 確保 existing 有 properties 陣列（舊扁平資料先轉成 properties[0]）
-        if(!existing.properties || !existing.properties.length){
-          existing.properties = migrateProperties(existing);
-        }
-        // 找同建號或同地址核心的既有房產
-        const dup = existing.properties.find(p=>{
-          const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
-          if(incBuild && pBuild && incBuild===pBuild) return true;
-          if(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore)) return true;
-          return false;
-        });
-        const np = emptyProperty(existing.properties.length);
-        np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||'';
-        np.area=area||0; np.mainArea=mainArea||0; np.subArea=subArea||0; np.commonArea=commonArea||0;
-        np.bank=bank||0; np.legal=legal||0; np.private=priv||0;
-        if(bank>0||legal>0) np.loanEstimated=true;
-        if(priv>0) np.privateConfirmed=false;
-        np.label=propLabel(np)||('不動產'+(existing.properties.length+1));
-        if(dup){ mergePropInto(dup, np); }       // 同一間 → 只補空格，不重複
-        else { existing.properties.push(np); }   // 不同間 → 累積成新一筆房產
-      })();
       existing.updatedAt = TODAY;
       updated++;
     } else {
@@ -3636,46 +3637,7 @@ function openEdit(id){
     debtArea.style.display='none';
   }
   // Company data tab
-  if(c.companyRaw){
-    const r=c.companyRaw;
-    document.getElementById('companyInfoPanel').innerHTML=`
-      <div class="company-info-title">📊 公司總檔資料</div>
-
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🏠 標示部</div>
-        <div class="company-row">${(r.buildInfo||'').replace(/\n/g,'<br>') || '-'}</div>
-        <div class="company-row"><b>門牌：</b>${r.addr||'-'}</div>
-        <div class="company-row"><b>面積：</b>${r.area||'-'}</div>
-      </div>
-
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">👤 所有權部</div>
-        <div class="company-row">${(r.owner||'').replace(/\n/g,'<br>') || '-'}</div>
-      </div>
-
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🏦 他項權利部</div>
-        <div class="company-row">${(r.rights||'').replace(/\n/g,'<br>') || '-'}</div>
-      </div>
-
-      ${(c.buildNo||c.landNo)?`<div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🔗 共同擔保</div>
-        ${c.buildNo?`<div class="company-row"><b>建號：</b>${c.buildNo}</div>`:''}
-        ${c.landNo?`<div class="company-row"><b>地號：</b>${c.landNo}</div>`:''}
-      </div>`:''}
-
-      ${r.process?`<div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">📝 拜訪過程</div>
-        <div class="company-row">${r.process.replace(/\n/g,'<br>')}</div>
-      </div>`:''}
-      ${r.note?`<div>
-        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">📌 公司備註</div>
-        <div class="company-row">${r.note}</div>
-      </div>`:''}
-    `;
-  } else {
-    document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料，點「從總檔更新」匯入</div>';
-  }
+  renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
@@ -4033,6 +3995,51 @@ function sSTab(i,el){
   }
   // 進入「☁️ 雲端」分頁 → 進去才打 GAS 讀資料夾（不要每次 render 都打）
   if(i===5) renderCloudTab();
+  // 進入「公司資料」分頁 → 顯示「當前這筆不動產」對應的公司總檔資料
+  if(i===3) renderCompanyPanel();
+}
+// 【測試版】公司資料：顯示目前所選不動產(curPropIdx)對應的公司總檔資料
+function renderCompanyPanel(){
+  const el=document.getElementById('companyInfoPanel'); if(!el) return;
+  const c = editId ? (clients.find(x=>x.id===editId)||{}) : {};
+  const p = (typeof properties!=='undefined' && properties[curPropIdx]) ? properties[curPropIdx] : {};
+  const r = p.companyRaw || (curPropIdx===0 ? c.companyRaw : null);
+  const bNo = p.buildNo || (curPropIdx===0 ? (c.buildNo||'') : '');
+  const lNo = p.landNo || (curPropIdx===0 ? (c.landNo||'') : '');
+  if(r){
+    el.innerHTML=`
+      <div class="company-info-title">📊 公司總檔資料</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🏠 標示部</div>
+        <div class="company-row">${(r.buildInfo||'').replace(/\n/g,'<br>') || '-'}</div>
+        <div class="company-row"><b>門牌：</b>${r.addr||'-'}</div>
+        <div class="company-row"><b>面積：</b>${r.area||'-'}</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">👤 所有權部</div>
+        <div class="company-row">${(r.owner||'').replace(/\n/g,'<br>') || '-'}</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🏦 他項權利部</div>
+        <div class="company-row">${(r.rights||'').replace(/\n/g,'<br>') || '-'}</div>
+      </div>
+      ${(bNo||lNo)?`<div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">🔗 共同擔保</div>
+        ${bNo?`<div class="company-row"><b>建號：</b>${bNo}</div>`:''}
+        ${lNo?`<div class="company-row"><b>地號：</b>${lNo}</div>`:''}
+      </div>`:''}
+      ${r.process?`<div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">📝 拜訪過程</div>
+        <div class="company-row">${r.process.replace(/\n/g,'<br>')}</div>
+      </div>`:''}
+      ${r.note?`<div>
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px">📌 公司備註</div>
+        <div class="company-row">${r.note}</div>
+      </div>`:''}
+    `;
+  } else {
+    el.innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">這筆不動產尚無公司資料</div>';
+  }
 }
 function sSTabTo(i){
   // active 頁設 '' 讓 CSS 決定 display（聯絡記錄 sp2 要用 flex 貼底），其餘 none
@@ -4222,7 +4229,8 @@ function migrateProperties(c){
     extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',
     parkType:c.parkType||'無',parkTitle:c.parkTitle||'非獨立',parkVal:c.parkVal||0,
     landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
-    loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed});
+    loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed,
+    companyRaw:c.companyRaw||null, col4BuildNo:c.col4BuildNo||''});
   p.label = propLabel(p) || '不動產';
   return [p];
 }
