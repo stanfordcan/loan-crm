@@ -806,6 +806,7 @@ async function applyUrlSettings() {
       </div>
     </div>
     <button onclick="openMapExport()" title="匯出 Google 我的地圖用的名單" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">🧭 地圖名單</button>
+    <button id="multiPropBtn" onclick="toggleMultiProp()" title="只看有 2 筆以上不動產的客戶" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">🏠 多房</button>
   </div>
   </div><!-- /sticky-top -->
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
@@ -3228,6 +3229,7 @@ function render(){
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   list = list.filter(batchFilterPass);
+  list = list.filter(multiPropPass);
   // 縣市篩選
   if(selectedCities.size > 0) {
     list = list.filter(c => {
@@ -3358,6 +3360,7 @@ function getVisibleList(){
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   list=list.filter(batchFilterPass);
+  list=list.filter(multiPropPass);
   if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
   return list;
 }
@@ -5436,6 +5439,16 @@ function renderBatchCheckboxes(){
 function toggleBatchFilter(){ const p=document.getElementById('batchFilterPanel'); const show=(p.style.display==='none'||!p.style.display); if(show) renderBatchCheckboxes(); p.style.display=show?'block':'none'; }
 function onBatchChange(){ selectedBatches=new Set(); document.querySelectorAll('#batchCheckboxes input:checked').forEach(cb=>selectedBatches.add(cb.value)); document.getElementById('batchFilterCount').textContent=selectedBatches.size?`(${selectedBatches.size})`:''; render(); }
 function clearBatchFilter(){ document.querySelectorAll('#batchCheckboxes input').forEach(cb=>cb.checked=false); onBatchChange(); }
+
+// 【測試版】只看有多筆不動產的客戶
+let multiPropOnly=false;
+function multiPropPass(c){ return !multiPropOnly || (Array.isArray(c.properties) && c.properties.length>=2); }
+function toggleMultiProp(){
+  multiPropOnly=!multiPropOnly;
+  const b=document.getElementById('multiPropBtn');
+  if(b){ b.style.background=multiPropOnly?'var(--accent)':'var(--s2)'; b.style.color=multiPropOnly?'#fff':'var(--text)'; }
+  render();
+}
 
 function openBatchTag(){
   const p=document.getElementById('batchFilterPanel'); if(p) p.style.display='none';
