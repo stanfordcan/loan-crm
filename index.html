@@ -794,6 +794,17 @@ async function applyUrlSettings() {
         <div id="cityCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
       </div>
     </div>
+    <div style="position:relative;flex-shrink:0">
+      <button id="batchFilterBtn" onclick="toggleBatchFilter()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap">🏷️ 批次 <span id="batchFilterCount"></span></button>
+      <div id="batchFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:260px;box-shadow:var(--sh);z-index:60;max-height:340px;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:600;color:var(--t2)">依來源批次篩選</span>
+          <button onclick="clearBatchFilter()" style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit">清除</button>
+        </div>
+        <div id="batchCheckboxes" style="display:flex;flex-direction:column;gap:4px"></div>
+        <button onclick="openBatchTag()" style="margin-top:10px;width:100%;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🏷️ 批次標記工具</button>
+      </div>
+    </div>
     <button onclick="openMapExport()" title="匯出 Google 我的地圖用的名單" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">🧭 地圖名單</button>
   </div>
   </div><!-- /sticky-top -->
@@ -938,6 +949,10 @@ async function applyUrlSettings() {
           <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增財力證明</button>
         </div>
         <div class="frow"><label>戶籍地址</label><input id="fCensusAddr" placeholder="與現居不同再填；現場找不到人時可循戶籍地，也用來判斷戶籍地是否另有不動產"/></div>
+        <div class="frow"><label>來源批次</label>
+          <input id="fBatch" list="batchListOptions" placeholder="這筆來自哪批名單，例：0614-A名單"/>
+          <datalist id="batchListOptions"></datalist>
+        </div>
         <div class="form-section-hd">📅 下次提醒</div>
         <div class="rbox">
           <label>🔔 下次聯絡提醒</label>
@@ -1277,8 +1292,9 @@ async function applyUrlSettings() {
   <div class="immodal" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <h3>🧭 匯出地圖名單</h3>
     <p style="margin-bottom:8px">勾選要跑現場的客戶 → 下載 CSV → 到 Google「我的地圖」按「匯入」選這個檔 → 地址欄選「<b>地址</b>」、標記名稱選「<b>姓名</b>」。一個客戶有多間房會各自標一個點。</p>
-    <input id="mapSearch" oninput="_mapQuery=this.value.trim().toLowerCase();renderMapList()" placeholder="🔍 搜尋姓名、電話、地址…" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
+    <input id="mapSearch" oninput="_mapQuery=this.value.trim().toLowerCase();renderMapList()" placeholder="🔍 搜尋姓名、電話、地址、批次…" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
     <div id="mapCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    <select id="mapBatchPick" onchange="mapPickBatch(this.value);this.value=''" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--s2);color:var(--text);font-family:inherit;outline:none;cursor:pointer"><option value="">＋ 依批次快速勾選…</option></select>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span id="mapCount" style="font-size:12px;color:var(--t3)"></span>
       <div style="display:flex;gap:12px">
@@ -1290,6 +1306,34 @@ async function applyUrlSettings() {
     <div class="imbtns" style="margin-top:12px;flex-shrink:0">
       <button class="imcancel" onclick="closeMapExport()">關閉</button>
       <button class="imgo" onclick="downloadMapCsv()">📥 下載 CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- 批次標記工具 -->
+<div class="imbg" id="batchTagBg">
+  <div class="immodal" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <h3>🏷️ 批次標記工具</h3>
+    <p style="margin-bottom:8px">勾選客戶 → 下方填批次名稱 → 套用。剛從總檔更新進來的，勾「只看今日新增」就能快速圈出這批。</p>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <input id="batchTagSearch" oninput="renderBatchTagList()" placeholder="🔍 搜尋姓名/電話/地址…" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看今日新增</label>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span id="batchTagCount" style="font-size:12px;color:var(--t3)"></span>
+      <div style="display:flex;gap:12px">
+        <button onclick="batchTagSelectAll(true)" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit">全選</button>
+        <button onclick="batchTagSelectAll(false)" style="font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit">全不選</button>
+      </div>
+    </div>
+    <div id="batchTagList" style="flex:1;overflow-y:auto;min-height:120px;border:1px solid var(--border);border-radius:var(--rs);padding:4px 6px"></div>
+    <div style="margin-top:10px">
+      <input id="batchTagInput" list="batchListOptions2" placeholder="輸入批次名稱（例 0614-A名單）；留空＝清除勾選客戶的批次" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
+      <datalist id="batchListOptions2"></datalist>
+    </div>
+    <div class="imbtns" style="margin-top:12px;flex-shrink:0">
+      <button class="imcancel" onclick="closeBatchTag()">取消</button>
+      <button class="imgo" onclick="batchTagApply()">✅ 套用批次到勾選的客戶</button>
     </div>
   </div>
 </div>
@@ -1329,7 +1373,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.14 #8';
+const APP_VERSION = '2026.06.14 #9';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3067,6 +3111,7 @@ function clientMatchesQuery(c,q){
   if(String(c.note||'').toLowerCase().includes(q)) return true;
   if(String(c.addr||'').toLowerCase().includes(q)) return true;
   if(String(c.censusAddr||'').toLowerCase().includes(q)) return true;
+  if(String(c.batch||'').toLowerCase().includes(q)) return true;
   const props=Array.isArray(c.properties)?c.properties:[];
   return props.some(p=>String(p.addr||'').toLowerCase().includes(q)
     || String(p.buildNo||'').toLowerCase().includes(q)
@@ -3077,8 +3122,14 @@ function clientMatchesQuery(c,q){
 const MAP_HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
 let _mapCats=new Set(['待分類','覆訪','追很緊','新鑫']);
 let _mapRows=[]; let _mapQuery='';
-function openMapExport(){ _mapQuery=''; const s=document.getElementById('mapSearch'); if(s) s.value=''; buildMapRows(); renderMapCatBar(); renderMapList(); document.getElementById('mapBg').classList.add('open'); }
-function mapRowMatch(r){ const q=_mapQuery; if(!q) return true; return String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.addr||'').toLowerCase().includes(q); }
+function openMapExport(){
+  _mapQuery=''; const s=document.getElementById('mapSearch'); if(s) s.value='';
+  const bp=document.getElementById('mapBatchPick'); if(bp) bp.innerHTML='<option value="">＋ 依批次快速勾選…</option>'+allBatches().map(b=>`<option value="${calEsc(b)}">${calEsc(b)}</option>`).join('');
+  buildMapRows(); renderMapCatBar(); renderMapList();
+  document.getElementById('mapBg').classList.add('open');
+}
+function mapRowMatch(r){ const q=_mapQuery; if(!q) return true; return String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.addr||'').toLowerCase().includes(q)||String(r.batch||'').toLowerCase().includes(q); }
+function mapPickBatch(b){ if(!b) return; let n=0; _mapRows.forEach(r=>{ if((r.batch||'')===b){ r.checked=true; n++; } }); renderMapList(); showToast(`已勾選批次「${b}」的 ${n} 個地址`); }
 function closeMapExport(){ document.getElementById('mapBg').classList.remove('open'); }
 function buildMapRows(){
   _mapRows=[];
@@ -3088,7 +3139,7 @@ function buildMapRows(){
     props.forEach(p=>{
       const addr=String(p.addr||'').trim();
       if(!addr) return;
-      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',
+      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
         bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',checked:true});
     });
   });
@@ -3117,6 +3168,7 @@ function renderMapList(){
       <span style="flex:1;min-width:0">
         <span style="font-weight:600;color:var(--text)">${calEsc(r.name)}</span>
         <span style="font-size:11px;color:var(--t3);margin-left:6px">${calEsc(r.heat)}</span>
+        ${r.batch?`<span style="font-size:10px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 6px;margin-left:6px">${calEsc(r.batch)}</span>`:''}
         ${r.phone?`<span style="font-size:11px;color:var(--t3);margin-left:6px">${calEsc(r.phone)}</span>`:''}
         <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 ${calEsc(r.addr)}</div>
       </span>
@@ -3125,10 +3177,10 @@ function renderMapList(){
 function downloadMapCsv(){
   const rows=_mapRows.filter(r=>r.checked);
   if(!rows.length){ showToast('⚠️ 請至少勾選一個地址'); return; }
-  const head=['姓名','地址','電話','分類','銀行(萬)','法人(萬)','民間(萬)','用途','備註'];
+  const head=['姓名','地址','電話','分類','批次','銀行(萬)','法人(萬)','民間(萬)','用途','備註'];
   const esc=v=>{ const s=String(v==null?'':v).replace(/"/g,'""'); return /[",\n\r]/.test(s)?'"'+s+'"':s; };
   const lines=[head.join(',')];
-  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.bank||'',r.legal||'',r.private||'',r.purpose,String(r.note||'').replace(/\s+/g,' ').trim()].map(esc).join(',')));
+  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.batch||'',r.bank||'',r.legal||'',r.private||'',r.purpose,String(r.note||'').replace(/\s+/g,' ').trim()].map(esc).join(',')));
   const csv='﻿'+lines.join('\r\n'); // BOM 讓 Excel/Google 正確讀中文
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -3148,6 +3200,7 @@ function render(){
   else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
+  list = list.filter(batchFilterPass);
   // 縣市篩選
   if(selectedCities.size > 0) {
     list = list.filter(c => {
@@ -3277,6 +3330,7 @@ function getVisibleList(){
   else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
   else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
+  list=list.filter(batchFilterPass);
   if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
   return list;
 }
@@ -3469,7 +3523,8 @@ function openAdd(){
   document.getElementById('btnDel').style.display='none';
   document.getElementById('btnBlack').style.display='none';
   document.getElementById('btnShare').style.display='none';
-  ['fName','fPhone','fIdno','fAddr','fCensusAddr','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
+  ['fName','fPhone','fIdno','fAddr','fCensusAddr','fBatch','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
+  refreshBatchDatalist();
   document.getElementById('ageDisplay').style.display='none';
   document.getElementById('fDriveUrl').value='';
   document.getElementById('btnOpenDrive').style.display='none';
@@ -3505,6 +3560,8 @@ function openEdit(id){
   document.getElementById('fPhone').value=c.phone||'';
   document.getElementById('fIdno').value=c.idno||'';
   document.getElementById('fCensusAddr').value=c.censusAddr||'';
+  refreshBatchDatalist();
+  document.getElementById('fBatch').value=c.batch||'';
   document.getElementById('fHeat').value=c.heat||'追很緊';
   document.getElementById('fRemind').value=c.remind||'';
   const rt = c.remindTime||'';
@@ -4713,6 +4770,7 @@ async function saveClient(silent){
     finProofs:[...finProofs],
     note:document.getElementById('fNote').value.trim(),
     censusAddr:document.getElementById('fCensusAddr').value.trim(),
+    batch:document.getElementById('fBatch').value.trim(),
     addr:document.getElementById('fAddr').value.trim(),
     area:parseFloat(document.getElementById('fArea').value)||0,
     mainArea:parseFloat(document.getElementById('fMainArea').value)||0,
@@ -5329,11 +5387,85 @@ function clearAllCities() {
   onCityChange();
 }
 
+// ── 來源批次：篩選 + 標記工具 ──
+let selectedBatches = new Set();
+let _batchTagChecked = new Set();
+function allBatches(){ const s=new Set(); clients.forEach(c=>{ const b=(c.batch||'').trim(); if(b) s.add(b); }); return [...s].sort(); }
+function batchFilterPass(c){ if(selectedBatches.size===0) return true; const b=(c.batch||'').trim()||'（未標記）'; return selectedBatches.has(b); }
+function refreshBatchDatalist(){
+  const opts=allBatches().map(b=>`<option value="${calEsc(b)}"></option>`).join('');
+  const dl=document.getElementById('batchListOptions'); if(dl) dl.innerHTML=opts;
+  const dl2=document.getElementById('batchListOptions2'); if(dl2) dl2.innerHTML=opts;
+}
+function renderBatchCheckboxes(){
+  const box=document.getElementById('batchCheckboxes'); if(!box) return;
+  const list=allBatches();
+  const hasUnlabeled=clients.some(c=>!(c.batch||'').trim());
+  let html=list.map(b=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px;border-radius:6px"><input type="checkbox" value="${calEsc(b)}" ${selectedBatches.has(b)?'checked':''} onchange="onBatchChange()" style="cursor:pointer"/>${calEsc(b)}</label>`).join('');
+  if(hasUnlabeled) html+=`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px;border-radius:6px;color:var(--t3)"><input type="checkbox" value="（未標記）" ${selectedBatches.has('（未標記）')?'checked':''} onchange="onBatchChange()" style="cursor:pointer"/>（未標記）</label>`;
+  if(!list.length && !hasUnlabeled) html='<div style="font-size:12px;color:var(--t3);text-align:center;padding:10px 0">還沒有任何批次</div>';
+  box.innerHTML=html;
+}
+function toggleBatchFilter(){ const p=document.getElementById('batchFilterPanel'); const show=(p.style.display==='none'||!p.style.display); if(show) renderBatchCheckboxes(); p.style.display=show?'block':'none'; }
+function onBatchChange(){ selectedBatches=new Set(); document.querySelectorAll('#batchCheckboxes input:checked').forEach(cb=>selectedBatches.add(cb.value)); document.getElementById('batchFilterCount').textContent=selectedBatches.size?`(${selectedBatches.size})`:''; render(); }
+function clearBatchFilter(){ document.querySelectorAll('#batchCheckboxes input').forEach(cb=>cb.checked=false); onBatchChange(); }
+
+function openBatchTag(){
+  const p=document.getElementById('batchFilterPanel'); if(p) p.style.display='none';
+  _batchTagChecked=new Set();
+  document.getElementById('batchTagSearch').value='';
+  document.getElementById('batchTagTodayOnly').checked=false;
+  document.getElementById('batchTagInput').value='';
+  refreshBatchDatalist();
+  renderBatchTagList();
+  document.getElementById('batchTagBg').classList.add('open');
+}
+function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); }
+function batchTagVisible(){
+  const q=(document.getElementById('batchTagSearch').value||'').trim().toLowerCase();
+  const todayOnly=document.getElementById('batchTagTodayOnly').checked;
+  return clients.filter(c=>{ if(todayOnly && c.createdAt!==TODAY) return false; return clientMatchesQuery(c,q); });
+}
+function updateBatchTagCount(visLen){ document.getElementById('batchTagCount').textContent=`符合 ${visLen} 筆 · 已選 ${_batchTagChecked.size} 筆`; }
+function renderBatchTagList(){
+  const el=document.getElementById('batchTagList');
+  const vis=batchTagVisible();
+  updateBatchTagCount(vis.length);
+  if(!vis.length){ el.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:24px 0">找不到客戶</div>'; return; }
+  el.innerHTML=vis.map(c=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" ${_batchTagChecked.has(c.id)?'checked':''} onchange="toggleBatchTagPick(${c.id},this.checked)" style="margin-top:2px">
+      <span style="flex:1;min-width:0">
+        <span style="font-weight:600;color:var(--text)">${calEsc(c.name||'')}</span>
+        ${c.batch?`<span style="font-size:11px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.batch)}</span>`:''}
+        ${c.createdAt===TODAY?`<span style="font-size:10px;color:var(--green);margin-left:6px">今日新增</span>`:''}
+        <div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc([c.phone,c.addr].filter(Boolean).join(' · '))}</div>
+      </span>
+    </label>`).join('');
+}
+function toggleBatchTagPick(id,on){ if(on) _batchTagChecked.add(id); else _batchTagChecked.delete(id); updateBatchTagCount(batchTagVisible().length); }
+function batchTagSelectAll(v){ const vis=batchTagVisible(); vis.forEach(c=>{ if(v) _batchTagChecked.add(c.id); else _batchTagChecked.delete(c.id); }); renderBatchTagList(); }
+function batchTagApply(){
+  if(!_batchTagChecked.size){ showToast('⚠️ 請先勾選客戶'); return; }
+  const label=document.getElementById('batchTagInput').value.trim();
+  const n=_batchTagChecked.size;
+  if(!confirm(label?`把 ${n} 筆客戶標記為批次「${label}」？`:`清除 ${n} 筆客戶的批次標記？`)) return;
+  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ c.batch=label; c.updatedAt=TODAY; } });
+  saveLocal();
+  render();
+  closeBatchTag();
+  showToast(label?`🏷️ 已標記 ${n} 筆為「${label}」`:`已清除 ${n} 筆的批次`);
+}
+
 document.addEventListener('click', function(e) {
   const btn = document.getElementById('cityFilterBtn');
   const panel = document.getElementById('cityFilterPanel');
   if(panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
     panel.style.display = 'none';
+  }
+  const bbtn = document.getElementById('batchFilterBtn');
+  const bpanel = document.getElementById('batchFilterPanel');
+  if(bpanel && bbtn && !bpanel.contains(e.target) && !bbtn.contains(e.target)) {
+    bpanel.style.display = 'none';
   }
 });
 
