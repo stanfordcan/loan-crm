@@ -1,4 +1,4 @@
-// ===== 個人總檔 GAS（最新完整版 2026/06/14）=====
+// ===== 個人總檔 GAS（最新完整版 2026/06/14，含 listFolder）=====
 // 部署：網頁應用程式，執行身分=我自己，存取=所有人
 // appsscript.json 的 oauthScopes 需含：
 //   "https://www.googleapis.com/auth/drive"
@@ -61,6 +61,32 @@ function doGet(e) {
         }
       }
       return jsonp(callback, {status: 'ok', events: out});
+    } catch(err) {
+      return jsonp(callback, {status: 'error', message: err.toString()});
+    }
+  }
+
+  // ── 列出資料夾內的檔案（☁️雲端預覽分頁用，唯讀；只用既有 Drive 權限，不用重新授權）──
+  if (action === 'listFolder') {
+    var url = e.parameter.url || '';
+    try {
+      var m = url.match(/folders\/([A-Za-z0-9_-]+)/);
+      var id = m ? m[1] : '';
+      if (!id) return jsonp(callback, {status: 'error', message: 'invalid url'});
+      var folder = DriveApp.getFolderById(id);
+      var it = folder.getFiles();
+      var out = [];
+      while (it.hasNext()) {
+        var f = it.next();
+        out.push({
+          name:  f.getName(),
+          id:    f.getId(),
+          mime:  f.getMimeType(),
+          url:   f.getUrl(),
+          thumb: 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w300'
+        });
+      }
+      return jsonp(callback, {status: 'ok', files: out});
     } catch(err) {
       return jsonp(callback, {status: 'error', message: err.toString()});
     }
