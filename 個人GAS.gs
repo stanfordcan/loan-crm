@@ -128,7 +128,9 @@ function getSheetData() {
       }
       if (!hasData) continue;
       var paddedRow = [];
-      for (var c = 0; c < 14; c++) {
+      // 送 0~24 欄（標準14欄 + 額外欄位：權利人/限制登記事項/流抵約定/各門牌/金主門牌…）
+      // CRM 靠固定欄位位置顯示「總檔其他欄位」，所以這裡要送足 25 欄；最後再接分頁名稱
+      for (var c = 0; c < 25; c++) {
         paddedRow.push(c < row.length ? row[c] : '');
       }
       paddedRow.push(sheetName);
