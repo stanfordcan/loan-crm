@@ -316,6 +316,9 @@ input[type=number]{min-width:0}
   .pc-container .ccard .mi{font-size:12px}
 }
 </style>
+<!-- Leaflet 免費地圖（OpenStreetMap），無金鑰、無費用 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
 <!-- Login Screen -->
@@ -517,6 +520,9 @@ function doLogout() {
   auth.signOut();
 }
 
+// 雲端備份寫入失敗時，只提醒一次（避免每次存檔都洗版）
+let backupWarned = false;
+
 // 寫入 Firestore（ts 可由 saveLocal 傳入，確保本地與雲端時間戳一致）
 async function saveToFirestore(ts) {
   if (!currentUser || !db) return;
@@ -531,23 +537,41 @@ async function saveToFirestore(ts) {
       claudeKey: CLAUDE_API_KEY || '',
       updatedAt: ts
     }, { merge: true });
-    // 備份：只有資料非空才更新，避免清除後覆蓋備份
-    if (clients.length > 0) {
-      await db.collection('users').doc(currentUser.uid).set(
-        { backup: JSON.stringify({clients, nextId}), backupAt: ts },
-        { merge: true }
-      );
-    }
   } catch(e) { console.error('Firestore save:', e); }
+  // 備份存到「獨立的子文件」backups/latest：各自有自己的 1MB 額度，
+  // 不會跟主資料擠在同一份而撐爆上限導致寫入失敗（舊版就是這樣默默失敗、永遠沒有備份）。
+  if (clients.length > 0) {
+    try {
+      await db.collection('users').doc(currentUser.uid)
+        .collection('backups').doc('latest')
+        .set({ backup: JSON.stringify({clients, nextId}), backupAt: ts });
+      backupWarned = false;
+    } catch(e) {
+      console.error('Firestore backup save:', e);
+      if (!backupWarned) {
+        backupWarned = true;
+        if (typeof showToast === 'function') showToast('⚠️ 雲端備份儲存失敗，請改用 💾 下載備份檔');
+      }
+    }
+  }
 }
 
 // 從備份還原
 async function restoreBackup() {
   if (!currentUser || !db) { showToast('⚠️ 請先登入'); return; }
   try {
-    const doc = await db.collection('users').doc(currentUser.uid).get();
-    if (!doc.exists || !doc.data().backup) { showToast('⚠️ 目前沒有可用的備份'); return; }
-    const raw = doc.data();
+    // 先讀新的獨立備份文件 backups/latest，讀不到再相容舊的（主文件內的 backup 欄）
+    let raw = null;
+    try {
+      const bdoc = await db.collection('users').doc(currentUser.uid)
+        .collection('backups').doc('latest').get();
+      if (bdoc.exists && bdoc.data().backup) raw = bdoc.data();
+    } catch(e) { console.error('backup doc read:', e); }
+    if (!raw) {
+      const doc = await db.collection('users').doc(currentUser.uid).get();
+      if (doc.exists && doc.data().backup) raw = doc.data();
+    }
+    if (!raw || !raw.backup) { showToast('⚠️ 目前沒有可用的備份'); return; }
     const d   = JSON.parse(raw.backup);
     if (!d || !d.clients || d.clients.length === 0) { showToast('⚠️ 備份是空的'); return; }
     const backupAt = raw.backupAt
@@ -746,7 +770,6 @@ async function applyUrlSettings() {
     <div class="hbtns" id="hbtnsRow" style="flex:1">
       <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
       <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
-      <button class="hbtn hbtn-sync" id="syncBtn" onclick="syncData()">🔄 同步</button>
       <button class="hbtn" id="tenBtn" style="background:#ECEAF3;color:#6A5E8A" onclick="openTenModal()">📄 謄本匯入</button>
       <button class="hbtn" id="aiBtn" style="background:var(--abg);color:var(--accent)" onclick="openAiImport()">🤖 AI 匯入</button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
@@ -1304,10 +1327,25 @@ async function applyUrlSettings() {
       </div>
     </div>
     <div id="mapList" style="flex:1;overflow-y:auto;min-height:120px;border:1px solid var(--border);border-radius:var(--rs);padding:4px 6px"></div>
-    <div class="imbtns" style="margin-top:12px;flex-shrink:0">
+    <div class="imbtns" style="margin-top:12px;flex-shrink:0;flex-wrap:wrap;gap:8px">
       <button class="imcancel" onclick="closeMapExport()">關閉</button>
+      <button class="imgo" onclick="openMapView()" style="background:#2E7D55">🗺️ 看地圖 / 排順路</button>
       <button class="imgo" onclick="downloadMapCsv()">📥 下載 CSV</button>
     </div>
+  </div>
+</div>
+
+<!-- 內建地圖檢視（Leaflet 免費地圖）-->
+<div id="mapViewBg" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);flex-direction:column">
+  <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--s1)">
+    <button onclick="closeMapView()" style="background:var(--s2);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:8px 12px;font-size:14px;cursor:pointer;font-family:inherit">✕ 關閉</button>
+    <button onclick="routeOptimize()" style="background:#2E7D55;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">🚗 幫我排順路</button>
+    <button onclick="mapViewFit()" style="background:var(--s2);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;cursor:pointer;font-family:inherit" title="看全部">🔍 全覽</button>
+    <span id="mapViewStatus" style="font-size:12px;color:var(--t3);margin-left:auto"></span>
+  </div>
+  <div style="flex:1;display:flex;min-height:0">
+    <div id="leafletMap" style="flex:1;min-width:0;height:100%"></div>
+    <div id="mapRouteList" style="width:230px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--border);background:var(--s1);padding:6px"></div>
   </div>
 </div>
 
@@ -1375,7 +1413,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t8 (AI匯入土增改進不動產連動) 2026.06.15';
+const APP_VERSION = '🧪測試版 t9 (地圖B版:內建地圖+排順路) 2026.06.16';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1400,6 +1438,16 @@ function normalizeDate(val) {
     return s >= '2000-01-01' ? s : '';
   }
   if(/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    // 含時區（Z 或 +hh:mm）→ 是真實時間點（Google 試算表把日期欄轉成 Date 撈回來就是這種 UTC 字串）。
+    // 必須用「本地時間」換算日期，直接切前10碼會因 UTC 比台灣慢8小時而少一天。
+    if(/Z$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) {
+      const dt = new Date(s);
+      if(!isNaN(dt.getTime())) {
+        const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), dd=String(dt.getDate()).padStart(2,'0');
+        const out=`${y}-${m}-${dd}`;
+        return out >= '2000-01-01' ? out : '';
+      }
+    }
     const d = s.slice(0,10);
     return d >= '2000-01-01' ? d : '';
   }
@@ -1418,6 +1466,13 @@ function normalizeTime(val) {
   if(/^\d{2}:\d{2}$/.test(s)) return s;
   // HH:MM:SS 格式
   if(/^\d{2}:\d{2}:\d{2}/.test(s)) return s.slice(0,5);
+  // ISO 日期時間（Google 試算表把時間欄轉成 Date 撈回來的格式，如 1899-12-30T01:00:00.000Z）→ 取本地時:分
+  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    const dt = new Date(s);
+    if(!isNaN(dt.getTime())) {
+      return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+    }
+  }
   // Excel 小數時間（0~1之間）
   const n = parseFloat(s);
   if(!isNaN(n) && n >= 0 && n < 1) {
@@ -2741,6 +2796,8 @@ function processCompanyData(raw) {
     pushToSheet().catch(()=>{});
     render();
     showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆`);
+    // 有新增 → 自動跳「批次標記」，讓你圈這批標來源（預設只看今日新增）
+    if(added>0){ setTimeout(()=>openBatchTagForImport(), 700); }
   }
 
   if (pendingReview.length > 0) {
@@ -2809,7 +2866,6 @@ function processCompanyData(raw) {
 const BTN_DEFS=[
   {id:'companyBtn',    label:'🏢 從總檔更新'},
   {id:'xlsBtn',        label:'📥 XLS 匯入'},
-  {id:'syncBtn',       label:'🔄 同步'},
   {id:'tenBtn',        label:'📄 謄本匯入'},
   {id:'blBtn',         label:'🚫 黑名單'},
   {id:'selectModeBtn', label:'☑ 選取'},
@@ -3178,11 +3234,17 @@ function buildMapRows(){
   clients.forEach(c=>{
     if(!_mapCats.has(c.heat||'待分類')) return;
     const props=(Array.isArray(c.properties)&&c.properties.length)?c.properties:[{addr:c.addr,bank:c.bank,legal:c.legal,private:c.private,purpose:c.purpose}];
-    props.forEach(p=>{
+    props.forEach((p,pi)=>{
       const addr=String(p.addr||'').trim();
       if(!addr) return;
+      // 公司資料頁籤內容：優先用該筆不動產自己的 companyRaw，第一筆才退回 client 層級（與 renderCompanyPanel 一致）
+      const cr=p.companyRaw||(pi===0?c.companyRaw:null)||{};
+      const bNo=p.buildNo||(pi===0?(c.buildNo||''):'');
+      const lNo=p.landNo||(pi===0?(c.landNo||''):'');
       _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
-        bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',checked:true});
+        bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',
+        buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',
+        checked:true});
     });
   });
 }
@@ -3219,10 +3281,12 @@ function renderMapList(){
 function downloadMapCsv(){
   const rows=_mapRows.filter(r=>r.checked);
   if(!rows.length){ showToast('⚠️ 請至少勾選一個地址'); return; }
-  const head=['姓名','地址','電話','分類','批次','銀行(萬)','法人(萬)','民間(萬)','用途','備註'];
+  const head=['姓名','地址','電話','分類','批次','銀行(萬)','法人(萬)','民間(萬)','用途','備註','建號','地號','面積','標示部','所有權部','他項權利部','拜訪過程','公司備註'];
   const esc=v=>{ const s=String(v==null?'':v).replace(/"/g,'""'); return /[",\n\r]/.test(s)?'"'+s+'"':s; };
+  const oneLine=v=>String(v||'').replace(/\s+/g,' ').trim();
   const lines=[head.join(',')];
-  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.batch||'',r.bank||'',r.legal||'',r.private||'',r.purpose,String(r.note||'').replace(/\s+/g,' ').trim()].map(esc).join(',')));
+  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.batch||'',r.bank||'',r.legal||'',r.private||'',r.purpose,oneLine(r.note),
+    r.buildNo||'',r.landNo||'',r.coArea||'',oneLine(r.coBuild),oneLine(r.coOwner),oneLine(r.coRights),oneLine(r.coProcess),oneLine(r.coNote)].map(esc).join(',')));
   const csv='﻿'+lines.join('\r\n'); // BOM 讓 Excel/Google 正確讀中文
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -3233,6 +3297,159 @@ function downloadMapCsv(){
   setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
   showToast(`📥 已下載 ${rows.length} 個地址`);
 }
+
+// ── 內建地圖（Leaflet 免費版）＋ 排順路 ───────────────────────────
+const MAPVIEW_COLORS={'待分類':'#9CA3AF','覆訪':'#D97706','追很緊':'#DC2626','新鑫':'#7C3AED','已簽約':'#059669','無效案件':'#6B7280'};
+const GEO_CACHE_KEY='geocode_cache_v1';      // 定位結果快取（地址→經緯度，做過不重複定位）
+const MAPVIEW_STATE_KEY='mapview_route_v1';   // 路線順序＋已拜訪（存在這台裝置）
+let _mvMap=null,_mvMarkers={},_mvRows=[],_mvOrder=[],_mvVisited={},_mvLine=null,_mvGeocoding=false;
+function mvKey(r){ return (r.name||'')+'||'+(r.addr||''); }
+function geoNorm(a){ return String(a||'').replace(/\s+/g,'').trim(); }
+function mvJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function mvSleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function loadGeoCache(){ try{return JSON.parse(localStorage.getItem(GEO_CACHE_KEY)||'{}')||{};}catch(e){return{};} }
+function saveGeoCache(c){ try{localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(c));}catch(e){} }
+function persistMapView(){ try{localStorage.setItem(MAPVIEW_STATE_KEY,JSON.stringify({order:_mvOrder,visited:_mvVisited}));}catch(e){} }
+function loadMapViewState(){ try{return JSON.parse(localStorage.getItem(MAPVIEW_STATE_KEY)||'{}')||{};}catch(e){return{};} }
+
+async function openMapView(){
+  if(typeof L==='undefined'){ showToast('⚠️ 地圖元件載入失敗，請檢查網路'); return; }
+  const rows=_mapRows.filter(r=>r.checked);
+  if(!rows.length){ showToast('⚠️ 請先勾選要看的客戶'); return; }
+  _mvRows=rows.map(r=>({...r,key:mvKey(r),lat:null,lng:null}));
+  const st=loadMapViewState(); _mvVisited=st.visited||{}; _mvOrder=st.order||[];
+  document.getElementById('mapViewBg').style.display='flex';
+  if(!_mvMap){
+    _mvMap=L.map('leafletMap').setView([23.7,120.9],8); // 台灣中心
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(_mvMap);
+  }
+  setTimeout(()=>{ if(_mvMap) _mvMap.invalidateSize(); },200);
+  await geocodeAndRender();
+}
+function closeMapView(){ document.getElementById('mapViewBg').style.display='none'; }
+
+async function geocodeAndRender(){
+  if(_mvGeocoding) return;
+  _mvGeocoding=true;
+  Object.values(_mvMarkers).forEach(m=>{ try{_mvMap.removeLayer(m);}catch(e){} }); _mvMarkers={};
+  if(_mvLine){ try{_mvMap.removeLayer(_mvLine);}catch(e){} _mvLine=null; }
+  const cache=loadGeoCache(); const statusEl=document.getElementById('mapViewStatus');
+  let done=0,fail=0;
+  for(const r of _mvRows){
+    const k=geoNorm(r.addr); let pt=cache[k];
+    if(!pt){
+      statusEl.textContent=`定位中… ${done+1}/${_mvRows.length}`;
+      pt=await geocodeOne(r.addr);
+      if(pt){ cache[k]=pt; saveGeoCache(cache); }
+      await mvSleep(1100); // 遵守免費定位服務 1次/秒 的禮貌限制
+    }
+    done++;
+    if(pt){ r.lat=pt.lat; r.lng=pt.lng; addMvMarker(r); } else { fail++; }
+    statusEl.textContent=`已定位 ${done-fail}/${_mvRows.length}`+(fail?`（${fail} 筆找不到）`:'');
+  }
+  _mvGeocoding=false;
+  applySavedOrder();
+  renderMapRouteList();
+  mapViewFit();
+}
+async function geocodeOne(addr){
+  try{
+    const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&accept-language=zh-TW&q='+encodeURIComponent(addr);
+    const res=await fetch(url); const j=await res.json();
+    if(Array.isArray(j)&&j.length) return {lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon)};
+  }catch(e){ console.error('geocode',e); }
+  return null;
+}
+function addMvMarker(r){
+  if(r.lat==null) return;
+  const color=MAPVIEW_COLORS[r.heat]||'#6B7280';
+  const visited=!!_mvVisited[r.key];
+  const num=_mvOrder.indexOf(r.key);
+  const label=num>=0?(num+1):'•';
+  const icon=L.divIcon({className:'mv-pin',html:`<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${visited?'#B6BAC2':color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:12px;font-weight:700">${label}</span></div>`,iconSize:[26,26],iconAnchor:[13,26],popupAnchor:[0,-24]});
+  const m=L.marker([r.lat,r.lng],{icon}).addTo(_mvMap);
+  m.bindPopup(mvPopupHtml(r));
+  _mvMarkers[r.key]=m;
+}
+function mvPopupHtml(r){
+  const navUrl='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(r.addr);
+  const visited=!!_mvVisited[r.key];
+  const co=[r.coBuild,r.coOwner&&('所有權:'+r.coOwner),r.coRights&&('他項:'+r.coRights),r.coNote].filter(Boolean).join('<br>');
+  return `<div style="min-width:180px;font-size:13px;line-height:1.5">
+    <div style="font-weight:700;font-size:14px">${calEsc(r.name)} <span style="font-size:11px;color:#888">${calEsc(r.heat)}</span></div>
+    <div style="color:#555;margin:2px 0">📍 ${calEsc(r.addr)}</div>
+    ${r.phone?`<div style="color:#555">📞 ${calEsc(r.phone)}</div>`:''}
+    ${(r.bank||r.legal||r.private)?`<div style="color:#555">🏦 銀${r.bank||0}/法${r.legal||0}/民${r.private||0}萬</div>`:''}
+    ${co?`<div style="color:#777;font-size:11px;margin-top:3px;max-height:80px;overflow:auto">${calEsc(co).replace(/&lt;br&gt;/g,'<br>')}</div>`:''}
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <a href="${navUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#2E7D55;color:#fff;border-radius:6px;padding:6px;text-decoration:none;font-size:12px">🧭 導航</a>
+      <button onclick="toggleVisited('${mvJs(r.key)}')" style="flex:1;background:${visited?'#9CA3AF':'#3E5F92'};color:#fff;border:none;border-radius:6px;padding:6px;font-size:12px;cursor:pointer;font-family:inherit">${visited?'↩ 取消':'✓ 已拜訪'}</button>
+    </div>
+  </div>`;
+}
+function toggleVisited(key){
+  if(_mvVisited[key]) delete _mvVisited[key]; else _mvVisited[key]=true;
+  persistMapView();
+  const r=_mvRows.find(x=>x.key===key);
+  if(r){ if(_mvMarkers[key]){ try{_mvMap.removeLayer(_mvMarkers[key]);}catch(e){} delete _mvMarkers[key]; } addMvMarker(r); if(_mvMarkers[key]) _mvMarkers[key].openPopup(); }
+  renderMapRouteList();
+}
+function haversine(a,b){ const R=6371,toR=x=>x*Math.PI/180; const dLat=toR(b[0]-a[0]),dLng=toR(b[1]-a[1]); const s=Math.sin(dLat/2)**2+Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
+function routeOptimize(){
+  const pts=_mvRows.filter(r=>r.lat!=null);
+  if(pts.length<2){ showToast('⚠️ 可定位的客戶太少，無法排路線'); return; }
+  const statusEl=document.getElementById('mapViewStatus');
+  const build=(start)=>{
+    const remaining=pts.slice(); const order=[]; let cur=start;
+    while(remaining.length){
+      let bi=0,bd=Infinity;
+      for(let i=0;i<remaining.length;i++){ const d=haversine(cur,[remaining[i].lat,remaining[i].lng]); if(d<bd){bd=d;bi=i;} }
+      const nx=remaining.splice(bi,1)[0]; order.push(nx.key); cur=[nx.lat,nx.lng];
+    }
+    _mvOrder=order; persistMapView();
+    redrawAllMarkers(); drawRouteLine(); renderMapRouteList();
+    statusEl.textContent=`已排好 ${order.length} 站順路`;
+  };
+  statusEl.textContent='取得你的位置中…';
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      p=>build([p.coords.latitude,p.coords.longitude]),
+      ()=>{ showToast('取不到你的定位，改用第一筆當起點'); build([pts[0].lat,pts[0].lng]); },
+      {timeout:8000,enableHighAccuracy:true}
+    );
+  } else { build([pts[0].lat,pts[0].lng]); }
+}
+function redrawAllMarkers(){ Object.keys(_mvMarkers).forEach(k=>{ try{_mvMap.removeLayer(_mvMarkers[k]);}catch(e){} }); _mvMarkers={}; _mvRows.forEach(r=>{ if(r.lat!=null) addMvMarker(r); }); }
+function drawRouteLine(){
+  if(_mvLine){ try{_mvMap.removeLayer(_mvLine);}catch(e){} _mvLine=null; }
+  const pts=_mvOrder.map(k=>_mvRows.find(r=>r.key===k)).filter(r=>r&&r.lat!=null).map(r=>[r.lat,r.lng]);
+  if(pts.length>=2) _mvLine=L.polyline(pts,{color:'#2E7D55',weight:3,opacity:.6,dashArray:'6,6'}).addTo(_mvMap);
+}
+function applySavedOrder(){
+  _mvOrder=_mvOrder.filter(k=>_mvRows.some(r=>r.key===k));
+  if(_mvOrder.length){ redrawAllMarkers(); drawRouteLine(); }
+}
+function renderMapRouteList(){
+  const el=document.getElementById('mapRouteList'); if(!el) return;
+  let rows=_mvRows.filter(r=>r.lat!=null);
+  rows.sort((a,b)=>{ const ia=_mvOrder.indexOf(a.key),ib=_mvOrder.indexOf(b.key); return (ia<0?9999:ia)-(ib<0?9999:ib); });
+  const failN=_mvRows.filter(r=>r.lat==null).length;
+  const doneN=rows.filter(r=>_mvVisited[r.key]).length;
+  el.innerHTML=`<div style="font-size:11px;color:var(--t3);padding:4px 2px">共 ${rows.length} 站 · 已拜訪 ${doneN}${failN?` · ${failN} 筆找不到位置`:''}</div>`+
+    rows.map(r=>{
+      const num=_mvOrder.indexOf(r.key); const visited=!!_mvVisited[r.key];
+      const color=MAPVIEW_COLORS[r.heat]||'#6B7280';
+      return `<div onclick="mvFocus('${mvJs(r.key)}')" style="display:flex;gap:6px;align-items:flex-start;padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer;${visited?'opacity:.5':''}">
+        <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">${num>=0?num+1:'•'}</span>
+        <span style="flex:1;min-width:0">
+          <span style="font-weight:600;font-size:13px;${visited?'text-decoration:line-through':''}">${calEsc(r.name)}</span>
+          <div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc(r.addr)}</div>
+        </span>
+      </div>`;
+    }).join('');
+}
+function mvFocus(key){ const m=_mvMarkers[key]; if(m){ _mvMap.setView(m.getLatLng(),16); m.openPopup(); } }
+function mapViewFit(){ const pts=_mvRows.filter(r=>r.lat!=null).map(r=>[r.lat,r.lng]); if(pts.length) _mvMap.fitBounds(pts,{padding:[40,40],maxZoom:15}); }
 
 function render(){
   updateStats();updateTabs();
@@ -5500,6 +5717,13 @@ function openBatchTag(){
   document.getElementById('batchTagBg').classList.add('open');
 }
 function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); }
+// 從總檔更新後自動開啟，預設「只看今日新增」，方便直接圈這批標來源
+function openBatchTagForImport(){
+  openBatchTag();
+  const t=document.getElementById('batchTagTodayOnly');
+  if(t){ t.checked=true; }
+  renderBatchTagList();
+}
 function batchTagVisible(){
   const q=(document.getElementById('batchTagSearch').value||'').trim().toLowerCase();
   const todayOnly=document.getElementById('batchTagTodayOnly').checked;
