@@ -746,7 +746,6 @@ async function applyUrlSettings() {
     <div class="hbtns" id="hbtnsRow" style="flex:1">
       <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
       <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
-      <button class="hbtn hbtn-sync" id="syncBtn" onclick="syncData()">🔄 同步</button>
       <button class="hbtn" id="tenBtn" style="background:#ECEAF3;color:#6A5E8A" onclick="openTenModal()">📄 謄本匯入</button>
       <button class="hbtn" id="aiBtn" style="background:var(--abg);color:var(--accent)" onclick="openAiImport()">🤖 AI 匯入</button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
@@ -1375,7 +1374,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.16 #1';
+const APP_VERSION = '2026.06.16 #2';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2828,7 +2827,6 @@ function processCompanyData(raw) {
 const BTN_DEFS=[
   {id:'companyBtn',    label:'🏢 從總檔更新'},
   {id:'xlsBtn',        label:'📥 XLS 匯入'},
-  {id:'syncBtn',       label:'🔄 同步'},
   {id:'tenBtn',        label:'📄 謄本匯入'},
   {id:'blBtn',         label:'🚫 黑名單'},
   {id:'selectModeBtn', label:'☑ 選取'},
