@@ -1375,7 +1375,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.15 #4';
+const APP_VERSION = '2026.06.16 #1';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1400,6 +1400,16 @@ function normalizeDate(val) {
     return s >= '2000-01-01' ? s : '';
   }
   if(/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    // 含時區（Z 或 +hh:mm）→ 是真實時間點（Google 試算表把日期欄轉成 Date 撈回來就是這種 UTC 字串）。
+    // 必須用「本地時間」換算日期，直接切前10碼會因 UTC 比台灣慢8小時而少一天。
+    if(/Z$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) {
+      const dt = new Date(s);
+      if(!isNaN(dt.getTime())) {
+        const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), dd=String(dt.getDate()).padStart(2,'0');
+        const out=`${y}-${m}-${dd}`;
+        return out >= '2000-01-01' ? out : '';
+      }
+    }
     const d = s.slice(0,10);
     return d >= '2000-01-01' ? d : '';
   }
@@ -1418,6 +1428,13 @@ function normalizeTime(val) {
   if(/^\d{2}:\d{2}$/.test(s)) return s;
   // HH:MM:SS 格式
   if(/^\d{2}:\d{2}:\d{2}/.test(s)) return s.slice(0,5);
+  // ISO 日期時間（Google 試算表把時間欄轉成 Date 撈回來的格式，如 1899-12-30T01:00:00.000Z）→ 取本地時:分
+  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    const dt = new Date(s);
+    if(!isNaN(dt.getTime())) {
+      return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+    }
+  }
   // Excel 小數時間（0~1之間）
   const n = parseFloat(s);
   if(!isNaN(n) && n >= 0 && n < 1) {
