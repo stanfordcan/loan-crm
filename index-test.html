@@ -1195,6 +1195,11 @@ async function applyUrlSettings() {
       </div>
       <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none" onchange="restoreFromFile(this)"/>
     </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px">🧹 整理</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清除「無效案件＋沒有電話/身分證/建號」的空資料（會先顯示筆數讓你確認；其他資料完全不動）。建議先按上面「下載備份檔」。</div>
+      <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1.5px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清除無效空資料</button>
+    </div>
   </div>
 </div>
 
@@ -1427,7 +1432,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t17 (📋名單整合:批次/地圖名單/公司格式匯出) 2026.06.16';
+const APP_VERSION = '🧪測試版 t18 (設定加:一鍵清除無效空資料) 2026.06.16';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5604,6 +5609,25 @@ async function doImport(){
 document.getElementById('sheetBg').addEventListener('click',e=>{if(e.target===document.getElementById('sheetBg'))closeSheet();});
 document.getElementById('imBg').addEventListener('click',e=>{if(e.target===document.getElementById('imBg'))closeImport();});
 
+// 🧹 一鍵清除「無效案件＋無電話/身分證/建號」的空資料
+function cleanupInvalidEmpty(){
+  const targets=clients.filter(c=>{
+    if((c.heat||'')!=='無效案件') return false;
+    if(String(c.phone||'').replace(/\D/g,'')) return false;
+    if((c.idno||'').trim()) return false;
+    if((c.buildNo||'').trim()||(c.col4BuildNo||'').trim()) return false;
+    if(Array.isArray(c.properties)&&c.properties.some(p=>(p.buildNo||'').trim()||(p.col4BuildNo||'').trim())) return false;
+    return true;
+  });
+  if(!targets.length){ showToast('✅ 沒有符合的無效空資料'); return; }
+  const names=targets.slice(0,12).map(c=>c.name||'(無名)').join('、');
+  if(!confirm(`找到 ${targets.length} 筆「無效案件＋無電話/身分證/建號」的空資料：\n\n${names}${targets.length>12?' …等':''}\n\n確定刪除這些？\n（只刪這些，其他完全不動；建議先下載備份）`)) return;
+  const ids=new Set(targets.map(c=>c.id));
+  clients=clients.filter(c=>!ids.has(c.id));
+  saveLocal(); render();
+  showToast(`🧹 已清除 ${targets.length} 筆無效空資料`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
 async function clearAllData() {
   if (!confirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`)) return;
   clients = [];
