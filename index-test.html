@@ -1444,7 +1444,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t21 (修無效案件擋不掉/清不掉:身分證號不算聯絡方式,B與清除改成只看電話) 2026.06.17';
+const APP_VERSION = '🧪測試版 t22 (同身分證=同一人:疑似重複面板加🔗合併鈕;從總檔更新收尾自動併同身分證,避免名單空殼+總檔變兩筆) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2118,14 +2118,99 @@ function renderDupPanel(c) {
   listEl.innerHTML = dups.map(function(d) {
     const oc = d.client;
     const col = hColor[oc.heat] || '#888';
-    return '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer;background:#fff;border:1px solid #FFD54F;border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
+    return '<div style="background:#fff;border:1px solid #FFD54F;border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
+      + '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer">'
       + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (oc.name || '（未知）') + '</div>'
       + '<div style="font-size:11px;color:#888;margin:1px 0">' + (oc.phone || '（無電話）') + '</div>'
       + '<div style="font-size:11px;color:' + col + ';font-weight:600">' + oc.heat + '</div>'
       + '<div style="font-size:10px;color:#B45309;margin-top:2px">' + d.reasons.join('、') + '</div>'
+      + '</div>'
+      + '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:#B45309;color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
       + '</div>';
   }).join('');
   panel.style.display = 'block';
+}
+
+// ── 合併重複客戶（同一人）──────────────────────────────────
+// 把 b 整筆併進 a（a 保留為主）：房產合併去重、缺的欄位用 b 補、電話/記錄/財力合併。回傳 a。
+function foldClientInto(a, b){
+  const isEmptyProp = p => !p.addr && !p.buildNo && !p.col4BuildNo && !p.bank && !p.legal && !p.private && !p.area;
+  // 房產：兩邊都正規化成 properties，再以建號/地址核心去重合併
+  const merged = migrateProperties(a).filter(p=>!isEmptyProp(p));
+  migrateProperties(b).forEach(bp=>{
+    if(isEmptyProp(bp)) return;
+    const bBuild = normBuildNo(bp.col4BuildNo)||normBuildNo(bp.buildNo);
+    const bCore  = addrCore(bp.addr);
+    const dup = merged.find(mp=>{
+      const mBuild=normBuildNo(mp.col4BuildNo)||normBuildNo(mp.buildNo);
+      if(bBuild&&mBuild&&bBuild===mBuild) return true;
+      if(bCore&&mp.addr&&addrHit(addrCore(mp.addr),bCore)) return true;
+      return false;
+    });
+    if(dup) mergePropInto(dup, bp); else merged.push(bp);
+  });
+  if(merged.length){ a.properties = merged.map((p,i)=>{p.label=propLabel(p)||p.label||('不動產'+(i+1));return p;}); }
+  // 純量欄位：a 空白才用 b 補（a 是主，手動填的優先保留）
+  ['phone','idno','addr','censusAddr','col4BuildNo','col7Name','note','job','jobYears','driveUrl','purpose','buildNo','landNo','remind','remindTime','remindNote','batch','birthY','birthM','birthD'].forEach(k=>{
+    if((a[k]===undefined||a[k]===''||a[k]===null) && b[k]) a[k]=b[k];
+  });
+  ['area','mainArea','subArea','commonArea','parkArea','bank','private','legal'].forEach(k=>{
+    if(!a[k] && b[k]) a[k]=b[k];
+  });
+  if(!a.companyRaw && b.companyRaw) a.companyRaw=b.companyRaw;
+  // 債電合併去重
+  const pn=s=>String(s).replace(/[-\s()#]/g,'');
+  const dset=new Set((a.debtPhones||[]).map(pn));
+  (b.debtPhones||[]).forEach(p=>{ if(p&&!dset.has(pn(p))){ (a.debtPhones=a.debtPhones||[]).push(p); dset.add(pn(p)); }});
+  // 聯絡記錄合併去重
+  const lkey=l=>(l.date||'')+(l.text||'').slice(0,20);
+  const lset=new Set((a.logs||[]).map(lkey));
+  (b.logs||[]).forEach(l=>{ if(!lset.has(lkey(l))){ (a.logs=a.logs||[]).push(l); lset.add(lkey(l)); }});
+  if(a.logs) a.logs.sort((x,y)=>(y.date||'').localeCompare(x.date||''));
+  // 財力證明合併
+  if(b.finProofs&&b.finProofs.length) a.finProofs=[...(a.finProofs||[]),...b.finProofs];
+  a.updatedAt=TODAY;
+  return a;
+}
+// 資料豐富度（決定哪筆當主）：有電話/房產/各種欄位都加分
+function clientRichness(c){
+  let s=0;
+  if(c.phone) s+=3;
+  if(c.addr) s+=2;
+  s += (c.properties||[]).filter(p=>p&&(p.addr||p.buildNo||p.bank||p.legal||p.private)).length*2;
+  s += (c.logs||[]).length;
+  s += (c.debtPhones||[]).length;
+  ['idno','censusAddr','note','job','companyRaw','bank','legal','private','area'].forEach(k=>{ if(c[k]) s+=1; });
+  return s;
+}
+// 手動：把「疑似重複」面板裡某筆併入目前開啟這位（自動保留資料較完整那筆）
+function mergeWithDup(otherId){
+  const a=clients.find(c=>c.id===editId);
+  const b=clients.find(c=>c.id===otherId);
+  if(!a||!b){ showToast('⚠️ 找不到要合併的客戶'); return; }
+  if(!confirm(`確定把「${b.name||'(無名)'}」和「${a.name||'(無名)'}」合併成同一筆？\n\n房產、聯絡記錄、電話都會保留；併完會刪掉多餘那筆。建議先在 ⚙️設定「下載備份」。`)) return;
+  const keep = clientRichness(a)>=clientRichness(b) ? a : b;
+  const drop = keep===a ? b : a;
+  foldClientInto(keep, drop);
+  clients = clients.filter(c=>c.id!==drop.id);
+  saveLocal(); render();
+  openEdit(keep.id);
+  showToast('🔗 已合併重複客戶');
+}
+// 自動：同身分證＝同一人，匯入收尾時把空殼/較少那筆併進較完整那筆
+function consolidateByIdno(){
+  const groups=new Map();
+  clients.forEach(c=>{ const k=(c.idno||'').trim(); if(k) { if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(c); } });
+  const dropIds=new Set();
+  let mergedCount=0;
+  groups.forEach(list=>{
+    if(list.length<2) return;
+    list.sort((x,y)=>clientRichness(y)-clientRichness(x));
+    const primary=list[0];
+    list.slice(1).forEach(other=>{ foldClientInto(primary, other); dropIds.add(other.id); mergedCount++; });
+  });
+  if(dropIds.size) clients=clients.filter(c=>!dropIds.has(c.id));
+  return mergedCount;
 }
 
 // ── Claude AI 輔助去重 ──────────────────────────────────────
@@ -2823,6 +2908,8 @@ function processCompanyData(raw) {
 
   // ── 最終處理（dedup + 存檔）────────────────────────────
   function finalize() {
+    // 同身分證＝同一人：先把空殼/較少那筆併進較完整那筆，避免重複（如先匯名單再從總檔更新）
+    const idnoMerged = consolidateByIdno();
     const seen = new Set();
     clients = clients.filter(c => {
       const normPhone = (c.phone||'').replace(/[-\s\(\)#]/g,'');
@@ -2838,7 +2925,7 @@ function processCompanyData(raw) {
     saveLocal();
     pushToSheet().catch(()=>{});
     render();
-    showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆`);
+    showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆${idnoMerged?`，合併同人 ${idnoMerged} 筆`:''}`);
     // 有新增 → 自動跳「批次標記」，讓你圈這批標來源（預設只看今日新增）
     if(added>0){ setTimeout(()=>openBatchTagForImport(), 700); }
   }
