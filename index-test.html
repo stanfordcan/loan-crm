@@ -1421,7 +1421,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t9 (地圖B版:內建地圖+排順路) 2026.06.16';
+const APP_VERSION = '🧪測試版 t9c (地圖:免費定位退到路/區級) 2026.06.16';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3349,10 +3349,13 @@ async function geocodeAndRender(){
       statusEl.textContent=`定位中… ${done+1}/${_mvRows.length}`;
       pt=await geocodeOne(r.addr);
       if(pt){ cache[k]=pt; saveGeoCache(cache); }
-      await mvSleep(1100); // 遵守免費定位服務 1次/秒 的禮貌限制
     }
     done++;
-    if(pt){ r.lat=pt.lat; r.lng=pt.lng; addMvMarker(r); } else { fail++; }
+    if(pt){
+      let la=pt.lat, ln=pt.lng;
+      if(pt.approx){ const jt=geoJitter(r.key); la+=jt.dla; ln+=jt.dln; }
+      r.lat=la; r.lng=ln; r.approx=!!pt.approx; addMvMarker(r);
+    } else { fail++; }
     statusEl.textContent=`已定位 ${done-fail}/${_mvRows.length}`+(fail?`（${fail} 筆找不到）`:'');
   }
   _mvGeocoding=false;
@@ -3360,12 +3363,28 @@ async function geocodeAndRender(){
   renderMapRouteList();
   mapViewFit();
 }
+let _geoLastReq=0;
+async function geoThrottle(){ const w=1100-(Date.now()-_geoLastReq); if(w>0) await mvSleep(w); _geoLastReq=Date.now(); }
+// 免費定位查不到完整門牌(含號)，所以退一步用「路名+段→路名→區」。誤差幾百公尺，看分佈/排順路夠用；導航仍用完整地址。
+function geoCandidates(addr){
+  const s=geoNorm(addr); const c=[];
+  const road=s.match(/^(.*?(?:路|街|大道|道))(?:([一二三四五六七八九十\d]+段))?/);
+  if(road){ if(road[2]) c.push(road[1]+road[2]); c.push(road[1]); }
+  const dist=s.match(/^(.*?[市縣].*?[區鄉鎮市])/);
+  if(dist) c.push(dist[1]);
+  if(!c.length) c.push(s);
+  return [...new Set(c)].filter(x=>x&&x.length>=3);
+}
+function geoJitter(key){ let h=0; const s=String(key); for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))&0x7fffffff; } return {dla:((h%1000)/1000-0.5)*0.0018,dln:(((h>>5)%1000)/1000-0.5)*0.0018}; }
 async function geocodeOne(addr){
-  try{
-    const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&accept-language=zh-TW&q='+encodeURIComponent(addr);
-    const res=await fetch(url); const j=await res.json();
-    if(Array.isArray(j)&&j.length) return {lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon)};
-  }catch(e){ console.error('geocode',e); }
+  for(const q of geoCandidates(addr)){
+    await geoThrottle();
+    try{
+      const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&accept-language=zh-TW&q='+encodeURIComponent(q);
+      const res=await fetch(url); const j=await res.json();
+      if(Array.isArray(j)&&j.length) return {lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon),approx:true};
+    }catch(e){ console.error('geocode',e); }
+  }
   return null;
 }
 function addMvMarker(r){
