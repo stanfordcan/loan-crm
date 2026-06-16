@@ -316,9 +316,6 @@ input[type=number]{min-width:0}
   .pc-container .ccard .mi{font-size:12px}
 }
 </style>
-<!-- Leaflet 免費地圖（OpenStreetMap），無金鑰、無費用 -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
 <!-- Login Screen -->
@@ -535,6 +532,7 @@ async function saveToFirestore(ts) {
       gasUrl: GAS_URL || '',
       companyUrl: COMPANY_URL || '',
       claudeKey: CLAUDE_API_KEY || '',
+      googleKey: GOOGLE_MAPS_KEY || '',
       updatedAt: ts
     }, { merge: true });
   } catch(e) { console.error('Firestore save:', e); }
@@ -653,6 +651,7 @@ async function loadFromFirestore() {
       if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
       if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
       if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
+      if (raw.googleKey)  GOOGLE_MAPS_KEY = raw.googleKey;
       // 載入備忘錄（雲端）
       if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
       // 載入客戶資料
@@ -689,6 +688,7 @@ async function syncFromFirestoreIfNewer() {
     if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
     if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
     if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
+    if (raw.googleKey)  GOOGLE_MAPS_KEY = raw.googleKey;
     if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
 
     // 比較時間戳（若本地 clients 是空的，不管時間戳一律從 Firestore 載入）
@@ -729,7 +729,7 @@ async function saveUrlSettings() {
   if (!currentUser || !db) return;
   try {
     await db.collection('users').doc(currentUser.uid).set(
-      { gasUrl: GAS_URL || '', companyUrl: COMPANY_URL || '', claudeKey: CLAUDE_API_KEY || '' },
+      { gasUrl: GAS_URL || '', companyUrl: COMPANY_URL || '', claudeKey: CLAUDE_API_KEY || '', googleKey: GOOGLE_MAPS_KEY || '' },
       { merge: true }
     );
   } catch(e) { console.error('Firestore settings save:', e); }
@@ -739,6 +739,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
+  document.getElementById('settingsGoogleKey').value  = GOOGLE_MAPS_KEY || '';
   document.getElementById('urlSettingsBg').style.display = 'flex';
 }
 function closeUrlSettings() {
@@ -748,6 +749,7 @@ async function applyUrlSettings() {
   GAS_URL        = document.getElementById('settingsGasUrl').value.trim();
   COMPANY_URL    = document.getElementById('settingsCompanyUrl').value.trim();
   CLAUDE_API_KEY = document.getElementById('settingsClaudeKey').value.trim();
+  GOOGLE_MAPS_KEY = document.getElementById('settingsGoogleKey').value.trim();
   await saveUrlSettings();
   closeUrlSettings();
   showToast('✅ 設定已儲存');
@@ -1184,6 +1186,12 @@ async function applyUrlSettings() {
       <input id="settingsClaudeKey" type="password" placeholder="sk-ant-api03-…"
         style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:12px;font-family:monospace;outline:none;color:var(--text)"/>
     </div>
+    <div class="frow" style="margin-bottom:20px">
+      <label style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px;display:block">🗺️ Google 地圖金鑰（選填）</label>
+      <span style="font-size:11px;color:var(--t3);display:block;margin-bottom:6px">填入後，地圖功能會用 Google 精準定位門牌＋排最佳路線。建議到 Google Cloud 把金鑰鎖你的網址、設每日上限，避免費用失控。金鑰只存在你自己的帳號中。</span>
+      <input id="settingsGoogleKey" type="password" placeholder="AIza…"
+        style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:12px;font-family:monospace;outline:none;color:var(--text)"/>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="closeUrlSettings()" style="background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-family:inherit;cursor:pointer">取消</button>
       <button onclick="applyUrlSettings()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:9px 18px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">儲存設定</button>
@@ -1419,9 +1427,10 @@ async function applyUrlSettings() {
 let GAS_URL     = 'https://script.google.com/macros/s/AKfycbzD8tf29__2Lqc2YEQeUE-AK36vwge_n1hkMoKK9R8Hym2qyy5Fnlm4myZXUyoERFzA/exec'; // 共用同步 GAS
 let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
+let GOOGLE_MAPS_KEY = ''; // Google 地圖金鑰（選填，用於精準定位＋排順路）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t9c (地圖:免費定位退到路/區級) 2026.06.16';
+const APP_VERSION = '🧪測試版 t10 (地圖改Google:精準定位+道路最佳路線) 2026.06.16';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3306,11 +3315,11 @@ function downloadMapCsv(){
   showToast(`📥 已下載 ${rows.length} 個地址`);
 }
 
-// ── 內建地圖（Leaflet 免費版）＋ 排順路 ───────────────────────────
+// ── 地圖（Google Maps 精準版）＋ 排順路 ───────────────────────────
 const MAPVIEW_COLORS={'待分類':'#9CA3AF','覆訪':'#D97706','追很緊':'#DC2626','新鑫':'#7C3AED','已簽約':'#059669','無效案件':'#6B7280'};
-const GEO_CACHE_KEY='geocode_cache_v1';      // 定位結果快取（地址→經緯度，做過不重複定位）
+const GEO_CACHE_KEY='geocode_cache_g_v1';      // Google 定位結果快取（地址→經緯度，做過不再呼叫 Google，省錢）
 const MAPVIEW_STATE_KEY='mapview_route_v1';   // 路線順序＋已拜訪（存在這台裝置）
-let _mvMap=null,_mvMarkers={},_mvRows=[],_mvOrder=[],_mvVisited={},_mvLine=null,_mvGeocoding=false;
+let _gmap=null,_gmarkers={},_mvRows=[],_mvOrder=[],_mvVisited={},_gInfo=null,_gGeocoder=null,_gDir=null,_mvBusy=false,_gmapsLoading=null;
 function mvKey(r){ return (r.name||'')+'||'+(r.addr||''); }
 function geoNorm(a){ return String(a||'').replace(/\s+/g,'').trim(); }
 function mvJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
@@ -3320,27 +3329,65 @@ function saveGeoCache(c){ try{localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(
 function persistMapView(){ try{localStorage.setItem(MAPVIEW_STATE_KEY,JSON.stringify({order:_mvOrder,visited:_mvVisited}));}catch(e){} }
 function loadMapViewState(){ try{return JSON.parse(localStorage.getItem(MAPVIEW_STATE_KEY)||'{}')||{};}catch(e){return{};} }
 
+// 只在開地圖時才動態載入 Google Maps JS（載一次，省流量）
+function loadGoogleMaps(){
+  if(typeof google!=='undefined' && google.maps) return Promise.resolve();
+  if(_gmapsLoading) return _gmapsLoading;
+  _gmapsLoading=new Promise((resolve,reject)=>{
+    if(!GOOGLE_MAPS_KEY){ reject(new Error('nokey')); return; }
+    const s=document.createElement('script');
+    s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(GOOGLE_MAPS_KEY)+'&language=zh-TW&region=TW';
+    s.async=true; s.defer=true;
+    s.onload=()=>resolve();
+    s.onerror=()=>{ _gmapsLoading=null; reject(new Error('loadfail')); };
+    document.head.appendChild(s);
+  });
+  return _gmapsLoading;
+}
+
 async function openMapView(){
-  if(typeof L==='undefined'){ showToast('⚠️ 地圖元件載入失敗，請檢查網路'); return; }
   const rows=_mapRows.filter(r=>r.checked);
   if(!rows.length){ showToast('⚠️ 請先勾選要看的客戶'); return; }
+  if(!GOOGLE_MAPS_KEY){ showToast('⚠️ 請先到 ⚙️設定 填入 Google 地圖金鑰'); return; }
   _mvRows=rows.map(r=>({...r,key:mvKey(r),lat:null,lng:null}));
   const st=loadMapViewState(); _mvVisited=st.visited||{}; _mvOrder=st.order||[];
   document.getElementById('mapViewBg').style.display='flex';
-  if(!_mvMap){
-    _mvMap=L.map('leafletMap').setView([23.7,120.9],8); // 台灣中心
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(_mvMap);
+  const statusEl=document.getElementById('mapViewStatus');
+  statusEl.textContent='載入地圖中…';
+  try{ await loadGoogleMaps(); }
+  catch(e){ statusEl.textContent=''; showToast(e&&e.message==='nokey'?'⚠️ 請先填 Google 金鑰':'⚠️ 地圖載入失敗，請檢查金鑰或網路'); return; }
+  if(!_gmap){
+    _gmap=new google.maps.Map(document.getElementById('leafletMap'),{center:{lat:23.7,lng:120.9},zoom:8,mapTypeControl:false,streetViewControl:false,fullscreenControl:false});
+    _gInfo=new google.maps.InfoWindow();
+    _gGeocoder=new google.maps.Geocoder();
+    _gDir=new google.maps.DirectionsRenderer({map:_gmap,suppressMarkers:true,preserveViewport:true,polylineOptions:{strokeColor:'#2E7D55',strokeWeight:5,strokeOpacity:.7}});
   }
-  setTimeout(()=>{ if(_mvMap) _mvMap.invalidateSize(); },200);
+  setTimeout(()=>{ if(_gmap) google.maps.event.trigger(_gmap,'resize'); },200);
   await geocodeAndRender();
 }
 function closeMapView(){ document.getElementById('mapViewBg').style.display='none'; }
 
+let _geoLastReq=0;
+async function geoThrottle(){ const w=200-(Date.now()-_geoLastReq); if(w>0) await mvSleep(w); _geoLastReq=Date.now(); }
+function gGeocode(addr){
+  return new Promise(resolve=>{
+    _gGeocoder.geocode({address:addr,region:'TW',componentRestrictions:{country:'TW'}},(results,status)=>{
+      if(status==='OK'&&results&&results[0]){ const l=results[0].geometry.location; resolve({lat:l.lat(),lng:l.lng()}); }
+      else if(status==='OVER_QUERY_LIMIT') resolve('RETRY');
+      else resolve(null);
+    });
+  });
+}
+async function geocodeOne(addr){
+  await geoThrottle();
+  let r=await gGeocode(addr);
+  if(r==='RETRY'){ await mvSleep(1500); await geoThrottle(); r=await gGeocode(addr); if(r==='RETRY') r=null; }
+  return r||null;
+}
 async function geocodeAndRender(){
-  if(_mvGeocoding) return;
-  _mvGeocoding=true;
-  Object.values(_mvMarkers).forEach(m=>{ try{_mvMap.removeLayer(m);}catch(e){} }); _mvMarkers={};
-  if(_mvLine){ try{_mvMap.removeLayer(_mvLine);}catch(e){} _mvLine=null; }
+  if(_mvBusy) return; _mvBusy=true;
+  Object.values(_gmarkers).forEach(m=>m.setMap(null)); _gmarkers={};
+  if(_gDir){ try{_gDir.setDirections({routes:[]});}catch(e){} }
   const cache=loadGeoCache(); const statusEl=document.getElementById('mapViewStatus');
   let done=0,fail=0;
   for(const r of _mvRows){
@@ -3351,52 +3398,27 @@ async function geocodeAndRender(){
       if(pt){ cache[k]=pt; saveGeoCache(cache); }
     }
     done++;
-    if(pt){
-      let la=pt.lat, ln=pt.lng;
-      if(pt.approx){ const jt=geoJitter(r.key); la+=jt.dla; ln+=jt.dln; }
-      r.lat=la; r.lng=ln; r.approx=!!pt.approx; addMvMarker(r);
-    } else { fail++; }
+    if(pt){ r.lat=pt.lat; r.lng=pt.lng; addGMarker(r); } else { fail++; }
     statusEl.textContent=`已定位 ${done-fail}/${_mvRows.length}`+(fail?`（${fail} 筆找不到）`:'');
   }
-  _mvGeocoding=false;
+  _mvBusy=false;
   applySavedOrder();
   renderMapRouteList();
   mapViewFit();
 }
-let _geoLastReq=0;
-async function geoThrottle(){ const w=1100-(Date.now()-_geoLastReq); if(w>0) await mvSleep(w); _geoLastReq=Date.now(); }
-// 免費定位查不到完整門牌(含號)，所以退一步用「路名+段→路名→區」。誤差幾百公尺，看分佈/排順路夠用；導航仍用完整地址。
-function geoCandidates(addr){
-  const s=geoNorm(addr); const c=[];
-  const road=s.match(/^(.*?(?:路|街|大道|道))(?:([一二三四五六七八九十\d]+段))?/);
-  if(road){ if(road[2]) c.push(road[1]+road[2]); c.push(road[1]); }
-  const dist=s.match(/^(.*?[市縣].*?[區鄉鎮市])/);
-  if(dist) c.push(dist[1]);
-  if(!c.length) c.push(s);
-  return [...new Set(c)].filter(x=>x&&x.length>=3);
-}
-function geoJitter(key){ let h=0; const s=String(key); for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))&0x7fffffff; } return {dla:((h%1000)/1000-0.5)*0.0018,dln:(((h>>5)%1000)/1000-0.5)*0.0018}; }
-async function geocodeOne(addr){
-  for(const q of geoCandidates(addr)){
-    await geoThrottle();
-    try{
-      const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&accept-language=zh-TW&q='+encodeURIComponent(q);
-      const res=await fetch(url); const j=await res.json();
-      if(Array.isArray(j)&&j.length) return {lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon),approx:true};
-    }catch(e){ console.error('geocode',e); }
-  }
-  return null;
-}
-function addMvMarker(r){
+function addGMarker(r){
   if(r.lat==null) return;
   const color=MAPVIEW_COLORS[r.heat]||'#6B7280';
   const visited=!!_mvVisited[r.key];
   const num=_mvOrder.indexOf(r.key);
-  const label=num>=0?(num+1):'•';
-  const icon=L.divIcon({className:'mv-pin',html:`<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${visited?'#B6BAC2':color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:12px;font-weight:700">${label}</span></div>`,iconSize:[26,26],iconAnchor:[13,26],popupAnchor:[0,-24]});
-  const m=L.marker([r.lat,r.lng],{icon}).addTo(_mvMap);
-  m.bindPopup(mvPopupHtml(r));
-  _mvMarkers[r.key]=m;
+  const label=num>=0?String(num+1):'';
+  const m=new google.maps.Marker({
+    position:{lat:r.lat,lng:r.lng}, map:_gmap, title:r.name||'',
+    label: label?{text:label,color:'#fff',fontSize:'12px',fontWeight:'700'}:undefined,
+    icon:{path:google.maps.SymbolPath.CIRCLE,scale:11,fillColor:visited?'#B6BAC2':color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2}
+  });
+  m.addListener('click',()=>{ _gInfo.setContent(mvPopupHtml(r)); _gInfo.open(_gmap,m); });
+  _gmarkers[r.key]=m;
 }
 function mvPopupHtml(r){
   const navUrl='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(r.addr);
@@ -3418,51 +3440,60 @@ function toggleVisited(key){
   if(_mvVisited[key]) delete _mvVisited[key]; else _mvVisited[key]=true;
   persistMapView();
   const r=_mvRows.find(x=>x.key===key);
-  if(r){ if(_mvMarkers[key]){ try{_mvMap.removeLayer(_mvMarkers[key]);}catch(e){} delete _mvMarkers[key]; } addMvMarker(r); if(_mvMarkers[key]) _mvMarkers[key].openPopup(); }
+  if(r){ if(_gmarkers[key]){ _gmarkers[key].setMap(null); delete _gmarkers[key]; } addGMarker(r); }
+  if(_gInfo) _gInfo.close();
   renderMapRouteList();
 }
-function haversine(a,b){ const R=6371,toR=x=>x*Math.PI/180; const dLat=toR(b[0]-a[0]),dLng=toR(b[1]-a[1]); const s=Math.sin(dLat/2)**2+Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
 function routeOptimize(){
   const pts=_mvRows.filter(r=>r.lat!=null);
   if(pts.length<2){ showToast('⚠️ 可定位的客戶太少，無法排路線'); return; }
   const statusEl=document.getElementById('mapViewStatus');
-  const build=(start)=>{
-    const remaining=pts.slice(); const order=[]; let cur=start;
-    while(remaining.length){
-      let bi=0,bd=Infinity;
-      for(let i=0;i<remaining.length;i++){ const d=haversine(cur,[remaining[i].lat,remaining[i].lng]); if(d<bd){bd=d;bi=i;} }
-      const nx=remaining.splice(bi,1)[0]; order.push(nx.key); cur=[nx.lat,nx.lng];
-    }
-    _mvOrder=order; persistMapView();
-    redrawAllMarkers(); drawRouteLine(); renderMapRouteList();
-    statusEl.textContent=`已排好 ${order.length} 站順路`;
+  const run=(start)=>{
+    const cap=23; let stops=pts;
+    if(stops.length>cap){ showToast(`一條路線最多 ${cap} 站，先排前 ${cap} 站`); stops=stops.slice(0,cap); }
+    const ds=new google.maps.DirectionsService();
+    ds.route({
+      origin:start, destination:start,
+      waypoints:stops.map(r=>({location:{lat:r.lat,lng:r.lng},stopover:true})),
+      optimizeWaypoints:true, travelMode:google.maps.TravelMode.DRIVING
+    },(res,status)=>{
+      if(status==='OK'&&res.routes&&res.routes[0]){
+        const ord=res.routes[0].waypoint_order;
+        _mvOrder=ord.map(i=>stops[i].key);
+        persistMapView();
+        _gDir.setDirections(res);
+        redrawAllMarkers(); renderMapRouteList();
+        statusEl.textContent=`已用 Google 排好 ${ord.length} 站最佳路線`;
+      } else { showToast('⚠️ 排路線失敗：'+status); statusEl.textContent='排路線失敗'; }
+    });
   };
-  statusEl.textContent='取得你的位置中…';
+  statusEl.textContent='取得你的位置＋計算路線中…';
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
-      p=>build([p.coords.latitude,p.coords.longitude]),
-      ()=>{ showToast('取不到你的定位，改用第一筆當起點'); build([pts[0].lat,pts[0].lng]); },
+      p=>run({lat:p.coords.latitude,lng:p.coords.longitude}),
+      ()=>{ showToast('取不到你的定位，改用第一筆當起點'); run({lat:pts[0].lat,lng:pts[0].lng}); },
       {timeout:8000,enableHighAccuracy:true}
     );
-  } else { build([pts[0].lat,pts[0].lng]); }
+  } else run({lat:pts[0].lat,lng:pts[0].lng});
 }
-function redrawAllMarkers(){ Object.keys(_mvMarkers).forEach(k=>{ try{_mvMap.removeLayer(_mvMarkers[k]);}catch(e){} }); _mvMarkers={}; _mvRows.forEach(r=>{ if(r.lat!=null) addMvMarker(r); }); }
-function drawRouteLine(){
-  if(_mvLine){ try{_mvMap.removeLayer(_mvLine);}catch(e){} _mvLine=null; }
-  const pts=_mvOrder.map(k=>_mvRows.find(r=>r.key===k)).filter(r=>r&&r.lat!=null).map(r=>[r.lat,r.lng]);
-  if(pts.length>=2) _mvLine=L.polyline(pts,{color:'#2E7D55',weight:3,opacity:.6,dashArray:'6,6'}).addTo(_mvMap);
+function routeNavAll(){
+  const ordered=_mvOrder.map(k=>_mvRows.find(r=>r.key===k)).filter(r=>r&&r.addr);
+  const list=ordered.length?ordered:_mvRows.filter(r=>r.lat!=null);
+  if(!list.length){ showToast('沒有可導航的地址'); return; }
+  const stops=list.slice(0,10).map(r=>encodeURIComponent(r.addr)); // Google 地圖多點網址上限約10站
+  if(list.length>10) showToast('一次導航最多帶 10 站，已取前 10 站');
+  window.open('https://www.google.com/maps/dir/'+stops.join('/'),'_blank');
 }
-function applySavedOrder(){
-  _mvOrder=_mvOrder.filter(k=>_mvRows.some(r=>r.key===k));
-  if(_mvOrder.length){ redrawAllMarkers(); drawRouteLine(); }
-}
+function redrawAllMarkers(){ Object.values(_gmarkers).forEach(m=>m.setMap(null)); _gmarkers={}; _mvRows.forEach(r=>{ if(r.lat!=null) addGMarker(r); }); }
+function applySavedOrder(){ _mvOrder=_mvOrder.filter(k=>_mvRows.some(r=>r.key===k)); if(_mvOrder.length) redrawAllMarkers(); }
 function renderMapRouteList(){
   const el=document.getElementById('mapRouteList'); if(!el) return;
   let rows=_mvRows.filter(r=>r.lat!=null);
   rows.sort((a,b)=>{ const ia=_mvOrder.indexOf(a.key),ib=_mvOrder.indexOf(b.key); return (ia<0?9999:ia)-(ib<0?9999:ib); });
   const failN=_mvRows.filter(r=>r.lat==null).length;
   const doneN=rows.filter(r=>_mvVisited[r.key]).length;
-  el.innerHTML=`<div style="font-size:11px;color:var(--t3);padding:4px 2px">共 ${rows.length} 站 · 已拜訪 ${doneN}${failN?` · ${failN} 筆找不到位置`:''}</div>`+
+  const navBtn=_mvOrder.length?`<button onclick="routeNavAll()" style="width:100%;margin:4px 0 6px;background:#2E7D55;color:#fff;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">🧭 整條路線開 Google 導航</button>`:'';
+  el.innerHTML=`<div style="font-size:11px;color:var(--t3);padding:4px 2px">共 ${rows.length} 站 · 已拜訪 ${doneN}${failN?` · ${failN} 筆找不到位置`:''}</div>`+navBtn+
     rows.map(r=>{
       const num=_mvOrder.indexOf(r.key); const visited=!!_mvVisited[r.key];
       const color=MAPVIEW_COLORS[r.heat]||'#6B7280';
@@ -3475,8 +3506,8 @@ function renderMapRouteList(){
       </div>`;
     }).join('');
 }
-function mvFocus(key){ const m=_mvMarkers[key]; if(m){ _mvMap.setView(m.getLatLng(),16); m.openPopup(); } }
-function mapViewFit(){ const pts=_mvRows.filter(r=>r.lat!=null).map(r=>[r.lat,r.lng]); if(pts.length) _mvMap.fitBounds(pts,{padding:[40,40],maxZoom:15}); }
+function mvFocus(key){ const m=_gmarkers[key]; if(m){ _gmap.panTo(m.getPosition()); _gmap.setZoom(16); google.maps.event.trigger(m,'click'); } }
+function mapViewFit(){ const pts=_mvRows.filter(r=>r.lat!=null); if(!pts.length) return; const b=new google.maps.LatLngBounds(); pts.forEach(r=>b.extend({lat:r.lat,lng:r.lng})); _gmap.fitBounds(b); }
 
 function render(){
   updateStats();updateTabs();
