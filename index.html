@@ -1320,6 +1320,7 @@ async function applyUrlSettings() {
       <input id="batchTagSearch" oninput="renderBatchTagList()" placeholder="🔍 搜尋姓名/電話/地址…" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
       <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看今日新增</label>
     </div>
+    <div id="batchTagCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span id="batchTagCount" style="font-size:12px;color:var(--t3)"></span>
       <div style="display:flex;gap:12px">
@@ -1374,7 +1375,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.15 #2';
+const APP_VERSION = '2026.06.15 #3';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5460,13 +5461,24 @@ function toggleBatchFilter(){ const p=document.getElementById('batchFilterPanel'
 function onBatchChange(){ selectedBatches=new Set(); document.querySelectorAll('#batchCheckboxes input:checked').forEach(cb=>selectedBatches.add(cb.value)); document.getElementById('batchFilterCount').textContent=selectedBatches.size?`(${selectedBatches.size})`:''; render(); }
 function clearBatchFilter(){ document.querySelectorAll('#batchCheckboxes input').forEach(cb=>cb.checked=false); onBatchChange(); }
 
+// 批次標記工具的分類篩選
+const _BATCH_HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
+let _batchTagCats=new Set(_BATCH_HEATS);
+function renderBatchTagCatBar(){
+  const el=document.getElementById('batchTagCatBar'); if(!el) return;
+  el.innerHTML=_BATCH_HEATS.map(h=>{const on=_batchTagCats.has(h);return `<button onclick="toggleBatchTagCat('${h}')" style="font-size:12px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--abg)':'var(--s2)'};color:${on?'var(--accent)':'var(--t3)'}">${on?'✓ ':''}${h}</button>`;}).join('');
+}
+function toggleBatchTagCat(h){ if(_batchTagCats.has(h)) _batchTagCats.delete(h); else _batchTagCats.add(h); renderBatchTagCatBar(); renderBatchTagList(); }
+
 function openBatchTag(){
   const p=document.getElementById('batchFilterPanel'); if(p) p.style.display='none';
   _batchTagChecked=new Set();
   document.getElementById('batchTagSearch').value='';
   document.getElementById('batchTagTodayOnly').checked=false;
   document.getElementById('batchTagInput').value='';
+  _batchTagCats=new Set(_BATCH_HEATS);
   refreshBatchDatalist();
+  renderBatchTagCatBar();
   renderBatchTagList();
   document.getElementById('batchTagBg').classList.add('open');
 }
@@ -5474,7 +5486,7 @@ function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove
 function batchTagVisible(){
   const q=(document.getElementById('batchTagSearch').value||'').trim().toLowerCase();
   const todayOnly=document.getElementById('batchTagTodayOnly').checked;
-  return clients.filter(c=>{ if(todayOnly && c.createdAt!==TODAY) return false; return clientMatchesQuery(c,q); });
+  return clients.filter(c=>{ if(todayOnly && c.createdAt!==TODAY) return false; if(!_batchTagCats.has(c.heat||'待分類')) return false; return clientMatchesQuery(c,q); });
 }
 function updateBatchTagCount(visLen){ document.getElementById('batchTagCount').textContent=`符合 ${visLen} 筆 · 已選 ${_batchTagChecked.size} 筆`; }
 function renderBatchTagList(){
@@ -5486,6 +5498,7 @@ function renderBatchTagList(){
       <input type="checkbox" ${_batchTagChecked.has(c.id)?'checked':''} onchange="toggleBatchTagPick(${c.id},this.checked)" style="margin-top:2px">
       <span style="flex:1;min-width:0">
         <span style="font-weight:600;color:var(--text)">${calEsc(c.name||'')}</span>
+        ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'#969CA6'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
         ${c.batch?`<span style="font-size:11px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.batch)}</span>`:''}
         ${c.createdAt===TODAY?`<span style="font-size:10px;color:var(--green);margin-left:6px">今日新增</span>`:''}
         <div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc([c.phone,c.addr].filter(Boolean).join(' · '))}</div>
