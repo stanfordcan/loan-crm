@@ -1395,7 +1395,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.16 #3';
+const APP_VERSION = '2026.06.16 #4';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3216,11 +3216,17 @@ function buildMapRows(){
   clients.forEach(c=>{
     if(!_mapCats.has(c.heat||'待分類')) return;
     const props=(Array.isArray(c.properties)&&c.properties.length)?c.properties:[{addr:c.addr,bank:c.bank,legal:c.legal,private:c.private,purpose:c.purpose}];
-    props.forEach(p=>{
+    props.forEach((p,pi)=>{
       const addr=String(p.addr||'').trim();
       if(!addr) return;
+      // 公司資料頁籤內容：優先用該筆不動產自己的 companyRaw，第一筆才退回 client 層級（與 renderCompanyPanel 一致）
+      const cr=p.companyRaw||(pi===0?c.companyRaw:null)||{};
+      const bNo=p.buildNo||(pi===0?(c.buildNo||''):'');
+      const lNo=p.landNo||(pi===0?(c.landNo||''):'');
       _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
-        bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',checked:true});
+        bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',
+        buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',
+        checked:true});
     });
   });
 }
@@ -3257,10 +3263,12 @@ function renderMapList(){
 function downloadMapCsv(){
   const rows=_mapRows.filter(r=>r.checked);
   if(!rows.length){ showToast('⚠️ 請至少勾選一個地址'); return; }
-  const head=['姓名','地址','電話','分類','批次','銀行(萬)','法人(萬)','民間(萬)','用途','備註'];
+  const head=['姓名','地址','電話','分類','批次','銀行(萬)','法人(萬)','民間(萬)','用途','備註','建號','地號','面積','標示部','所有權部','他項權利部','拜訪過程','公司備註'];
   const esc=v=>{ const s=String(v==null?'':v).replace(/"/g,'""'); return /[",\n\r]/.test(s)?'"'+s+'"':s; };
+  const oneLine=v=>String(v||'').replace(/\s+/g,' ').trim();
   const lines=[head.join(',')];
-  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.batch||'',r.bank||'',r.legal||'',r.private||'',r.purpose,String(r.note||'').replace(/\s+/g,' ').trim()].map(esc).join(',')));
+  rows.forEach(r=>lines.push([r.name,r.addr,r.phone,r.heat,r.batch||'',r.bank||'',r.legal||'',r.private||'',r.purpose,oneLine(r.note),
+    r.buildNo||'',r.landNo||'',r.coArea||'',oneLine(r.coBuild),oneLine(r.coOwner),oneLine(r.coRights),oneLine(r.coProcess),oneLine(r.coNote)].map(esc).join(',')));
   const csv='﻿'+lines.join('\r\n'); // BOM 讓 Excel/Google 正確讀中文
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
