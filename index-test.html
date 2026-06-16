@@ -1336,6 +1336,14 @@ async function applyUrlSettings() {
 </div>
 
 <!-- 內建地圖檢視（Leaflet 免費地圖）-->
+<style>
+  @media(max-width:640px){
+    #mapViewBody{flex-direction:column!important}
+    #leafletMap{height:58%!important;flex:none!important;width:100%!important}
+    #mapRouteList{width:100%!important;height:42%!important;border-left:none!important;border-top:1px solid var(--border)}
+  }
+  .leaflet-popup-content{margin:10px 12px}
+</style>
 <div id="mapViewBg" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);flex-direction:column">
   <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--s1)">
     <button onclick="closeMapView()" style="background:var(--s2);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:8px 12px;font-size:14px;cursor:pointer;font-family:inherit">✕ 關閉</button>
@@ -1343,7 +1351,7 @@ async function applyUrlSettings() {
     <button onclick="mapViewFit()" style="background:var(--s2);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;cursor:pointer;font-family:inherit" title="看全部">🔍 全覽</button>
     <span id="mapViewStatus" style="font-size:12px;color:var(--t3);margin-left:auto"></span>
   </div>
-  <div style="flex:1;display:flex;min-height:0">
+  <div id="mapViewBody" style="flex:1;display:flex;min-height:0">
     <div id="leafletMap" style="flex:1;min-width:0;height:100%"></div>
     <div id="mapRouteList" style="width:230px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--border);background:var(--s1);padding:6px"></div>
   </div>
