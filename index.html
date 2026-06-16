@@ -1375,7 +1375,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.15 #3';
+const APP_VERSION = '2026.06.15 #4';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2499,41 +2499,53 @@ function processCompanyData(raw) {
     const buildSection = guaranteeRaw.match(/共同擔保建號[：:]([\s\S]*?)$/);
     let buildNo = '';
     if(buildSection){
-      const lines = buildSection[1].split('\n');
+      const lines = buildSection[1].split(/[\n,，、;；]+/);
       const seen = new Set(); const result = [];
       lines.forEach(line=>{
-        line = line.trim(); if(!line) return;
+        line = line.replace(/共同擔保(地號|建號)[：:]/g,'').trim(); if(!line) return;
+        let no='';
         const parts = line.split(/\s+/);
-        if(parts.length >= 2){
-          const no = parts[1]; // 第二個token是建號
-          if(!seen.has(no)){seen.add(no);result.push(no);}
-        }
+        if(parts.length >= 2){ no = parts[1]; } // 第二個token是建號
+        else { const mm = line.match(/(\d{3,6}[-－]\d{1,4})\s*$/); if(mm) no = mm[1]; } // 段名與建號黏在一起
+        if(no && !seen.has(no)){ seen.add(no); result.push(no); }
       });
       buildNo = result.join('、');
     }
     // 備用：從標示部抓建號
     if(!buildNo){
       const buildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
-      buildNo = buildNoMatch ? buildNoMatch[1] : '';
+      if(buildNoMatch) buildNo = buildNoMatch[1];
+      else {
+        // 相容：標示部裡「10685-000建號」這種純號碼（無 A_ 代碼）
+        const bm = buildInfo.match(/(\d{3,6}[-－]\d{1,4})\s*建號/);
+        if(bm) buildNo = bm[1];
+      }
     }
+    // 套用母-子慣例（子號全0去掉、去前導0），與 AI 匯入一致
+    if(buildNo) buildNo = [...new Set(buildNo.split('、').map(function(x){return normBuildNo(x);}).filter(Boolean))].join('、');
 
     // 解析共同擔保地號，去重複，同時抓段名
     const landSection = guaranteeRaw.match(/共同擔保地號[：:]([\s\S]*?)(?=共同擔保建號|$)/);
     let landNos = '', sectionName = '';
     if(landSection){
-      const lines = landSection[1].split('\n');
+      const lines = landSection[1].split(/[\n,，、;；]+/);
       const seen = new Set(); const result = [];
       const seenSection = new Set();
       lines.forEach(line=>{
-        line = line.trim(); if(!line) return;
+        // 相容：去掉每行可能重複出現的標籤
+        line = line.replace(/共同擔保(地號|建號)[：:]/g,'').trim(); if(!line) return;
+        let no='', sec='';
         const parts = line.split(/\s+/);
-        if(parts.length >= 2){
-          const no = parts[1];
-          if(!seen.has(no)){seen.add(no);result.push(no);}
-          if(parts[0] && !seenSection.has(parts[0])){seenSection.add(parts[0]);}
+        if(parts.length >= 2){ sec = parts[0]; no = parts[1]; }
+        else {
+          // 相容：段名和地號黏在一起，如「問明投一小段0685-000」→ 結尾數字-數字當地號，前面中文當段名
+          const mm = line.match(/^(.*?)(\d{3,6}[-－]\d{1,4})\s*$/);
+          if(mm){ sec = mm[1]; no = mm[2]; }
         }
+        if(no && !seen.has(no)){ seen.add(no); result.push(no); }
+        if(sec && !seenSection.has(sec)){ seenSection.add(sec); }
       });
-      landNos = result.join('、');
+      landNos = [...new Set(result.map(function(x){return normBuildNo(x);}).filter(Boolean))].join('、');
       sectionName = [...seenSection].join('、');
     }
 
@@ -2729,6 +2741,8 @@ function processCompanyData(raw) {
     pushToSheet().catch(()=>{});
     render();
     showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆`);
+    // 有新增 → 自動跳「批次標記」，讓你圈這批標來源（預設只看今日新增）
+    if(added>0){ setTimeout(()=>openBatchTagForImport(), 700); }
   }
 
   if (pendingReview.length > 0) {
@@ -5106,7 +5120,7 @@ function mapEval(rec){
   const o={};
   const keys=['district','section','landno','landzone','buildno','addr','community',
     'buildarea','landarea','parking','parkTitle','parkval','floors','age',
-    'taxGeneral','taxSelf','taxCount','condition','resistance','jinzhai',
+    'taxCount','condition','resistance','jinzhai',
     'unitprice','rate','job','need','evalNote'];
   keys.forEach(k=>{ if(e[k]!==undefined&&e[k]!==null&&e[k]!=='') o[k]=String(e[k]); });
   return Object.keys(o).length?o:null;
@@ -5123,7 +5137,7 @@ function recordToProps(rec){
   const props=Array.isArray(rec.properties)?rec.properties:[];
   if(!props.length) return [];
   const ev=rec.eval||{};
-  return props.map(p=>{
+  return props.map((p,idx)=>{
     const np=emptyProp();
     np.addr=String(p.addr||'').trim();
     np.purpose=String(p.purpose||'').trim();
@@ -5150,6 +5164,11 @@ function recordToProps(rec){
     np.private=parseFloat(p.private)||0;
     if(np.bank>0||np.legal>0) np.loanEstimated=true;
     if(np.private>0) np.privateConfirmed=false;
+    // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算；只放第一筆避免多筆重複
+    if(idx===0){
+      np.landtaxNormal=Math.round((parseFloat(ev.taxGeneral)||0)*10000);
+      np.landtaxSelf=Math.round((parseFloat(ev.taxSelf)||0)*10000);
+    }
     np.label=propLabel(np)||'不動產';
     return np;
   });
@@ -5160,7 +5179,7 @@ function mergePropInto(dst, src){
   ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
-  ['mainArea','subArea','commonArea','area','landArea','bank','legal','private'].forEach(k=>{
+  ['mainArea','subArea','commonArea','area','landArea','bank','legal','private','landtaxNormal','landtaxSelf'].forEach(k=>{
     if((!dst[k]||dst[k]===0) && src[k]) dst[k]=src[k];
   });
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
@@ -5483,6 +5502,13 @@ function openBatchTag(){
   document.getElementById('batchTagBg').classList.add('open');
 }
 function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); }
+// 從總檔更新後自動開啟，預設「只看今日新增」，方便直接圈這批標來源
+function openBatchTagForImport(){
+  openBatchTag();
+  const t=document.getElementById('batchTagTodayOnly');
+  if(t){ t.checked=true; }
+  renderBatchTagList();
+}
 function batchTagVisible(){
   const q=(document.getElementById('batchTagSearch').value||'').trim().toLowerCase();
   const todayOnly=document.getElementById('batchTagTodayOnly').checked;
