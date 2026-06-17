@@ -1382,7 +1382,7 @@ async function applyUrlSettings() {
     <p style="margin-bottom:8px">勾選客戶 → 下方填批次名稱 → 套用。剛從總檔更新進來的，勾「只看今日新增」就能快速圈出這批。</p>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
       <input id="batchTagSearch" oninput="renderBatchTagList()" placeholder="🔍 搜尋姓名/電話/地址…" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看今日新增</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看本次匯入新增</label>
     </div>
     <div id="batchTagCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -1439,7 +1439,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t28 (修去重把遮罩同名不同人誤刪:去重地址改用完整地址不再只取前10字;normalizeAddr去掉夾雜句點) 2026.06.17';
+const APP_VERSION = '🧪測試版 t29 (總檔匯入後批次視窗只在有新增時跳,且只顯示「本次匯入新增的人」,既有的人不再混入(用名單系統標即可)) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2459,6 +2459,7 @@ function processCompanyData(raw) {
   }
 
   let added=0, updated=0, skipped=0;
+  const _startNextId = nextId; // 匯入前的 id 上限：之後 id≥這個值的就是「本次匯入新增的人」
   const pendingReview = []; // 需要 Claude 審查的模糊案例
   let xinXinBatchDate = ''; // 追蹤新鑫批次日期
 
@@ -2970,8 +2971,11 @@ function processCompanyData(raw) {
     pushToSheet().catch(()=>{});
     render();
     showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆${idnoMerged?`，合併同人 ${idnoMerged} 筆`:''}`);
-    // 有新增 → 自動跳「批次標記」，讓你圈這批標來源（預設只看今日新增）
-    if(added>0){ setTimeout(()=>openBatchTagForImport(), 700); }
+    // 只有「真的有新增的人」才跳「批次標記」，且視窗只顯示這次新增的人（既有的人用📋名單標批次即可）
+    if(added>0){
+      const nids = new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id));
+      if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 700);
+    }
   }
 
   if (pendingReview.length > 0) {
@@ -5886,18 +5890,26 @@ function openBatchTag(){
   renderBatchTagList();
   document.getElementById('batchTagBg').classList.add('open');
 }
-function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); }
-// 從總檔更新後自動開啟，預設「只看今日新增」，方便直接圈這批標來源
-function openBatchTagForImport(){
+function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); _importNewIds=null; }
+// 「本次匯入新增的人」的 id 集合；非 null 時批次視窗只顯示這些人（既有的人不混進來）
+let _importNewIds=null;
+// 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
+function openBatchTagForImport(newIds){
   openBatchTag();
+  _importNewIds = newIds || null;   // openBatchTag 之後再設,避免被清掉
   const t=document.getElementById('batchTagTodayOnly');
   if(t){ t.checked=true; }
   renderBatchTagList();
 }
 function batchTagVisible(){
   const q=(document.getElementById('batchTagSearch').value||'').trim().toLowerCase();
-  const todayOnly=document.getElementById('batchTagTodayOnly').checked;
-  return clients.filter(c=>{ if(todayOnly && c.createdAt!==TODAY) return false; if(!_batchTagCats.has(c.heat||'待分類')) return false; return clientMatchesQuery(c,q); });
+  const newOnly=document.getElementById('batchTagTodayOnly').checked;
+  return clients.filter(c=>{
+    // 勾「只看本次匯入新增」時：有本次新增名單就只看那些;否則退回「今日新增」
+    if(newOnly){ if(_importNewIds){ if(!_importNewIds.has(c.id)) return false; } else if(c.createdAt!==TODAY) return false; }
+    if(!_batchTagCats.has(c.heat||'待分類')) return false;
+    return clientMatchesQuery(c,q);
+  });
 }
 function updateBatchTagCount(visLen){ document.getElementById('batchTagCount').textContent=`符合 ${visLen} 筆 · 已選 ${_batchTagChecked.size} 筆`; }
 function renderBatchTagList(){
