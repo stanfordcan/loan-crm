@@ -1439,7 +1439,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t29 (總檔匯入後批次視窗只在有新增時跳,且只顯示「本次匯入新增的人」,既有的人不再混入(用名單系統標即可)) 2026.06.17';
+const APP_VERSION = '🧪測試版 t30 (沒有全名的人改顯示「姓+先生/小姐」,性別取身分證第二碼1男2女,遮罩身分證也判得出;清單/客戶頁/日曆/名單都套用) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2055,6 +2055,17 @@ async function syncFromCompany() {
 // 完整身分證(A+9碼)才唯一,才能拿來判定「同一人」;遮罩版(F122*****2)不唯一,只能顯示參考
 function isFullId(s){ return /^[A-Z]\d{9}$/.test(String(s||'').trim()); }
 
+// 身分證第二碼＝性別：1男 2女（遮罩身分證也看得到第二碼）
+function genderFromId(idno){ const m=String(idno||'').match(/^[A-Za-z](\d)/); return m ? (m[1]==='1'?'男':m[1]==='2'?'女':'') : ''; }
+// 顯示用姓名：沒有全名(只剩姓或被遮罩)→「姓＋先生/小姐」(性別取身分證第二碼);完整姓名照原樣
+function dispName(c){
+  const n=String((c&&c.name)||'').trim();
+  if(n && n.length>=2 && !/[＊*○]/.test(n)) return n;          // 完整姓名直接用
+  const surname=n.replace(/[＊*○（）()\s]/g,'').charAt(0);      // 取姓
+  if(surname){ const g=genderFromId(c&&c.idno); return g ? surname+(g==='男'?'先生':'小姐') : surname; }
+  return n||'（未知）';
+}
+
 function findDupCandidates(c) {
   if (!c) return [];
   const normPhone = (c.phone || '').replace(/[-\s()#]/g, '');
@@ -2118,7 +2129,7 @@ function renderDupPanel(c) {
     const col = hColor[oc.heat] || '#888';
     return '<div style="background:#fff;border:1px solid #FFD54F;border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
       + '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer">'
-      + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (oc.name || '（未知）') + '</div>'
+      + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + calEsc(dispName(oc)) + '</div>'
       + '<div style="font-size:11px;color:#888;margin:1px 0">' + (oc.phone || '（無電話）') + '</div>'
       + '<div style="font-size:11px;color:' + col + ';font-weight:600">' + oc.heat + '</div>'
       + '<div style="font-size:10px;color:#B45309;margin-top:2px">' + d.reasons.join('、') + '</div>'
@@ -3227,7 +3238,7 @@ function renderCalendar(){
         cell+=`<div onclick="event.stopPropagation();openMemoModal()" title="📝 ${calEsc(m.text)}${m.dueTime?' '+m.dueTime:''}" style="font-size:10px;line-height:1.5;background:#fff;border:1px solid var(--orange);color:var(--orange);border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📝 ${t}${calEsc(m.text)}</div>`;
       } else {
         const c=it.c; const col=CAL_HEAT_COLOR[c.heat]||'#969CA6'; const t=c.remindTime?c.remindTime+' ':'';
-        cell+=`<div onclick="event.stopPropagation();openEdit(${c.id})" title="${calEsc(c.name)}${c.remindTime?' '+c.remindTime:''}${c.remindNote?' · '+calEsc(c.remindNote):''}" style="font-size:10px;line-height:1.5;background:${col};color:#fff;border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}${calEsc(c.name)}</div>`;
+        cell+=`<div onclick="event.stopPropagation();openEdit(${c.id})" title="${calEsc(c.name)}${c.remindTime?' '+c.remindTime:''}${c.remindNote?' · '+calEsc(c.remindNote):''}" style="font-size:10px;line-height:1.5;background:${col};color:#fff;border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}${calEsc(dispName(c))}</div>`;
       }
     });
     if(items.length>4) cell+=`<div style="font-size:9px;color:var(--t3)">＋${items.length-4} 筆</div>`;
@@ -3275,7 +3286,7 @@ function openDayView(ds){
         <div style="width:46px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--t2);padding-top:1px">${tm}</div>
         <div style="width:3px;border-radius:2px;background:${col};flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--text)">${calEsc(c.name)}<span style="font-size:11px;font-weight:400;color:#fff;background:${col};border-radius:4px;padding:1px 6px;margin-left:6px">${calEsc(c.heat||'')}</span></div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">${calEsc(dispName(c))}<span style="font-size:11px;font-weight:400;color:#fff;background:${col};border-radius:4px;padding:1px 6px;margin-left:6px">${calEsc(c.heat||'')}</span></div>
           ${c.remindNote?`<div style="font-size:12px;color:var(--t2);margin-top:3px">${calEsc(c.remindNote)}</div>`:''}
           ${c.phone?`<div style="font-size:11px;color:var(--t3);margin-top:1px">📞 ${calEsc(c.phone)}</div>`:''}
         </div>
@@ -3513,7 +3524,7 @@ function renderListTool(){
   el.innerHTML=vis.map(c=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:11px 4px;border-bottom:1px solid var(--border);cursor:pointer">
     <input type="checkbox" ${_ltChecked.has(c.id)?'checked':''} onchange="ltToggleCheck(${c.id},this.checked)" style="margin-top:3px;width:18px;height:18px;flex-shrink:0">
     <span style="flex:1;min-width:0">
-      <span style="font-weight:600;color:var(--text);font-size:15px">${calEsc(c.name||'')}</span>
+      <span style="font-weight:600;color:var(--text);font-size:15px">${calEsc(dispName(c))}</span>
       ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'#969CA6'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
       ${c.batch?`<span style="font-size:11px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.batch)}</span>`:''}
       <div style="font-size:12px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc([c.phone,c.addr].filter(Boolean).join(' · '))}</div>
@@ -3671,7 +3682,7 @@ function render(){
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
-        <div style="flex:1;min-width:0"><div class="cname">${hl(c.name||'',q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
+        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
           ${selectMode?'':`<button onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px;line-height:1;opacity:${c.pinned?'1':'.25'};transition:opacity .15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${c.pinned?'1':'.25'}'">📌</button>`}
           <span class="hbadge ${heatCls}">${c.heat}</span>
@@ -3940,7 +3951,7 @@ function openEdit(id){
   editId=id;formDirty=false;
   const c=clients.find(x=>x.id===id);
   if(!c)return;
-  document.getElementById('sheetTitle').textContent=c.name;
+  document.getElementById('sheetTitle').textContent=dispName(c);
   renderDupPanel(c);
   document.getElementById('btnDel').style.display='';
   document.getElementById('btnBlack').style.display='';
@@ -5163,7 +5174,7 @@ function filterTenClients(){
   list.innerHTML=filtered.map(c=>`
     <div onclick="selectTenClient(${c.id})" style="padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;background:${tenTargetClientId===c.id?'var(--abg)':''}"
       onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=tenTargetClientId===${c.id}?'var(--abg)':''">
-      <span style="font-weight:600;color:var(--text)">${c.name}</span>
+      <span style="font-weight:600;color:var(--text)">${calEsc(dispName(c))}</span>
       ${c.phone?`<span style="color:var(--t3);margin-left:8px">${c.phone}</span>`:''}
       ${c.idno?`<span style="color:var(--t3);margin-left:6px;font-size:11px">${c.idno}</span>`:''}
     </div>`).join('');
@@ -5920,7 +5931,7 @@ function renderBatchTagList(){
   el.innerHTML=vis.map(c=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" ${_batchTagChecked.has(c.id)?'checked':''} onchange="toggleBatchTagPick(${c.id},this.checked)" style="margin-top:2px">
       <span style="flex:1;min-width:0">
-        <span style="font-weight:600;color:var(--text)">${calEsc(c.name||'')}</span>
+        <span style="font-weight:600;color:var(--text)">${calEsc(dispName(c))}</span>
         ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'#969CA6'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
         ${c.batch?`<span style="font-size:11px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.batch)}</span>`:''}
         ${c.createdAt===TODAY?`<span style="font-size:10px;color:var(--green);margin-left:6px">今日新增</span>`:''}
