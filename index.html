@@ -1444,7 +1444,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.17 #1';
+const APP_VERSION = '2026.06.17 #2';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2510,12 +2510,21 @@ function processCompanyData(raw) {
       if(existing){
         if(!existing.addr && addr) existing.addr = addr;
         // 批次標頭一定更新，個人備註（用戶手寫或原始行備註）保留
-        if(xinXinBatchDate) existing.note = mergeXinNote(existing.note, xinXinBatchDate, note);
+        // 防備註遺失：合併後若把原本手寫內容弄不見了，就只在前面補批次標頭、完整保留原備註
+        if(xinXinBatchDate){
+          const oldNote = (existing.note||'').trim();
+          const merged = mergeXinNote(oldNote, xinXinBatchDate, note);
+          const oldPersonal = oldNote.replace(/^[^｜]*｜\s*/, '').trim(); // 去掉開頭批次標頭後的個人備註
+          existing.note = (oldPersonal && merged.indexOf(oldPersonal) === -1)
+            ? (oldNote ? (xinXinBatchDate + '｜' + oldNote) : merged)
+            : merged;
+        }
         if(!existing.idno && xinIdno) existing.idno = xinIdno;
-        // 分類：用戶已手動設為最終狀態（已簽約/無效案件）則不動；
-        //       其餘情況才標記為新鑫（讓系統知道這是新鑫名單）
-        const protectedHeats = ['已簽約','無效案件'];
-        if(!protectedHeats.includes(existing.heat)) existing.heat = '新鑫';
+        // 分類：用戶手動分過類的一律不動——已簽約/無效案件 + 「追很緊/覆訪」(業主主動追的)；
+        //       只有還沒分類(空白/待分類/最新資料/新鑫)才標記為新鑫。
+        //       (修:之前只保護已簽約/無效,害業主分到追很緊的人被新鑫名單蓋掉)
+        const keepHeats = ['已簽約','無效案件','追很緊','覆訪'];
+        if(!keepHeats.includes(existing.heat)) existing.heat = '新鑫';
         existing.updatedAt = TODAY;
         updated++;
       } else {
