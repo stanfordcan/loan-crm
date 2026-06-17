@@ -1442,7 +1442,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t31 (⚙️設定加「🔄一鍵套用新規則到既有客戶」:從客戶已存的總檔資料重算,補遮罩身分證/戶籍地、修正門牌區,不用重匯) 2026.06.17';
+const APP_VERSION = '🧪測試版 t32 (重寫拜訪過程→聯絡紀錄解析:逐行解析+日期驗證(月1-12日1-31時時分),丟掉純數字雜訊,不再有2026-01-54或單獨數字1/11/20) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1806,48 +1806,45 @@ const fromRow = (row, i) => {
 function parseVisitLogs(text){
   if(!text) return [];
   const curYear = new Date().getFullYear();
+  const pad = n => String(n).padStart(2,'0');
+  const okMD = (mo,da) => { mo=+mo; da=+da; return mo>=1 && mo<=12 && da>=1 && da<=31; };   // 月1-12、日1-31才算有效日期
+  const okHM = (h,mi) => { h=+h; mi=+mi; return h>=0 && h<24 && mi>=0 && mi<60; };           // 時0-23、分0-59才算有效時間
   const logs = [];
 
-  // 用日期pattern切割
-  const datePattern = /(?=(?:\d{3}\/\d{1,2}\/\d{1,2}|\d{7}|\d{6}|\d{4}(?!\d)))/g;
-  const parts = text.split(datePattern).map(s=>s.trim()).filter(Boolean);
+  // 逐行解析（每行一筆）。不再用會亂切的全域 pattern，避免把「日期 時間」拆成兩段、把時間誤判成日期。
+  String(text).split(/\r?\n/).forEach(raw => {
+    let line = raw.trim();
+    if(!line) return;
+    let date='', time='', m;
 
-  parts.forEach(part => {
-    if(!part) return;
-    let date='', time='', content=part;
-
-    // 7位民國 YYYMMDD + 可選時間4位
-    let m = part.match(/^(\d{3})(\d{2})(\d{2})\s*(\d{4})?\s*/);
-    if(m && parseInt(m[1]) > 90){
-      date = `${parseInt(m[1])+1911}-${m[2]}-${m[3]}`;
-      if(m[4]) time = `${m[4].slice(0,2)}:${m[4].slice(2)}`;
-      content = part.slice(m[0].length).trim();
+    // 1) 民國斜線 YYY/M/D
+    if((m = line.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})\s*/)) && okMD(m[2],m[3])){
+      date = `${parseInt(m[1],10)+1911}-${pad(m[2])}-${pad(m[3])}`;
+      line = line.slice(m[0].length).trim();
     }
-    // 民國斜線 YYY/M/D
-    else if((m = part.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})\s*/))){
-      date = `${parseInt(m[1])+1911}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-      content = part.slice(m[0].length).trim();
-    }
-    // 6位 YYMMDD
-    else if((m = part.match(/^(\d{2})(\d{2})(\d{2})\s*(\d{4})?\s*/))){
-      const yr = parseInt(m[1]);
-      date = `${yr < 30 ? 2000+yr : 1900+yr+11}-${m[2]}-${m[3]}`;
-      if(m[4]) time = `${m[4].slice(0,2)}:${m[4].slice(2)}`;
-      content = part.slice(m[0].length).trim();
-    }
-    // 4位月日 + 4位時間 MMDD HHMM
-    else if((m = part.match(/^(\d{2})(\d{2})\s+(\d{2})(\d{2})\s+/))){
+    // 2) 西元 8 碼 MMDDHHMM（無空白黏在一起，如 11202152＝11/20 21:52）
+    else if((m = line.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(?!\d)\s*/)) && okMD(m[1],m[2]) && okHM(m[3],m[4])){
       date = `${curYear}-${m[1]}-${m[2]}`;
       time = `${m[3]}:${m[4]}`;
-      content = part.slice(m[0].length).trim();
+      line = line.slice(m[0].length).trim();
     }
-    // 4位月日 MMDD
-    else if((m = part.match(/^(\d{2})(\d{2})(?!\d)\s*/))){
+    // 3) 民國 7 碼 YYYMMDD（年100~139）＋可選時間
+    else if((m = line.match(/^(1[0-3]\d)(\d{2})(\d{2})(?:\s*(\d{2})(\d{2}))?\s*/)) && okMD(m[2],m[3])){
+      date = `${parseInt(m[1],10)+1911}-${m[2]}-${m[3]}`;
+      if(m[4]!=null && okHM(m[4],m[5])) time = `${m[4]}:${m[5]}`;
+      line = line.slice(m[0].length).trim();
+    }
+    // 4) 西元 MMDD ＋可選 HHMM（中間可有空白，如 0205 0950）
+    else if((m = line.match(/^(\d{2})(\d{2})(?:\s+(\d{2})(\d{2}))?\s*/)) && okMD(m[1],m[2])){
       date = `${curYear}-${m[1]}-${m[2]}`;
-      content = part.slice(m[0].length).trim();
+      if(m[3]!=null && okHM(m[3],m[4])) time = `${m[3]}:${m[4]}`;
+      line = line.slice(m[0].length).trim();
     }
 
-    if(content) logs.push({ date: date||TODAY, time, text: content });
+    const content = line;
+    // 內容空白、或只剩數字/標點（沒有任何中文或字母）→ 視為雜訊，丟掉（不再出現「1」「11」「20」那種無意義紀錄）
+    if(!content || !/[^\d\s:：.,，、。\-_/／()（）]/.test(content)) return;
+    logs.push({ date: date || TODAY, time, text: content });
   });
 
   return logs.reverse();
