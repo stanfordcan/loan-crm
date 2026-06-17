@@ -1223,7 +1223,9 @@ async function applyUrlSettings() {
       <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1.5px solid var(--accent);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">🔄 一鍵套用新規則</button>
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px">🧹 整理</div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清除「無效案件＋沒有任何電話」的資料（會先顯示筆數讓你確認；其他資料完全不動）。建議先按上面「下載備份檔」。</div>
-      <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1.5px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清除無效空資料</button>
+      <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1.5px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">🧹 清除無效空資料</button>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清理明顯髒資料：刪掉「姓名／地址」這種標題列誤當客戶的、把地址裡誤點到的 Excel 公式片段(如 +E54:P54)清掉、把錯放成身分證的地址清乾淨。會先顯示清單讓你確認。</div>
+      <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1.5px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清理髒資料（標題列／公式／亂碼地址）</button>
     </div>
   </div>
 </div>
@@ -1469,7 +1471,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t46 (📋名單移除「地圖名單」「網頁列印」兩顆用不到的按鈕,留三顆:標批次/公司格式/通知單名單) 2026.06.17';
+const APP_VERSION = '🧪測試版 t47 (⚙️設定加「🧹清理髒資料」:刪標題列假客戶、清地址裡誤點的Excel公式片段、清錯放成身分證的地址(順便補生日);🔄一鍵套用新規則加:清掉聯絡紀錄不可能的壞日期(月>12/日>31)保留文字) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5964,22 +5966,25 @@ function applyNewRulesToExisting(dryRun){
     }
     (c.properties||[]).forEach(p=>{ if(p.addr && p.companyRaw && p.companyRaw.buildInfo){ const fx=fixAddrDistrict(p.addr,p.companyRaw.buildInfo); if(fx!==p.addr){ if(!dryRun)p.addr=fx; nDist++; changed.add(c.id); } } });
     // 聯絡紀錄：用新解析重洗。有原始拜訪過程→重解析(保留手動加的、尊重刪過的);沒有→至少清掉純數字雜訊
-    let newLogs=null;
+    let candidate=null;
     if(cr && cr.process){
       const fresh=parseVisitLogs(cr.process);
       const proc=String(cr.process);
       const del=new Set(c.deletedLogKeys||[]);
       const manual=(c.logs||[]).filter(l=>{ const t=String(l.text||'').trim(); if(isJunkLog(t)) return false; return proc.indexOf(t.slice(0,12))<0; });
       const seen=new Set();
-      newLogs=[...fresh,...manual]
+      candidate=[...fresh,...manual]
         .filter(l=>!del.has((l.date||'')+(l.text||'').slice(0,20)))
-        .filter(l=>{ const k=(l.date||'')+'|'+(l.text||''); if(seen.has(k))return false; seen.add(k); return true; })
-        .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        .filter(l=>{ const k=(l.date||'')+'|'+(l.text||''); if(seen.has(k))return false; seen.add(k); return true; });
     } else {
-      const cleaned=(c.logs||[]).filter(l=>!isJunkLog(l.text));
-      if(cleaned.length!==(c.logs||[]).length) newLogs=cleaned;
+      candidate=(c.logs||[]).filter(l=>!isJunkLog(l.text));
     }
-    if(newLogs && JSON.stringify(newLogs)!==JSON.stringify(c.logs||[])){ if(!dryRun)c.logs=newLogs; nLogs++; changed.add(c.id); }
+    if(candidate){
+      // 清掉不可能的日期(月>12或日>31)：保留文字、只把壞日期清空(舊版解析留下的殘渣)
+      candidate=candidate.map(l=>{ const m=String(l.date||'').match(/^\d{4}-(\d{2})-(\d{2})$/); return (m && (+m[1]>12||+m[1]<1||+m[2]>31||+m[2]<1)) ? Object.assign({},l,{date:''}) : l; })
+        .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      if(JSON.stringify(candidate)!==JSON.stringify(c.logs||[])){ if(!dryRun)c.logs=candidate; nLogs++; changed.add(c.id); }
+    }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
   });
   return {nIdno,nCensus,nDist,nLogs,nClients:changed.size};
@@ -5991,6 +5996,43 @@ function runApplyNewRules(){
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
   showToast(`✅ 已套用：身分證+${r.nIdno}、戶籍+${r.nCensus}、修正區${r.nDist}、整理紀錄${r.nLogs}位`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
+
+// 🧹 清理明顯髒資料：標題列誤當客戶、地址裡的 Excel 公式殘渣、錯放成身分證的地址
+function cleanupDirtyData(){
+  const headerNames=new Set(['姓名','地址','電話','姓名/地址','姓名／地址','名單','客戶','姓名地址']);
+  const xlsRe=/[+=][\(（]?[A-Za-z]{1,3}[0-9]{1,4}[:：][A-Za-z]{1,3}[0-9]{1,4}[\)）]?/g; // Excel 儲存格範圍/公式片段(如 +E54:P54);用[0-9]只認半形,不誤吃全形門牌數字
+  const idAddrRe=/^[A-Za-z][0-9]{9}(?:\s+[0-9]{2,8})?$/;                              // 地址其實是「身分證(+數字)」
+  const toDelete=[], toFix=[];
+  clients.forEach(c=>{
+    const nm=String(c.name||'').trim();
+    if(headerNames.has(nm)){ toDelete.push(c); return; }
+    const ad=String(c.addr||''); if(!ad) return;
+    if(idAddrRe.test(ad.trim())){
+      // 抓尾端 6 碼當民國生日(YYMMDD),生日空白才補
+      const m=ad.trim().match(/(\d{2})(\d{2})(\d{2})$/);
+      const birth=(m && +m[2]>=1 && +m[2]<=12 && +m[3]>=1 && +m[3]<=31) ? {y:+m[1],mo:+m[2],d:+m[3]} : null;
+      toFix.push({c, from:ad, to:'', birth}); return;
+    }
+    const fixed=ad.replace(xlsRe,'').replace(/\s{2,}/g,' ').trim();
+    if(fixed!==ad) toFix.push({c, from:ad, to:fixed, birth:null});
+  });
+  if(!toDelete.length && !toFix.length){ showToast('✅ 沒有發現明顯髒資料'); return; }
+  let msg='發現明顯髒資料：\n';
+  if(toDelete.length) msg+=`\n🗑️ 刪除標題列/假客戶 ${toDelete.length} 筆：\n`+toDelete.map(c=>'　'+(c.name||'(無名)')).join('\n')+'\n';
+  if(toFix.length) msg+=`\n🔧 修正地址 ${toFix.length} 筆：\n`+toFix.slice(0,12).map(x=>`　${x.c.name||'(無名)'}：「${x.from}」→「${x.to||'(清空)'}」${x.birth?'＋補生日'+x.birth.y+'/'+x.birth.mo+'/'+x.birth.d:''}`).join('\n')+(toFix.length>12?'\n　…等':'')+'\n';
+  msg+='\n確定執行？（建議先下載備份檔）';
+  if(!confirm(msg)) return;
+  const delIds=new Set(toDelete.map(c=>c.id));
+  toFix.forEach(x=>{
+    x.c.addr=x.to;
+    if(x.birth && !x.c.birthY){ x.c.birthY=x.birth.y; x.c.birthM=x.birth.mo; x.c.birthD=x.birth.d; }
+    x.c.updatedAt=TODAY;
+  });
+  clients=clients.filter(c=>!delIds.has(c.id));
+  saveLocal(); render(); pushToSheet().catch(()=>{});
+  showToast(`🧹 已刪 ${toDelete.length} 筆、修正地址 ${toFix.length} 筆`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
