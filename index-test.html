@@ -760,7 +760,10 @@ async function applyUrlSettings() {
         <span id="loginUserLabel" style="font-size:11px;color:var(--t3);letter-spacing:0;font-weight:400"></span>
         <span id="appVersion" style="font-size:10px;color:var(--t3);opacity:.7;letter-spacing:0;font-weight:400"></span>
       </div>
-      <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
+      <div style="display:flex;gap:2px">
+        <button class="memo-mobile-btn" onclick="openCalModal()" title="行事曆">📅</button>
+        <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:2px">
     <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
@@ -1153,6 +1156,22 @@ async function applyUrlSettings() {
   </div>
 </div>
 
+<!-- 行事曆 Modal（手機版入口；電腦版直接顯示在右側面板）-->
+<div class="imbg" id="calModalBg" onclick="if(event.target===this)closeCalModal()">
+  <div class="immodal" style="width:96vw;max-width:560px;max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <button onclick="calMonth(-1)" style="background:var(--s2);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;font-size:17px;cursor:pointer;color:var(--t2)">‹</button>
+      <span id="calTitleM" style="font-weight:700;font-size:17px;color:var(--text)"></span>
+      <button onclick="calMonth(1)" style="background:var(--s2);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;font-size:17px;cursor:pointer;color:var(--t2)">›</button>
+    </div>
+    <div id="calGridM" style="flex:1;overflow-y:auto;min-height:120px"></div>
+    <div style="font-size:11px;color:var(--t3);margin-top:8px">點日期看當天排程 · 📝備忘 · 📆Google · 紅色逾期</div>
+    <div class="imbtns" style="margin-top:12px">
+      <button class="imcancel" onclick="closeCalModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
 <!-- URL Settings Modal -->
 <div class="imbg" id="urlSettingsBg" onclick="if(event.target===this)closeUrlSettings()">
   <div class="immodal" style="max-width:480px">
@@ -1442,7 +1461,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t34 (搜尋「先生/小姐」找不到遮罩名客戶的bug:搜尋只比存的名字(姓),改成也比顯示名dispName(含先生/小姐)) 2026.06.17';
+const APP_VERSION = '🧪測試版 t35 (手機版補行事曆:月曆原本只在電腦版右側面板(手機隱藏),手機header加📅鈕開全螢幕月曆彈窗,renderCalendar同步填入) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3247,7 +3266,12 @@ function renderCalendar(){
   }
   html+='</div>';
   grid.innerHTML=html;
+  // 同步到手機版月曆彈窗（若存在）
+  const gridM=document.getElementById('calGridM'); if(gridM) gridM.innerHTML=html;
+  const titleM=document.getElementById('calTitleM'); if(titleM) titleM.textContent=`${_calYear} 年 ${_calMonth+1} 月`;
 }
+function openCalModal(){ renderCalendar(); document.getElementById('calModalBg').classList.add('open'); }
+function closeCalModal(){ document.getElementById('calModalBg').classList.remove('open'); }
 
 // 點某天 → 當日排程清單（依時間由早到晚；Google 事件之後插進同一條時間線）
 function openDayView(ds){
