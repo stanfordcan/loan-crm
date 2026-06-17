@@ -444,17 +444,21 @@ auth.onAuthStateChanged(async user => {
     // ── 1. 先清空，再載入本地快取（零等待）──
     clients = []; nextId = 1;
     loadLocal();
+    const _preSerials = ensureSerials();   // 立即補流水編號(顯示用)
     if (typeof loadGoogleCalCache === 'function') loadGoogleCalCache();
     if (typeof autoClassify === 'function') autoClassify();
     if (typeof render === 'function') render();
 
     // ── 2. 背景比對 Firestore，有更新才刷新畫面 ──
     syncFromFirestoreIfNewer().then(updated => {
+      // 流水編號：對最終資料補齊並存檔(含雲端),確保跨裝置一致且鎖死
+      const _need = updated ? ensureSerials() : _preSerials;
       if (updated) {
         if (typeof autoClassify === 'function') autoClassify();
         if (typeof render === 'function') render();
         showToast('☁️ 已從雲端同步最新資料');
       }
+      if (_need) { saveLocal(); if (typeof render === 'function') render(); }
       // 設定載入後，背景同步 Google 行事曆（有填個人 GAS 才做）
       if (typeof COMPANY_URL !== 'undefined' && COMPANY_URL && typeof syncGoogleCal === 'function') {
         syncGoogleCal(true).catch(()=>{});
@@ -794,7 +798,7 @@ async function applyUrlSettings() {
     <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
   </div>
   <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
-    <input class="search-input" id="searchInput" placeholder="🔍 搜尋姓名、電話、身分證、備註、地址、建號…" oninput="render()" style="flex:1;min-width:120px"/>
+    <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="render()" style="flex:1;min-width:120px"/>
     <select id="sortSelect" onchange="render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
       <option value="remind">📅 提醒日期</option>
       <option value="deadline">⏰ 到期最近</option>
@@ -931,6 +935,7 @@ async function applyUrlSettings() {
       </div>
       <div id="sp0">
         <div class="frow"><label>姓名 *</label><input id="fName" placeholder="客戶姓名"/></div>
+        <div class="frow"><label>流水編號（客戶ID，寫在信上反查用）</label><input id="fSerial" readonly placeholder="（儲存/匯入後自動產生）" onclick="this.select()" title="點一下可全選複製" style="background:var(--abg);color:var(--accent);font-weight:700;letter-spacing:3px;cursor:pointer"/></div>
         <div class="frow">
           <label>出生年月日（民國）</label>
           <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
@@ -1461,7 +1466,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t36 (備註欄隨內容自動長高:打越多越高不用滾,載入既有備註也自動撐開,最低85px) 2026.06.17';
+const APP_VERSION = '🧪測試版 t37 (每位客戶賦予唯一隨機6位數流水編號當客戶ID,給了就鎖死;顯示在姓名下方(可點選複製)、可用編號搜尋反查、清單也顯示) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1571,6 +1576,19 @@ function loadLocal() {
     }
   } catch(e){}
   return false;
+}
+
+// 流水編號：每位客戶一組唯一的隨機 6 位數，當客戶ID用（寫在寄給客戶的信上反查）。
+// 一旦給了就「鎖死」——只補沒有的，絕不更動已有的。回傳這次新補幾筆。
+function ensureSerials(){
+  const used=new Set(clients.map(c=>c.serial).filter(Boolean));
+  let n=0;
+  clients.forEach(c=>{
+    if(c.serial) return;                 // 已有→鎖死不動
+    let s; do{ s=String(Math.floor(100000+Math.random()*900000)); }while(used.has(s));
+    used.add(s); c.serial=s; n++;
+  });
+  return n;
 }
 
 // ── Memo ─────────────────────────────────────────────────
@@ -1776,6 +1794,7 @@ const toRow = c => [
     birthY:     c.birthY||0,
     birthM:     c.birthM||0,
     birthD:     c.birthD||0,
+    serial:     c.serial||'',
   }),
 ];
 
@@ -1818,6 +1837,7 @@ const fromRow = (row, i) => {
     birthY:      rich.birthY      || 0,
     birthM:      rich.birthM      || 0,
     birthD:      rich.birthD      || 0,
+    serial:      rich.serial      || '',
   };
 };
 
@@ -2997,6 +3017,7 @@ function processCompanyData(raw) {
       return true;
     });
     autoClassify();
+    ensureSerials();   // 新匯入的人補上流水編號(客戶ID)
     saveLocal();
     pushToSheet().catch(()=>{});
     render();
@@ -3418,6 +3439,7 @@ function clientMatchesQuery(c,q){
   if(!q) return true;
   if(String(c.name||'').toLowerCase().includes(q)) return true;
   if(String(dispName(c)).toLowerCase().includes(q)) return true; // 顯示名(含先生/小姐)也能搜
+  if(String(c.serial||'').includes(q)) return true;              // 流水編號反查
   if(String(c.phone||'').includes(q)) return true;
   if(String(c.idno||'').toLowerCase().includes(q)) return true;
   if(String(c.note||'').toLowerCase().includes(q)) return true;
@@ -3718,6 +3740,7 @@ function render(){
         ${c.bank?`<span class="mi">🏦銀行${c.bank}萬</span>`:''}
         ${c.legal?`<span class="mi">🏢法人${c.legal}萬</span>`:''}
         ${c.private?`<span class="mi" style="color:var(--red)">⚠️民間${c.private}萬</span>`:''}
+        ${c.serial?`<span class="mi" style="font-weight:700;color:var(--accent)">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
         ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
         ${c.logs&&c.logs.length?`<span class="mi">💬${c.logs.length}筆</span>`:''}
@@ -3951,7 +3974,7 @@ function openAdd(){
   document.getElementById('btnDel').style.display='none';
   document.getElementById('btnBlack').style.display='none';
   document.getElementById('btnShare').style.display='none';
-  ['fName','fPhone','fIdno','fAddr','fCensusAddr','fBatch','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
+  ['fName','fPhone','fIdno','fAddr','fCensusAddr','fBatch','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD','fSerial'].forEach(id=>document.getElementById(id).value='');
   autoGrowNote(document.getElementById('fNote'));
   refreshBatchDatalist();
   document.getElementById('ageDisplay').style.display='none';
@@ -3999,6 +4022,7 @@ function openEdit(id){
   document.getElementById('fRemindNote').value=c.remindNote||'';
   document.getElementById('fNote').value=c.note||'';
   autoGrowNote(document.getElementById('fNote'));
+  document.getElementById('fSerial').value=c.serial||'';
   document.getElementById('fJob').value=c.job||'';
   document.getElementById('fJobYears').value=c.jobYears||'';
   document.getElementById('fBirthY').value=c.birthY||'';
@@ -5298,6 +5322,7 @@ async function saveClient(silent){
   } else {
     clients.push({id:nextId++,createdAt:TODAY,debtPhones:[],companyRaw:null,...data});
   }
+  ensureSerials();   // 新客戶補上流水編號(客戶ID);既有的不動
   saveLocal();
   formDirty=false;
   if(silent) return; // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步
