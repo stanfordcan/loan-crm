@@ -1439,7 +1439,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t27 (總檔分頁名叫「待分類」匯入會變追很緊:sheetToHeat少了待分類規則,掉到預設追很緊。補上待分類/未分類/待處理規則) 2026.06.17';
+const APP_VERSION = '🧪測試版 t28 (修去重把遮罩同名不同人誤刪:去重地址改用完整地址不再只取前10字;normalizeAddr去掉夾雜句點) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2225,6 +2225,8 @@ function normalizeAddr(addr) {
   s = s.replace(/([一二三四五六七八九])樓/g, (_, d) => CJ[d]+'樓');
   // 5F / 5f → 5樓
   s = s.replace(/(\d+)[Ff]\b/g, '$1樓');
+  // 去掉夾雜的句點（如「台北市.松山區」誤打的點），避免同一地址被當成兩個
+  s = s.replace(/[.．。]/g, '');
   return s.trim();
 }
 
@@ -2953,7 +2955,10 @@ function processCompanyData(raw) {
     clients = clients.filter(c => {
       const normPhone = (c.phone||'').replace(/[-\s\(\)#]/g,'');
       const key1 = normPhone && normPhone.length > 5 ? 'p_'+normPhone : null;
-      const addrKey = (c.addr||'').slice(0,10);
+      // 去重的地址用「完整正規化地址」(含門牌號),不能只取前10字——
+      // 遮罩姓名會縮成單姓(陳＊＊→陳),前10字只到街路沒到門牌號,
+      // 害同一條街的不同人(如陳＊＊南京東路250巷 vs 336號)被當重複誤刪。
+      const addrKey = normalizeAddr(c.addr||'');
       const key2 = c.name && c.name !== '（未知）' ? 'n_'+c.name+'_'+addrKey : null;
       if((key1 && seen.has(key1)) || (key2 && seen.has(key2))) return false;
       if(key1) seen.add(key1);
