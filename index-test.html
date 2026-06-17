@@ -1224,7 +1224,7 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px">🧹 整理</div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清除「無效案件＋沒有任何電話」的資料（會先顯示筆數讓你確認；其他資料完全不動）。建議先按上面「下載備份檔」。</div>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1.5px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">🧹 清除無效空資料</button>
-      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清理明顯髒資料：刪掉「姓名／地址」這種標題列誤當客戶的、把地址裡誤點到的 Excel 公式片段(如 +E54:P54)清掉、把錯放成身分證的地址清乾淨。會先顯示清單讓你確認。</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清理明顯髒資料：刪掉「姓名／地址」這種標題列誤當客戶的、把地址裡誤點到的 Excel 公式片段(如 +E54:P54)清掉、把錯放成身分證的地址清乾淨、清掉備註裡誤跑進去的系統時間戳(如 2026-05-21T16:00:00.000Z)。會先顯示清單讓你確認。</div>
       <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1.5px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清理髒資料（標題列／公式／亂碼地址）</button>
     </div>
   </div>
@@ -1471,7 +1471,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t51 (新鑫批次標頭(1150522_資料(N))當來源批次:匯入時放進batch欄、個人備註留note;🔄一鍵套用把現有新鑫備註裡的批次標頭搬進batch欄(可用批次篩選)) 2026.06.17';
+const APP_VERSION = '🧪測試版 t52 (🧹清理髒資料加:清掉備註裡誤跑進去的系統時間戳(2026-05-21T16:00:00.000Z這種),整條只有時間戳就清空、混在文字裡只清時間戳) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -6037,10 +6037,14 @@ function cleanupDirtyData(){
   const headerNames=new Set(['姓名','地址','電話','姓名/地址','姓名／地址','名單','客戶','姓名地址']);
   const xlsRe=/[+=][\(（]?[A-Za-z]{1,3}[0-9]{1,4}[:：][A-Za-z]{1,3}[0-9]{1,4}[\)）]?/g; // Excel 儲存格範圍/公式片段(如 +E54:P54);用[0-9]只認半形,不誤吃全形門牌數字
   const idAddrRe=/^[A-Za-z][0-9]{9}(?:\s+[0-9]{2,8})?$/;                              // 地址其實是「身分證(+數字)」
-  const toDelete=[], toFix=[];
+  const isoReG=/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g;                      // 系統時間戳誤跑進備註(如 2026-05-21T16:00:00.000Z)
+  const toDelete=[], toFix=[], toFixNote=[];
   clients.forEach(c=>{
     const nm=String(c.name||'').trim();
     if(headerNames.has(nm)){ toDelete.push(c); return; }
+    // 備註裡的 ISO 時間戳→清掉(其餘文字保留)
+    const nt=String(c.note||'');
+    if(nt){ const fn=nt.replace(isoReG,'').replace(/\s{2,}/g,' ').trim(); if(fn!==nt) toFixNote.push({c, from:nt, to:fn}); }
     const ad=String(c.addr||''); if(!ad) return;
     if(idAddrRe.test(ad.trim())){
       // 抓尾端 6 碼當民國生日(YYMMDD),生日空白才補
@@ -6051,10 +6055,11 @@ function cleanupDirtyData(){
     const fixed=ad.replace(xlsRe,'').replace(/\s{2,}/g,' ').trim();
     if(fixed!==ad) toFix.push({c, from:ad, to:fixed, birth:null});
   });
-  if(!toDelete.length && !toFix.length){ showToast('✅ 沒有發現明顯髒資料'); return; }
+  if(!toDelete.length && !toFix.length && !toFixNote.length){ showToast('✅ 沒有發現明顯髒資料'); return; }
   let msg='發現明顯髒資料：\n';
   if(toDelete.length) msg+=`\n🗑️ 刪除標題列/假客戶 ${toDelete.length} 筆：\n`+toDelete.map(c=>'　'+(c.name||'(無名)')).join('\n')+'\n';
   if(toFix.length) msg+=`\n🔧 修正地址 ${toFix.length} 筆：\n`+toFix.slice(0,12).map(x=>`　${x.c.name||'(無名)'}：「${x.from}」→「${x.to||'(清空)'}」${x.birth?'＋補生日'+x.birth.y+'/'+x.birth.mo+'/'+x.birth.d:''}`).join('\n')+(toFix.length>12?'\n　…等':'')+'\n';
+  if(toFixNote.length) msg+=`\n🧽 清備註裡的系統時間戳 ${toFixNote.length} 筆\n`;
   msg+='\n確定執行？（建議先下載備份檔）';
   if(!confirm(msg)) return;
   const delIds=new Set(toDelete.map(c=>c.id));
@@ -6063,9 +6068,10 @@ function cleanupDirtyData(){
     if(x.birth && !x.c.birthY){ x.c.birthY=x.birth.y; x.c.birthM=x.birth.mo; x.c.birthD=x.birth.d; }
     x.c.updatedAt=TODAY;
   });
+  toFixNote.forEach(x=>{ x.c.note=x.to; x.c.updatedAt=TODAY; });
   clients=clients.filter(c=>!delIds.has(c.id));
   saveLocal(); render(); pushToSheet().catch(()=>{});
-  showToast(`🧹 已刪 ${toDelete.length} 筆、修正地址 ${toFix.length} 筆`);
+  showToast(`🧹 已刪 ${toDelete.length} 筆、修正地址 ${toFix.length} 筆、清備註 ${toFixNote.length} 筆`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
