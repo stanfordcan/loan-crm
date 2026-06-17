@@ -1470,7 +1470,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t41 (修通知單多於4人時長地址撐高重疊跑版:格子鎖固定高度min-height:0+overflow裁切、頁面overflow:hidden,字與行距縮小讓長地址塞得下) 2026.06.17';
+const APP_VERSION = '🧪測試版 t42 (通知單照Word原版逐行重排:寄交自己一行縮排、茲有由_退回 台端第_號、地址分兩行縮排、底部投遞人員;字型改DFKai-SB擺第一(修標楷體沒吃到變細明體)) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3666,11 +3666,16 @@ function noticeSlip(c, dv){
   const a=noticeAddrParts(c.addr||'');
   return `<div class="slip">
     <div class="t">包裏信件投遞通知單</div>
-    <div class="b">寄交　茲有由${ul('','2.4em')}退回${ul('','2.4em')}台端第${ul(c.serial,'4.5em')}號　包裏信件${ul('','1.8em')}件業經投遞乙次，因無法妥投，僅此通知，若經再次投遞無效，逾15日仍無法聯絡或投交者，此包裏信件將退回原寄人。　此　致</div>
-    <div class="b">姓名：${ul(dispName(c),'9em')}</div>
-    <div class="b addr">${ul(a.dist,'5em')}區（市鄉鎮）${ul(a.road,'4em')}路（街）${ul(a.sec,'1.6em')}段${ul(a.lane,'1.6em')}巷${ul(a.alley,'1.6em')}弄${ul(a.no,'2.6em')}號${ul(a.floor,'1.6em')}樓之${ul(a.floorsub,'1.4em')}</div>
-    <div class="b">請在每日09：00～22：00間電話聯繫，以便安排再次遞送。</div>
-    <div class="b">姓名：${ul(dv.name,'5em')}電話：${ul(dv.phone,'6em')}　投遞服務人員　敬啟</div>
+    <div class="ln" style="text-indent:6em">寄交</div>
+    <div class="ln">茲有由${ul('','3.5em')}退回　台端第${ul(c.serial,'6em')}號</div>
+    <div class="ln">包裏信件${ul('','3em')}件業經投遞乙次，因無法妥投，僅此通知，若經再次投遞無效，逾15日仍無法聯絡或投交者，此包裏信件將退回原寄人。</div>
+    <div class="ln">此　　致</div>
+    <div class="ln">姓名：${ul(dispName(c),'8em')}</div>
+    <div class="ln addr" style="padding-left:2.5em">${ul(a.dist,'5em')}區（市鄉鎮）${ul(a.road,'4em')}路（街）${ul(a.sec,'2em')}段${ul(a.lane,'2em')}巷${ul(a.alley,'2em')}弄</div>
+    <div class="ln addr" style="padding-left:2.5em">${ul(a.no,'3em')}號${ul(a.floor,'3em')}樓之${ul(a.floorsub,'2em')}</div>
+    <div class="ln">請在每日09：00～22：00間電話聯繫，以便安排再次遞送</div>
+    <div class="ln">姓名：${ul(dv.name,'6em')}電話：${ul(dv.phone,'7em')}</div>
+    <div class="ln" style="text-align:right">投遞服務人員　敬啟</div>
   </div>`;
 }
 function ltPrintNotice(){
@@ -3687,13 +3692,13 @@ function ltPrintNotice(){
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>包裏信件投遞通知單</title><style>
 @page{ size:A4 landscape; margin:8mm; }
 *{ box-sizing:border-box; }
-body{ margin:0; font-family:"標楷體","DFKai-SB","BiauKai","KaiTi",serif; color:#000; }
+body{ margin:0; font-family:"DFKai-SB","標楷體","BiauKai","KaiTi",serif; color:#000; }
 .page{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; width:281mm; height:194mm; overflow:hidden; page-break-after:always; }
-.slip{ border:1px dashed #bbb; padding:6mm 6mm; overflow:hidden; min-width:0; min-height:0; }
-.slip .t{ text-align:center; font-size:15pt; font-weight:700; letter-spacing:3px; margin-bottom:3mm; }
-.slip .b{ font-size:12.5pt; line-height:1.7; margin:0 }
-.slip .addr{ font-size:12pt; }
-.ul{ display:inline-block; border-bottom:1px solid #000; text-align:center; font-weight:700; padding:0 2px; line-height:1.35 }
+.slip{ border:1px dashed #bbb; padding:6mm 7mm; overflow:hidden; min-width:0; min-height:0; }
+.slip .t{ text-align:center; font-size:16pt; font-weight:700; letter-spacing:4px; margin-bottom:2.5mm; }
+.slip .ln{ font-size:13.5pt; line-height:1.85; margin:0 }
+.slip .addr{ font-size:13pt; }
+.ul{ display:inline-block; border-bottom:1px solid #000; text-align:center; font-weight:700; padding:0 3px; line-height:1.3 }
 @media screen{ body{ background:#ddd; padding:10px } .page{ background:#fff; margin:0 auto 10px; box-shadow:0 2px 8px rgba(0,0,0,.2) } }
 </style></head><body>${pages}<script>window.onload=function(){ setTimeout(function(){ window.print(); },350); };<\/script></body></html>`;
   const w=window.open('','_blank');
