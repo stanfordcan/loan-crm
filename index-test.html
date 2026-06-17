@@ -1471,7 +1471,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t49 (門牌欄空白/亂碼時自動從標示部抓門牌(退用所有權部住址):匯入時和🔄一鍵套用都套,救回門牌空白的客戶) 2026.06.17';
+const APP_VERSION = '🧪測試版 t50 (AI匯入對齊新功能:身分證比對加isFullId守門(遮罩版不誤併、可放心帶遮罩判性別)、吃戶籍地censusAddr、補流水編號) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5553,8 +5553,8 @@ function findAiMatch(rec){
     return arr.filter(Boolean);
   }
 
-  // 1. 身分證
-  if(idno){ const c=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno); if(c) return {client:c,reason:'身分證相符',confidence:'strong'}; }
+  // 1. 身分證（須完整身分證才能當「同一人」依據；遮罩版不唯一，只供顯示/判性別）
+  if(isFullId(idno)){ const c=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno); if(c) return {client:c,reason:'身分證相符',confidence:'strong'}; }
   // 2. 電話
   if(phone&&phone.length>=9){ const c=clients.find(c=>(c.phone||'').replace(/[^\d]/g,'')===phone); if(c) return {client:c,reason:'電話相符',confidence:'strong'}; }
   // 3. 建號（任一相同，含 col4）
@@ -5745,6 +5745,7 @@ function doAiImport(){
       // 更新既有客戶：補資料、附加不動產，不覆蓋既有備註/記錄
       if(r.phone && !match.phone) match.phone=String(r.phone).trim();
       if(r.idno && !match.idno) match.idno=String(r.idno).trim().toUpperCase();
+      if(r.censusAddr && !match.censusAddr) match.censusAddr=String(r.censusAddr).trim();
       if(r.job && !match.job) match.job=String(r.job).trim();
       if(r.note){
         match.note=(match.note? match.note+'\n':'')+String(r.note).trim();
@@ -5780,6 +5781,7 @@ function doAiImport(){
         name:String(r.name).trim(),
         phone:String(r.phone||'').trim(),
         idno:String(r.idno||'').trim().toUpperCase(),
+        censusAddr:String(r.censusAddr||'').trim(),
         heat:chosenHeat,
         note:String(r.note||'').trim(),
         job:String(r.job||'').trim(), jobYears:'',
@@ -5798,6 +5800,7 @@ function doAiImport(){
     }
   });
 
+  ensureSerials();   // AI 匯入的新客戶也補上流水編號
   saveLocal();
   closeAiImport();
   render();
