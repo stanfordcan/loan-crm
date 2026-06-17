@@ -1219,7 +1219,7 @@ async function applyUrlSettings() {
     </div>
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px">🔄 套用新規則到既有客戶</div>
-      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">從客戶身上已存的總檔資料重算，補上空白的「遮罩身分證、戶籍地」、修正填錯的門牌「區」，並重洗聯絡紀錄（清掉怪日期與純數字雜訊）。不用重新匯入；只補空白、修正錯的區、整理紀錄，不動你手改的資料。會先顯示筆數讓你確認。建議先按上面「下載備份檔」。</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">從客戶身上已存的總檔資料重算，補上空白的「遮罩身分證、戶籍地」、門牌空白的從標示部補門牌、修正填錯的門牌「區」，並重洗聯絡紀錄（清掉怪日期/未來日期/純數字雜訊）。不用重新匯入；只補空白、修正錯的區、整理紀錄，不動你手改的資料。會先顯示筆數讓你確認。建議先按上面「下載備份檔」。</div>
       <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1.5px solid var(--accent);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px">🔄 一鍵套用新規則</button>
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:4px">🧹 整理</div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:10px">清除「無效案件＋沒有任何電話」的資料（會先顯示筆數讓你確認；其他資料完全不動）。建議先按上面「下載備份檔」。</div>
@@ -1471,7 +1471,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t48 (根治聯絡紀錄未來日期:MMDD補年份時月日比今天晚就用去年(解析端修,匯入幾次都不跑);🔄一鍵套用再把現有未來日期往前撥一年) 2026.06.17';
+const APP_VERSION = '🧪測試版 t49 (門牌欄空白/亂碼時自動從標示部抓門牌(退用所有權部住址):匯入時和🔄一鍵套用都套,救回門牌空白的客戶) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2750,6 +2750,9 @@ function processCompanyData(raw) {
         addr = (cm[1]||auth.city) + auth.dist + cm[3]; // 只換區,縣市與街道保留門牌欄
       }
     })();
+
+    // 門牌欄(col4)空白/沒有「號」(像被填成身分證或留空)→ 從標示部(col3)抓門牌,標示部也沒有→退用所有權部屋主住址
+    if(!/號/.test(addr)){ const _d=bestDoor(buildInfo, ownerRaw); if(_d) addr=_d; }
 
     // 從 col 4（建物標示）直接抓建號，專用於比對身份，不影響不動產頁籤的 buildNo
     const col4BuildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
@@ -5943,6 +5946,22 @@ function censusFromCompanyRaw(cr){
   for(const ln of oLines){ if(/[縣市].*[路街道段巷弄號]/.test(ln) && !/分之|坪|【|建號|抵押|設定|普通|限額/.test(ln)) return normalizeAddr(ln); }
   return '';
 }
+// 門牌欄空白/壞掉時的最佳門牌：優先標示部(col3)的門牌行(縣市+區+門牌),沒有就退用所有權部屋主住址
+function bestDoor(buildInfo, ownerRaw){
+  const bi=String(buildInfo||''); let auth=null;
+  bi.split('\n').some(function(ln){ const mm=ln.match(/([一-鿿]{2,3}[市縣])\s+([一-鿿]{1,4}?[區鄉鎮市島])\s/); if(mm){auth={c:mm[1],d:mm[2]};return true;} return false; });
+  let door='';
+  bi.split('\n').some(function(ln){ const l=ln.trim();
+    if(/建號|坪|層|平方公尺|主建|附屬|公設|住家用|商業用|造$|空白|年/.test(l)) return false;
+    if(/[路街道大道巷弄]/.test(l) && /號/.test(l)){ door=l; return true; }
+    return false;
+  });
+  if(door) return normalizeAddr((auth?auth.c+auth.d:'')+door);
+  // 退而求其次：所有權部屋主住址
+  let oa='';
+  String(ownerRaw||'').split('\n').some(function(ln){ const l=ln.trim(); if(/[縣市].*[路街道段巷弄號]/.test(l) && !/分之|坪|【|建號|抵押|設定|普通|限額/.test(l)){ oa=normalizeAddr(l); return true; } return false; });
+  return oa;
+}
 // 用標示部(謄本)修正門牌的「區」：只在區不一致時換區,縣市與街道保留
 function fixAddrDistrict(addr, buildInfo){
   if(!addr) return addr;
@@ -5959,13 +5978,15 @@ function fixAddrDistrict(addr, buildInfo){
 // 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
 function isJunkLog(t){ t=String(t||'').trim(); return !t || !/[^\d\s:：.,，、。\-_/／()（）]/.test(t); }
 function applyNewRulesToExisting(dryRun){
-  let nIdno=0,nCensus=0,nDist=0,nLogs=0; const changed=new Set();
+  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0; const changed=new Set();
   clients.forEach(c=>{
     const cr=c.companyRaw;
     if(cr){
       if(!c.idno){ const id=idnoFromOwner(cr.owner); if(id){ if(!dryRun)c.idno=id; nIdno++; changed.add(c.id); } }
       if(!c.censusAddr){ const ca=censusFromCompanyRaw(cr); if(ca){ if(!dryRun)c.censusAddr=ca; nCensus++; changed.add(c.id); } }
-      if(c.addr && cr.buildInfo){ const fx=fixAddrDistrict(c.addr,cr.buildInfo); if(fx!==c.addr){ if(!dryRun)c.addr=fx; nDist++; changed.add(c.id); } }
+      // 門牌空白/沒有「號」→從標示部抓門牌(退用所有權部住址)
+      if(!/號/.test(String(c.addr||''))){ const d=bestDoor(cr.buildInfo, cr.owner); if(d){ if(!dryRun)c.addr=d; nDoor++; changed.add(c.id); } }
+      if(c.addr && /號/.test(c.addr) && cr.buildInfo){ const fx=fixAddrDistrict(c.addr,cr.buildInfo); if(fx!==c.addr){ if(!dryRun)c.addr=fx; nDist++; changed.add(c.id); } }
     }
     (c.properties||[]).forEach(p=>{ if(p.addr && p.companyRaw && p.companyRaw.buildInfo){ const fx=fixAddrDistrict(p.addr,p.companyRaw.buildInfo); if(fx!==p.addr){ if(!dryRun)p.addr=fx; nDist++; changed.add(c.id); } } });
     // 聯絡紀錄：用新解析重洗。有原始拜訪過程→重解析(保留手動加的、尊重刪過的);沒有→至少清掉純數字雜訊
@@ -5994,15 +6015,15 @@ function applyNewRulesToExisting(dryRun){
     }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
   });
-  return {nIdno,nCensus,nDist,nLogs,nClients:changed.size};
+  return {nIdno,nCensus,nDist,nDoor,nLogs,nClients:changed.size};
 }
 function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
   if(!r.nClients){ showToast('✅ 既有客戶都已是最新，沒有需要補的'); return; }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清掉怪日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。只補空白、修正填錯的區、重洗聯絡紀錄，不會動你手改的其他資料。\n\n建議先「下載備份檔」。確定執行？`)) return;
+  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。只補空白、修正填錯的區、重洗聯絡紀錄，不會動你手改的其他資料。\n\n建議先「下載備份檔」。確定執行？`)) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
-  showToast(`✅ 已套用：身分證+${r.nIdno}、戶籍+${r.nCensus}、修正區${r.nDist}、整理紀錄${r.nLogs}位`);
+  showToast(`✅ 已套用：身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、整理紀錄${r.nLogs}位`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
