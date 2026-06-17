@@ -1471,7 +1471,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t47 (⚙️設定加「🧹清理髒資料」:刪標題列假客戶、清地址裡誤點的Excel公式片段、清錯放成身分證的地址(順便補生日);🔄一鍵套用新規則加:清掉聯絡紀錄不可能的壞日期(月>12/日>31)保留文字) 2026.06.17';
+const APP_VERSION = '🧪測試版 t48 (根治聯絡紀錄未來日期:MMDD補年份時月日比今天晚就用去年(解析端修,匯入幾次都不跑);🔄一鍵套用再把現有未來日期往前撥一年) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1853,6 +1853,9 @@ function parseVisitLogs(text){
   const pad = n => String(n).padStart(2,'0');
   const okMD = (mo,da) => { mo=+mo; da=+da; return mo>=1 && mo<=12 && da>=1 && da<=31; };   // 月1-12、日1-31才算有效日期
   const okHM = (h,mi) => { h=+h; mi=+mi; return h>=0 && h<24 && mi>=0 && mi<60; };           // 時0-23、分0-59才算有效時間
+  // MMDD 只有月日沒年份：補年份時若「比今天晚」就用去年，避免落在未來(拜訪都是過去的事)。匯入幾次都用同一套算,不會跑掉。
+  const _t = new Date(); const todayMD = (_t.getMonth()+1)*100 + _t.getDate();
+  const yearForMD = (mo,da) => ((+mo)*100+(+da) <= todayMD) ? curYear : curYear-1;
   const logs = [];
 
   // 逐行解析（每行一筆）。不再用會亂切的全域 pattern，避免把「日期 時間」拆成兩段、把時間誤判成日期。
@@ -1868,7 +1871,7 @@ function parseVisitLogs(text){
     }
     // 2) 西元 8 碼 MMDDHHMM（無空白黏在一起，如 11202152＝11/20 21:52）
     else if((m = line.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(?!\d)\s*/)) && okMD(m[1],m[2]) && okHM(m[3],m[4])){
-      date = `${curYear}-${m[1]}-${m[2]}`;
+      date = `${yearForMD(m[1],m[2])}-${m[1]}-${m[2]}`;
       time = `${m[3]}:${m[4]}`;
       line = line.slice(m[0].length).trim();
     }
@@ -1880,7 +1883,7 @@ function parseVisitLogs(text){
     }
     // 4) 西元 MMDD ＋可選 HHMM（中間可有空白，如 0205 0950）
     else if((m = line.match(/^(\d{2})(\d{2})(?:\s+(\d{2})(\d{2}))?\s*/)) && okMD(m[1],m[2])){
-      date = `${curYear}-${m[1]}-${m[2]}`;
+      date = `${yearForMD(m[1],m[2])}-${m[1]}-${m[2]}`;
       if(m[3]!=null && okHM(m[3],m[4])) time = `${m[3]}:${m[4]}`;
       line = line.slice(m[0].length).trim();
     }
@@ -5980,9 +5983,13 @@ function applyNewRulesToExisting(dryRun){
       candidate=(c.logs||[]).filter(l=>!isJunkLog(l.text));
     }
     if(candidate){
-      // 清掉不可能的日期(月>12或日>31)：保留文字、只把壞日期清空(舊版解析留下的殘渣)
-      candidate=candidate.map(l=>{ const m=String(l.date||'').match(/^\d{4}-(\d{2})-(\d{2})$/); return (m && (+m[1]>12||+m[1]<1||+m[2]>31||+m[2]<1)) ? Object.assign({},l,{date:''}) : l; })
-        .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      // 整理日期：不可能的日期(月>12/日>31)→清空保留文字;未來日期(比今天晚)→往前撥一年(舊版MMDD補成今年害的)
+      candidate=candidate.map(l=>{
+        const d=String(l.date||''); const m=d.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return l;
+        if(+m[2]>12||+m[2]<1||+m[3]>31||+m[3]<1) return Object.assign({},l,{date:''});
+        if(d>TODAY) return Object.assign({},l,{date:(parseInt(m[1],10)-1)+'-'+m[2]+'-'+m[3]});
+        return l;
+      }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       if(JSON.stringify(candidate)!==JSON.stringify(c.logs||[])){ if(!dryRun)c.logs=candidate; nLogs++; changed.add(c.id); }
     }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
