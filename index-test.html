@@ -987,7 +987,7 @@ async function applyUrlSettings() {
           </div>
         </div>
         <div class="note-debt-row">
-          <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…"></textarea></div>
+          <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…" oninput="autoGrowNote(this)" style="overflow:hidden;min-height:85px"></textarea></div>
           <div id="debtPhoneArea" style="display:none">
             <div style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">債電（未確認）</div>
             <div id="debtPhoneList" style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);line-height:1.8"></div>
@@ -1461,7 +1461,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t35 (手機版補行事曆:月曆原本只在電腦版右側面板(手機隱藏),手機header加📅鈕開全螢幕月曆彈窗,renderCalendar同步填入) 2026.06.17';
+const APP_VERSION = '🧪測試版 t36 (備註欄隨內容自動長高:打越多越高不用滾,載入既有備註也自動撐開,最低85px) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3940,6 +3940,9 @@ function openCalendar(id) {
   window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}`, '_blank');
 }
 
+// 備註欄隨內容自動長高（打越多越高，不用滾）
+function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.max(85, el.scrollHeight)+'px'; }
+
 // ── Sheet modal ───────────────────────────────────────────
 function openAdd(){
   editId=null;formDirty=false;
@@ -3949,6 +3952,7 @@ function openAdd(){
   document.getElementById('btnBlack').style.display='none';
   document.getElementById('btnShare').style.display='none';
   ['fName','fPhone','fIdno','fAddr','fCensusAddr','fBatch','fDistrict','fLandzone','fBuildNo','fLandNo','fRemindNote','fNote','fPurpose','fJob','fJobYears','fBirthY','fBirthM','fBirthD'].forEach(id=>document.getElementById(id).value='');
+  autoGrowNote(document.getElementById('fNote'));
   refreshBatchDatalist();
   document.getElementById('ageDisplay').style.display='none';
   document.getElementById('fDriveUrl').value='';
@@ -3994,6 +3998,7 @@ function openEdit(id){
   document.getElementById('fRemindMin').value  = rt ? rt.slice(3,5) : '';
   document.getElementById('fRemindNote').value=c.remindNote||'';
   document.getElementById('fNote').value=c.note||'';
+  autoGrowNote(document.getElementById('fNote'));
   document.getElementById('fJob').value=c.job||'';
   document.getElementById('fJobYears').value=c.jobYears||'';
   document.getElementById('fBirthY').value=c.birthY||'';
