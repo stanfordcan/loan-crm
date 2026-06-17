@@ -1467,7 +1467,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t53 (⚙️設定面板太長:加限高85vh+可捲動+標題置頂,整理區三顆按鈕說明收成精簡兩行) 2026.06.17';
+const APP_VERSION = '🧪測試版 t54 (壓力測試:normalizeAddr加String()防呆(非字串不再crash);370位真客戶+邊界輸入全跑過0crash/0未來日期/0不可能日期) 2026.06.18';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2270,8 +2270,8 @@ function consolidateByIdno(){
 // 地址標準化：全形→半形 + 中文樓層→數字（保留樓層，不刪除）
 function normalizeAddr(addr) {
   if (!addr) return '';
-  // 全形 ASCII → 半形（含 ０-９、Ａ-Ｚ、ａ-ｚ 及符號）
-  let s = addr.replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  // 全形 ASCII → 半形（含 ０-９、Ａ-Ｚ、ａ-ｚ 及符號）；String() 防呆,非字串(數字/物件)也不 crash
+  let s = String(addr).replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
   // 中文樓層數字 → 阿拉伯數字（二十三樓→23樓、十二樓→12樓、三樓→3樓）
   const CJ = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
   s = s.replace(/([一二三四五六七八九])十([一二三四五六七八九])?樓/g, (_, d, u) => (CJ[d]*10+(u?CJ[u]:0))+'樓');
