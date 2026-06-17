@@ -1444,7 +1444,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t23 (修新鑫名單匯入會把手動分的追很緊/覆訪蓋成新鑫;備註合併加防遺失保護,絕不弄丟原本手寫備註) 2026.06.17';
+const APP_VERSION = '🧪測試版 t24 (手動分類鎖:在CRM親手分過類就鎖住,之後總檔/新鑫/模糊審查匯入都不再覆蓋你的分類) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2524,7 +2524,7 @@ function processCompanyData(raw) {
         //       只有還沒分類(空白/待分類/最新資料/新鑫)才標記為新鑫。
         //       (修:之前只保護已簽約/無效,害業主分到追很緊的人被新鑫名單蓋掉)
         const keepHeats = ['已簽約','無效案件','追很緊','覆訪'];
-        if(!keepHeats.includes(existing.heat)) existing.heat = '新鑫';
+        if(!existing.heatManual && !keepHeats.includes(existing.heat)) existing.heat = '新鑫';
         existing.updatedAt = TODAY;
         updated++;
       } else {
@@ -2853,7 +2853,8 @@ function processCompanyData(raw) {
       // 追蹤ing 舊資料被錯誤分到「覆訪」的也一起更新
       const canUpdateHeat = defaultHeats.includes(existing.heat||'') ||
                             (heat === '追很緊' && existing.heat === '覆訪');
-      if(canUpdateHeat) existing.heat = heat;
+      // heatManual＝用戶在CRM親手分過類→分類絕對不動(總檔不覆蓋手動分類)
+      if(canUpdateHeat && !existing.heatManual) existing.heat = heat;
       // 負債電話：空白才補
       if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
       // 聯絡記錄：只加入新的，不恢復已刪除的
@@ -2963,7 +2964,7 @@ function processCompanyData(raw) {
           if(f.landNos && !ex.landNo) ex.landNo = f.landNos;
           if(f.sectionName && !ex.purpose) ex.purpose = f.sectionName;
           const defaultHeats = ['追很緊',''];
-          if(defaultHeats.includes(ex.heat||'')) ex.heat = f.heat;
+          if(defaultHeats.includes(ex.heat||'') && !ex.heatManual) ex.heat = f.heat;
           if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = f.allDebtPhones;
           if(f.processText){
             const newLogs = parseVisitLogs(f.processText);
@@ -5210,6 +5211,8 @@ async function saveClient(silent){
     updatedAt:TODAY,
     properties:properties.map(p=>({...p})),
   };
+  // 手動分類鎖：用戶親手分了類(非待分類)→鎖住,之後匯入(總檔/新鑫)都不再覆蓋分類
+  if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(data.heat)) data.heatManual = true;
   if(editId){
     const idx=clients.findIndex(c=>c.id===editId);
     clients[idx]={...clients[idx],...data};
