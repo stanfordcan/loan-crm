@@ -1378,7 +1378,10 @@ async function applyUrlSettings() {
         <button onclick="ltMapCsv()" style="flex:1;background:var(--s2);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🗺️ 地圖名單</button>
         <button onclick="ltExportCompany()" style="flex:1;background:#2E7D55;color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📤 公司格式</button>
       </div>
-      <button onclick="ltPrintNotice()" style="margin-top:8px;width:100%;background:#6A5E8A;color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🖨️ 列印通知單（一頁4格，帶入姓名/地址/流水編號）</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button onclick="ltExportNoticeData()" style="flex:2;background:#6A5E8A;color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📨 通知單名單（Word合併列印）</button>
+        <button onclick="ltPrintNotice()" style="flex:1;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">🖨️ 網頁列印</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1470,7 +1473,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t43 (通知單內容太高被裁掉:字級行距間距收緊(標題14/內文11.5pt行距1.5/padding4mm)讓整張塞進一格不被裁) 2026.06.17';
+const APP_VERSION = '🧪測試版 t44 (改走Word合併列印:📋名單加「📨通知單名單(Word合併列印)」匯出CSV(流水編號/姓名/地址/區路段巷弄號樓/投遞姓名電話),欄名對應Word範本合併欄位;網頁列印保留為次要) 2026.06.17';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3705,6 +3708,33 @@ body{ margin:0; font-family:"DFKai-SB","標楷體","BiauKai","KaiTi",serif; colo
   if(!w){ showToast('⚠️ 請允許彈出視窗才能列印通知單'); return; }
   w.document.write(html); w.document.close();
   showToast(`🖨️ 已產生 ${list.length} 張通知單（每頁4格）`);
+}
+
+// ── 📨 匯出「通知單名單」CSV（給 Word 合併列印用）──
+// 欄位名要跟 Word 範本的合併欄位一致：流水編號/姓名/地址/區/路/段/巷/弄/號/樓/樓別/投遞姓名/投遞電話
+function ltExportNoticeData(){
+  const list=clients.filter(c=>_ltChecked.has(c.id));
+  if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
+  let dv={}; try{ dv=JSON.parse(localStorage.getItem('notice_deliverer')||'{}'); }catch(e){}
+  const dName=prompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
+  const dPhone=prompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
+  dv={name:(dName||'').trim(), phone:(dPhone||'').trim()};
+  try{ localStorage.setItem('notice_deliverer', JSON.stringify(dv)); }catch(e){}
+  const H=['流水編號','姓名','地址','區','路','段','巷','弄','號','樓','樓別','投遞姓名','投遞電話'];
+  const esc=v=>{ const s=String(v==null?'':v).replace(/"/g,'""'); return /[",\n\r]/.test(s)?'"'+s+'"':s; };
+  const lines=[H.join(',')];
+  list.forEach(c=>{
+    const a=noticeAddrParts(c.addr||'');
+    lines.push([c.serial||'', dispName(c), c.addr||'', a.dist, a.road, a.sec, a.lane, a.alley, a.no, a.floor, a.floorsub, dv.name, dv.phone].map(esc).join(','));
+  });
+  const csv='﻿'+lines.join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const d=new Date(),pad=n=>String(n).padStart(2,'0');
+  const a=document.createElement('a'); a.href=url; a.download=`通知單名單_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },1000);
+  showToast(`📨 已匯出 ${list.length} 筆通知單名單（給 Word 合併列印）`);
 }
 
 function render(){
