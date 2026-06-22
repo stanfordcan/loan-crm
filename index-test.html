@@ -1232,7 +1232,8 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
       <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔄 一鍵套用新規則<br><span style="font-size:10px;font-weight:400;opacity:.8">補身分證/戶籍/門牌、修區、新鑫批次、整理紀錄</span></button>
       <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
-      <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
     </div>
   </div>
 </div>
@@ -1415,8 +1416,9 @@ async function applyUrlSettings() {
     <h3 style="margin-bottom:6px">🔗 加關聯</h3>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <label style="font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap">關係</label>
-      <select id="relType" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"></select>
+      <select id="relType" onchange="if(this.value)document.getElementById('relCustom').value=''" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"></select>
     </div>
+    <input id="relCustom" placeholder="或自己打關係（例：岳父、合夥人、保證人）" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none;margin-bottom:8px"/>
     <input id="relSearch" placeholder="🔍 搜尋姓名／電話 挑要關聯的人" oninput="renderRelPickList()" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
     <div id="relPickList" style="overflow-y:auto;flex:1;margin-top:8px;min-height:120px"></div>
     <div class="imbtns" style="margin-top:12px">
@@ -1512,7 +1514,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t60 (修正:電話搜尋打不打橫線都能搜到(09xxxxxxxx 或 09xx-xxx-xxx),共同借款人電話也能搜;主搜尋/名單/關聯挑人/地圖都修) 2026.06.22';
+const APP_VERSION = '🧪測試版 t61 (關聯可自己打關係(岳父/合夥人等);設定→新增🔗拆分舊的共同借款人工具,把「名字／名字」拆成獨立兩筆+自動綁定,主借款人保留房屋備註) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3692,6 +3694,7 @@ function openRelPicker(){
   const sel=document.getElementById('relType');
   sel.innerHTML=REL_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
   sel.value='共同借款人';
+  document.getElementById('relCustom').value='';
   document.getElementById('relSearch').value='';
   renderRelPickList();
   document.getElementById('relPickBg').classList.add('open');
@@ -3715,7 +3718,8 @@ function addRelation(targetId){
   const c=editId?clients.find(x=>x.id===editId):null;
   const t=clients.find(x=>x.id===targetId);
   if(!c||!t) return;
-  const relation=document.getElementById('relType').value||'其他';
+  // 自己打的關係優先；沒打才用下拉
+  const relation=(document.getElementById('relCustom').value||'').trim() || document.getElementById('relType').value || '其他';
   linkRelation(c,t,relation);
   saveLocal(); renderRelChips(); closeRelPick();
   showToast(`🔗 已關聯「${dispName(t)}」（${relation}）`);
@@ -6270,6 +6274,47 @@ function cleanupInvalidEmpty(){
   saveLocal(); render();
   showToast(`🧹 已清除 ${targets.length} 筆無效空資料`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
+
+// 🔗 拆分舊的「名字／名字」共同借款人：拆成獨立兩筆＋雙向綁定「共同借款人」
+function splitMergedCoborrowers(){
+  ensureSerials();
+  // 只挑名字含「／」的（舊新鑫合併產生的）
+  const targets=clients.filter(c=>String(c.name||'').includes('／') && String(c.name||'').split('／').filter(s=>s.trim()).length>=2);
+  if(!targets.length){ showToast('✅ 沒有需要拆分的「名字／名字」資料'); return; }
+  const preview=targets.slice(0,12).map(c=>c.name).join('\n');
+  if(!confirm(`找到 ${targets.length} 筆合併在一起的共同借款人：\n\n${preview}${targets.length>12?'\n…等':''}\n\n會把每筆拆成獨立的人、互相綁「共同借款人」，主借款人保留原本的房屋/備註資料。\n（共同借款人那筆只帶得到姓名和電話，身分證等下次從新鑫更新會補上；建議先下載備份）\n\n確定拆分？`)) return;
+  let nSplit=0, nNew=0;
+  targets.forEach(c=>{
+    const parts=String(c.name).split('／').map(s=>s.trim()).filter(Boolean);
+    const mainName=parts[0];
+    const coNames=parts.slice(1);
+    c.name=mainName; // 主借款人保留全部既有資料(房屋/備註/分類…)
+    coNames.forEach(coName=>{
+      // 從 debtPhones 找這個人的電話（格式："09xx-xxx-xxx（陳廣庠）"）
+      let coPhone='';
+      const dp=(c.debtPhones||[]).find(p=>String(p).includes(coName));
+      if(dp){ coPhone=(String(dp).match(/[\d\-]{8,}/)||[''])[0]; }
+      // 已存在同名客戶就綁過去，不重複建
+      let co=clients.find(x=>x.name===coName);
+      if(!co){
+        co={ id:nextId++, name:coName, phone:coPhone, idno:'', addr:'', debtPhones:[],
+             heat:c.heat||'新鑫', batch:c.batch||'', remind:'', remindTime:'', remindNote:'',
+             job:'', jobYears:'', finProofs:[], note:'', area:0, bank:0, private:0, legal:0,
+             purpose:'', buildNo:'', logs:[], companyRaw:null, createdAt:TODAY, updatedAt:TODAY };
+        clients.push(co); nNew++;
+      } else if(coPhone && !co.phone){ co.phone=coPhone; }
+      linkRelation(c, co, '共同借款人');
+    });
+    // 拆完把已分配出去的 debtPhones 清掉（避免重複顯示）
+    c.debtPhones=(c.debtPhones||[]).filter(p=>!coNames.some(n=>String(p).includes(n)));
+    c.updatedAt=TODAY;
+    nSplit++;
+  });
+  ensureSerials(); saveLocal(); render();
+  showToast(`🔗 已拆分 ${nSplit} 筆、新增 ${nNew} 位共同借款人並綁定`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+  pushToSheet().catch(()=>{});
 }
 async function clearAllData() {
   if (!confirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`)) return;
