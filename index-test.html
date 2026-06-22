@@ -1515,7 +1515,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t63 (修正:打開客戶時備註框沒撐開到完整高度(面板還沒顯示就量高度,卡在最小85px)→改成面板顯示後再撐開) 2026.06.22';
+const APP_VERSION = '🧪測試版 t64 (修正:AI匯入持分共有共有人被誤併(陳先生被併到潘小姐)→同建號/同地址但明顯不同人(不同姓或兩個完整本名不同)不再合併,改用姓名對到正確的人或各自獨立建檔) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5710,6 +5710,19 @@ function addrCore(s){
 }
 // 姓氏（去掉遮罩星號取第一字）：「龔**」→「龔」
 function surnameOf(n){ return String(n||'').replace(/[*＊\s]/g,'').charAt(0); }
+function isMaskedName(n){ return /[*＊○〇◯●Ｏ]/.test(String(n||'')); }
+// 判斷 a、b 是否「明顯不同人」(用於同建號/同地址時避免把持分共有的共有人併在一起)
+function clearlyDifferentPerson(a,b){
+  a=String(a||'').trim(); b=String(b||'').trim();
+  if(!a||!b) return false;            // 有一邊沒名字 → 無法判斷,不強制分開
+  if(a===b) return false;
+  if(a.includes(b)||b.includes(a)) return false; // 一方是另一方的子字串(遮罩) → 可能同一人
+  const ma=isMaskedName(a), mb=isMaskedName(b);
+  if(!ma && !mb) return true;         // 兩個都是完整本名又不一樣 → 不同人(例:陳廣庠 vs 潘家崴、吳家華 vs 吳家文)
+  const sa=surnameOf(a), sb=surnameOf(b);
+  if(sa && sb && sa!==sb) return true; // 有遮罩但連姓都不同 → 不同人
+  return false;                        // 同姓含遮罩 → 可能同一人,交後面流程判斷
+}
 function addrHit(a,b){ return a&&b&&a.length>=4&&(a===b||a.startsWith(b)||b.startsWith(a)); }
 
 // 多層比對：身分證→電話→建號→地址(+姓氏)→只有姓名
@@ -5738,14 +5751,15 @@ function findAiMatch(rec){
   if(isFullId(idno)){ const c=clients.find(c=>(c.idno||'').trim().toUpperCase()===idno); if(c) return {client:c,reason:'身分證相符',confidence:'strong'}; }
   // 2. 電話
   if(phone&&phone.length>=9){ const c=clients.find(c=>(c.phone||'').replace(/[^\d]/g,'')===phone); if(c) return {client:c,reason:'電話相符',confidence:'strong'}; }
-  // 3. 建號（任一相同，含 col4）
+  // 3. 建號（任一相同，含 col4）— 排除「同建號但明顯不同人」(持分共有的共有人不可合併)
   if(recBuilds.length){
-    const c=clients.find(c=>clientBuilds(c).some(b=>recBuilds.includes(b)));
+    const c=clients.find(c=>clientBuilds(c).some(b=>recBuilds.includes(b)) && !clearlyDifferentPerson(name,c.name));
     if(c) return {client:c,reason:'建號相符',confidence:'strong'};
   }
   // 4. 地址相符 → 同姓氏/同名直接更新；姓名不同則疑似（交使用者確認）
+  //    排除「同地址但明顯不同人」(同址不同戶/持分共有)，讓它往下用姓名對到正確的人或建新檔
   if(recAddrs.length){
-    const c=clients.find(c=>clientAddrs(c).some(a=>recAddrs.some(ra=>addrHit(a,ra))));
+    const c=clients.find(c=>clientAddrs(c).some(a=>recAddrs.some(ra=>addrHit(a,ra))) && !clearlyDifferentPerson(name,c.name));
     if(c){
       if(name && c.name===name) return {client:c,reason:'姓名+地址相符',confidence:'strong'};
       if(name && surnameOf(name) && surnameOf(name)===surnameOf(c.name)) return {client:c,reason:'地址+姓氏相符',confidence:'strong'};
