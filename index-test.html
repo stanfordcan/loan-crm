@@ -1512,7 +1512,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t59 (人的關聯:基本頁新增🔗關聯(親友/共同借款人),雙向綁定可點跳轉;新鑫匯入「沒地址」的共同借款人改成各自獨立建檔+自動綁成共同借款人(以前是併成同一筆名字用／隔開)) 2026.06.22';
+const APP_VERSION = '🧪測試版 t60 (修正:電話搜尋打不打橫線都能搜到(09xxxxxxxx 或 09xx-xxx-xxx),共同借款人電話也能搜;主搜尋/名單/關聯挑人/地圖都修) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3487,6 +3487,12 @@ function clientMatchesQuery(c,q){
   if(String(dispName(c)).toLowerCase().includes(q)) return true; // 顯示名(含先生/小姐)也能搜
   if(String(c.serial||'').includes(q)) return true;              // 流水編號反查
   if(String(c.phone||'').includes(q)) return true;
+  // 電話：去掉橫線/空白再比，打不打橫線都能搜(09xxxxxxxx 或 09xx-xxx-xxx 都行)
+  const qDigits=q.replace(/\D/g,'');
+  if(qDigits.length>=3){
+    if(String(c.phone||'').replace(/\D/g,'').includes(qDigits)) return true;
+    if((c.debtPhones||[]).some(p=>String(p).replace(/\D/g,'').includes(qDigits))) return true;
+  }
   if(String(c.idno||'').toLowerCase().includes(q)) return true;
   if(String(c.note||'').toLowerCase().includes(q)) return true;
   if(String(c.addr||'').toLowerCase().includes(q)) return true;
@@ -3508,7 +3514,7 @@ function openMapExport(){
   buildMapRows(); renderMapCatBar(); renderMapList();
   document.getElementById('mapBg').classList.add('open');
 }
-function mapRowMatch(r){ const q=_mapQuery; if(!q) return true; return String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.addr||'').toLowerCase().includes(q)||String(r.batch||'').toLowerCase().includes(q); }
+function mapRowMatch(r){ const q=_mapQuery; if(!q) return true; const qd=q.replace(/\D/g,''); return String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||(qd.length>=3&&String(r.phone||'').replace(/\D/g,'').includes(qd))||String(r.addr||'').toLowerCase().includes(q)||String(r.batch||'').toLowerCase().includes(q); }
 function mapPickBatch(b){ if(!b) return; let n=0; _mapRows.forEach(r=>{ if((r.batch||'')===b){ r.checked=true; n++; } }); renderMapList(); showToast(`已勾選批次「${b}」的 ${n} 個地址`); }
 function closeMapExport(){ document.getElementById('mapBg').classList.remove('open'); }
 function buildMapRows(){
@@ -3697,7 +3703,7 @@ function renderRelPickList(){
   const q=(document.getElementById('relSearch').value||'').trim().toLowerCase();
   const linked=new Set(((c&&c.relations)||[]).map(r=>String(r.serial)));
   let list=clients.filter(x=>x.id!==editId && !linked.has(String(x.serial)));
-  if(q) list=list.filter(x=>String(x.name||'').toLowerCase().includes(q)||String(x.phone||'').includes(q));
+  if(q){ const qd=q.replace(/\D/g,''); list=list.filter(x=>String(x.name||'').toLowerCase().includes(q)||String(x.phone||'').includes(q)||(qd.length>=3&&String(x.phone||'').replace(/\D/g,'').includes(qd))); }
   list=list.slice(0,40);
   if(!list.length){ box.innerHTML='<div style="color:var(--t3);font-size:13px;padding:14px;text-align:center">'+(q?'找不到符合的客戶':'輸入姓名或電話搜尋')+'</div>'; return; }
   box.innerHTML=list.map(x=>`<div onclick="addRelation(${x.id})" style="padding:9px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;flex-direction:column;gap:1px">
@@ -5469,7 +5475,7 @@ function filterTenClients(){
   const list=document.getElementById('tenClientList');
   if(!list) return;
   const filtered=(q
-    ?clients.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.idno||'').includes(q))
+    ?clients.filter(c=>{const qd=q.replace(/\D/g,'');return (c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(qd.length>=3&&String(c.phone||'').replace(/\D/g,'').includes(qd))||(c.idno||'').includes(q);})
     :clients
   ).slice(0,40);
   if(!filtered.length){
