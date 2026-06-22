@@ -49,6 +49,25 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .spill.warn{background:var(--obg)}
 .spill.warn b{color:var(--orange)}
 .spill.info b{color:var(--accent)}
+/* 工具列收合（手機）：預設展開的容器 + 收合切換鈕 */
+.hbtnsBar{display:flex;align-items:center;gap:2px}
+#hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+@media(min-width:900px){ #hbtnToggle{display:none} }
+@media(max-width:899px){
+  /* 統計卡縮成一條細的（橫向小字，省高度） */
+  .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
+  .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
+  .spill b{display:inline;font-size:15px;line-height:1}
+  .spill span{display:inline;margin-top:0}
+  /* 名單併到搜尋那行（不換行；名單只剩圖示） */
+  .search-wrap{flex-wrap:nowrap!important}
+  .search-input{min-width:0!important}
+  .listtool-txt{display:none}
+  /* 上方功能鈕預設收合，點切換鈕才展開 */
+  #hbtnToggle{display:block}
+  .hbtnsBar{display:none}
+  .hbtnsBar.open{display:flex}
+}
 .tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px;display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;flex:1}
 .tabs::-webkit-scrollbar{display:none}
 .tabs-wrap{position:relative;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -769,7 +788,8 @@ async function applyUrlSettings() {
         <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:2px">
+    <button id="hbtnToggle" onclick="toggleHbtns()">⚙️ 功能選單 ▾</button>
+    <div class="hbtnsBar" id="hbtnsBar">
     <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
     <div class="hbtns" id="hbtnsRow" style="flex:1">
       <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
@@ -827,7 +847,7 @@ async function applyUrlSettings() {
         <div style="margin-top:10px;font-size:11px;color:var(--t3)">標記批次請用工具列「📋 名單」</div>
       </div>
     </div>
-    <button onclick="openListTool()" title="勾選客戶→標批次/地圖名單/匯出公司格式" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 名單</button>
+    <button onclick="openListTool()" title="勾選客戶→標批次/地圖名單/匯出公司格式" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 <span class="listtool-txt">名單</span></button>
   </div>
   </div><!-- /sticky-top -->
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
@@ -1515,7 +1535,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t65 (修正:在備註/姓名等輸入欄位裡按上下鍵不再切換客戶,讓游標正常上下移動;焦點在欄位外才切換客戶) 2026.06.22';
+const APP_VERSION = '🧪測試版 t66 (手機UI瘦身:統計卡縮成一條細橫條、名單併到搜尋那行(只剩圖示)、上方功能鈕預設收合點「功能選單」才展開;電腦版完全不變) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3462,6 +3482,13 @@ function scrollTabs(dx) {
 function scrollHbtns(dx) {
   const row = document.getElementById('hbtnsRow');
   row.scrollBy({ left: dx, behavior: 'smooth' });
+}
+// 手機：收合/展開上方功能鈕
+function toggleHbtns(){
+  const bar=document.getElementById('hbtnsBar');
+  const btn=document.getElementById('hbtnToggle');
+  const open=bar.classList.toggle('open');
+  if(btn) btn.textContent = open ? '⚙️ 功能選單 ▴' : '⚙️ 功能選單 ▾';
 }
 
 function setTab(t){
