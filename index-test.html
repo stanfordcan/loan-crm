@@ -1539,7 +1539,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t71 (修正:hasFen把「全部1分之1」誤判成持分,害遮罩證號/沒電話/沒建號的客戶(如馬小姐)地址比對被跳過→每次總檔更新都當新人(連帶跳批次/帶回髒地址/跳模糊比對);改成只有真持分(非1分之1)才跳過地址比對) 2026.06.22';
+const APP_VERSION = '🧪測試版 t72 (補完整本名:🔄一鍵套用新規則新增「從預告登記/限制登記的義務人補回完整本名」(謄本所有權部是遮罩的,如馬＊＊→馬曉芃),同姓才補;匯入也修正遮罩判斷(去遮罩後只剩單姓也算遮罩)) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2692,7 +2692,8 @@ function processCompanyData(raw) {
     const ownerRaw = String(row[6]||'');
     // Match full ID: A123456789 姓名, or masked ID: A221*****8 江＊＊ or A221*****8 江某某
     const ownerNameMatch = ownerRaw.match(/[A-Z]\d[\d*]{7,9}[\d*]\s+([\u4e00-\u9fff＊*]{2,8})/);
-    let ownerName = ownerNameMatch ? ownerNameMatch[1].replace(/[＊*]/g,'') : '';
+    const ownerNameRaw = ownerNameMatch ? ownerNameMatch[1] : '';   // 含遮罩,如「馬＊＊」
+    let ownerName = ownerNameRaw.replace(/[＊*]/g,'');               // 去遮罩後可能只剩單姓「馬」
     // Remove if only asterisks remain
     if(ownerName.length < 1) ownerName = '';
 
@@ -2700,11 +2701,11 @@ function processCompanyData(raw) {
     const col7Name = ownerName;
 
     // If name is masked or missing, fallback to restriction col (col 18) for 義務人
-    const isMasked = !ownerName || ownerName.includes('*') || ownerName.includes('＊');
+    const isMasked = !ownerName || ownerName.length<=1 || /[＊*]/.test(ownerNameRaw);
     if (isMasked) {
       const restrictRaw = String(row[18]||'');
       const obligorMatch = restrictRaw.match(/義務人[：:]\s*([\u4e00-\u9fff]{2,8})/);
-      if (obligorMatch) ownerName = obligorMatch[1];
+      if (obligorMatch && (!ownerName || obligorMatch[1].charAt(0)===ownerName.charAt(0))) ownerName = obligorMatch[1];
     }
 
     // Final fallback: try debt column (col 9)（僅供顯示，不用於比對）
@@ -6218,6 +6219,16 @@ function trustSettlorName(ownerStr, restrictStr){
         || restrictStr.match(/委託人[：:]\s*([一-鿿]{2,8})/);
   return m ? m[1].trim() : '';
 }
+// 名字是不是遮罩/只剩姓(總檔的遮罩名會被縮成單姓如「馬」)
+function isMaskedShortName(n){ n=String(n||'').trim(); return !n || n.length<=1 || /[＊*○〇◯●Ｏ]/.test(n); }
+// 從總檔資料的「義務人」(預告登記/限制登記/查封)抓所有權人完整本名——謄本所有權部是遮罩的,但義務人欄通常是全名
+// 注意:「義務人」和冒號間可能有空白/換行(義務人  :馬曉芃)
+function ownerFullNameFromCompanyRaw(cr){
+  if(!cr) return '';
+  const pools=[String(cr.owner||''), ...((cr.cols||[]).map(String))];
+  for(const s of pools){ const m=s.match(/義務人\s*[：:]\s*([一-鿿]{2,8})/); if(m) return m[1]; }
+  return '';
+}
 // 從整列總檔抓戶籍地：優先第7欄,否則所有權部第二行(屋主住址)
 function censusFromCompanyRaw(cr){
   if(!cr) return '';
@@ -6259,7 +6270,7 @@ function fixAddrDistrict(addr, buildInfo){
 // 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
 function isJunkLog(t){ t=String(t||'').trim(); return !t || !/[^\d\s:：.,，、。\-_/／()（）]/.test(t); }
 function applyNewRulesToExisting(dryRun){
-  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0; const changed=new Set();
+  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0,nName=0; const changed=new Set();
   clients.forEach(c=>{
     // 新鑫批次標頭(1150522_資料(N))原本塞在備註→搬進「批次」欄(空白才補,並把標頭從備註移除)
     if(!String(c.batch||'').trim()){
@@ -6268,6 +6279,12 @@ function applyNewRulesToExisting(dryRun){
     }
     const cr=c.companyRaw;
     if(cr){
+      // 補遮罩本名：所有權部遮罩(如「馬」)→從預告登記/限制登記的義務人補完整本名(如馬曉芃),同姓才補
+      if(isMaskedShortName(c.name)){
+        const cur=String(c.name||'').trim();
+        const full=ownerFullNameFromCompanyRaw(cr) || (c.properties||[]).map(p=>ownerFullNameFromCompanyRaw(p.companyRaw)).find(Boolean) || '';
+        if(full && full.length>cur.length && (!cur || full.charAt(0)===cur.charAt(0))){ if(!dryRun)c.name=full; nName++; changed.add(c.id); }
+      }
       if(!c.idno){ const id=idnoFromOwner(cr.owner); if(id){ if(!dryRun)c.idno=id; nIdno++; changed.add(c.id); } }
       if(!c.censusAddr){ const ca=censusFromCompanyRaw(cr); if(ca){ if(!dryRun)c.censusAddr=ca; nCensus++; changed.add(c.id); } }
       // 門牌空白/沒有「號」→從標示部抓門牌(退用所有權部住址)
@@ -6301,15 +6318,15 @@ function applyNewRulesToExisting(dryRun){
     }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
   });
-  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nClients:changed.size};
+  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nClients:changed.size};
 }
 function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
   if(!r.nClients){ showToast('✅ 既有客戶都已是最新，沒有需要補的'); return; }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。只補空白、修正填錯的區、重洗聯絡紀錄，不會動你手改的其他資料。\n\n建議先「下載備份檔」。確定執行？`)) return;
+  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。只補空白、修正填錯的區、重洗聯絡紀錄，不會動你手改的其他資料。\n\n建議先「下載備份檔」。確定執行？`)) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
-  showToast(`✅ 已套用：身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位`);
+  showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
