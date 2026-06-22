@@ -1539,7 +1539,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t74 (修根本問題:試算表同步以前會把客戶層級公司資料砍成5欄摘要(掉25欄cols)→改成完整companyRaw放進富欄位JSON,同步來回不再砍資料;雲端Firestore本來就是完整來源) 2026.06.22';
+const APP_VERSION = '🧪測試版 t75 (鍵盤:←→切換分頁(基本/不動產/聯絡記錄/公司資料/房價評估/雲端);↑↓切換客戶時停留在同一分頁(換成新客戶的同分頁,不跳回基本);輸入欄位內方向鍵不攔) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4210,16 +4210,33 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Escape' && sheetOpen){ closeSheet(); return; }
   // Ctrl+S 儲存
   if(e.ctrlKey && e.key==='s' && sheetOpen){ e.preventDefault(); saveClient(); return; }
-  // ↑↓ 切換客戶（PC）— 但焦點在輸入欄位(備註/姓名/下拉…)時不攔，讓游標正常上下移動
-  if((e.key==='ArrowUp'||e.key==='ArrowDown') && sheetOpen && window.innerWidth>=900){
+  // 方向鍵：焦點在輸入欄位(備註/姓名/下拉…)時一律不攔，讓游標正常移動
+  const isArrow = (e.key==='ArrowUp'||e.key==='ArrowDown'||e.key==='ArrowLeft'||e.key==='ArrowRight');
+  if(isArrow && sheetOpen && window.innerWidth>=900){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea'||tag==='select'||(e.target&&e.target.isContentEditable)) return;
+    // ←→ 切換分頁（基本/不動產/聯絡記錄/公司資料/房價評估/雲端）
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      e.preventDefault();
+      const btns=document.querySelectorAll('.stab'); if(!btns.length) return;
+      let cur=[...btns].findIndex(b=>b.classList.contains('active')); if(cur<0) cur=0;
+      let nx=cur+(e.key==='ArrowLeft'?-1:1);
+      nx=Math.max(0,Math.min(btns.length-1,nx));
+      if(nx!==cur && btns[nx]) sSTab(nx, btns[nx]);
+      return;
+    }
+    // ↑↓ 切換客戶，但停留在同一個分頁（換成新客戶的同一分頁，不跳回基本）
     e.preventDefault();
+    const btns=document.querySelectorAll('.stab');
+    const keepTab=[...btns].findIndex(b=>b.classList.contains('active')); // 記住目前分頁
     const cards=Array.from(document.querySelectorAll('.ccard'));
     const ids=cards.map(el=>{const m=el.getAttribute('onclick')?.match(/openEdit\((\d+)\)/);return m?parseInt(m[1]):null;}).filter(Boolean);
     const idx=ids.indexOf(editId);
     const next=e.key==='ArrowUp'?idx-1:idx+1;
-    if(next>=0&&next<ids.length) openEdit(ids[next]);
+    if(next>=0&&next<ids.length){
+      openEdit(ids[next]);
+      if(keepTab>0){ const nb=document.querySelectorAll('.stab'); if(nb[keepTab]) sSTab(keepTab, nb[keepTab]); } // 還原到同一分頁(基本=0不用動)
+    }
   }
 });
 
