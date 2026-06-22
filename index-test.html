@@ -955,6 +955,12 @@ async function applyUrlSettings() {
           <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678"/></div>
           <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789"/></div>
         </div>
+        <div class="frow"><label>🔗 關聯（親友／共同借款人）</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+            <div id="relChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+            <button type="button" onclick="openRelPicker()" style="background:var(--abg);color:var(--accent);border:1px dashed var(--accent);border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">＋ 關聯</button>
+          </div>
+        </div>
         <div class="frow"><label>追蹤熱度</label>
           <select id="fHeat">
             <option value="待分類">🟤 待分類</option>
@@ -1403,6 +1409,22 @@ async function applyUrlSettings() {
   </div>
 </div>
 
+<!-- 🔗 加關聯（親友／共同借款人） -->
+<div class="imbg" id="relPickBg" style="z-index:9600" onclick="if(event.target===this)closeRelPick()">
+  <div class="immodal" style="max-width:420px;max-height:82vh;display:flex;flex-direction:column">
+    <h3 style="margin-bottom:6px">🔗 加關聯</h3>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <label style="font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap">關係</label>
+      <select id="relType" style="flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"></select>
+    </div>
+    <input id="relSearch" placeholder="🔍 搜尋姓名／電話 挑要關聯的人" oninput="renderRelPickList()" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
+    <div id="relPickList" style="overflow-y:auto;flex:1;margin-top:8px;min-height:120px"></div>
+    <div class="imbtns" style="margin-top:12px">
+      <button class="imcancel" onclick="closeRelPick()">關閉</button>
+    </div>
+  </div>
+</div>
+
 <!-- 匯出 Google 我的地圖名單 -->
 <div class="imbg" id="mapBg">
   <div class="immodal" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
@@ -1490,7 +1512,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t58 (修正:名單→標批次的視窗會被名單蓋住(z-index 2600→9500),現在會正常顯示在最上層) 2026.06.22';
+const APP_VERSION = '🧪測試版 t59 (人的關聯:基本頁新增🔗關聯(親友/共同借款人),雙向綁定可點跳轉;新鑫匯入「沒地址」的共同借款人改成各自獨立建檔+自動綁成共同借款人(以前是併成同一筆名字用／隔開)) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2543,6 +2565,7 @@ function processCompanyData(raw) {
   const _startNextId = nextId; // 匯入前的 id 上限：之後 id≥這個值的就是「本次匯入新增的人」
   const pendingReview = []; // 需要 Claude 審查的模糊案例
   let xinXinBatchDate = ''; // 追蹤新鑫批次日期
+  let lastXinMain = null;   // 追蹤目前這筆貸款的「主借款人」(有地址那位)，沒地址的後續列自動綁成共同借款人
 
   rows.forEach(row => {
     const sheetName = String(row[row.length-1]||'').trim();
@@ -2565,31 +2588,15 @@ function processCompanyData(raw) {
       const fullNote = [xinXinBatchDate || '', note].filter(Boolean).join('｜');
       const normPhone = phone.replace(/[-\s]/g,'');
 
-      // 如果地址是空白，合併到上一筆同電話或同名的新鑫客戶
-      if(!addr && clients.length > 0) {
-        const prev = clients[clients.length - 1];
-        const prevPhone = String(prev.phone||'').replace(/[-\s]/g,'');
-        const samePhone = normPhone && prevPhone && prevPhone === normPhone;
-        const sameName = name && prev.name && (prev.name===name || prev.name.includes(name));
-        if(prev.heat === '新鑫' && (samePhone || sameName || !phone)) {
-          if(name && !prev.name.includes(name)) {
-            prev.name = prev.name + '／' + name;
-          }
-          if(phone && !(prev.debtPhones||[]).some(p=>p.includes(phone))) {
-            prev.debtPhones = [...(prev.debtPhones||[]), phone + `（${name}）`];
-          }
-          prev.updatedAt = TODAY;
-          updated++;
-          return;
-        }
-      }
-
+      // 比對既有客戶：完整身分證 / 電話 / 完全同名
       const existing = clients.find(c=>{
+        if(isFullId(c.idno) && isFullId(xinIdno) && String(c.idno).toUpperCase()===xinIdno.toUpperCase()) return true;
         if(c.phone && normPhone && String(c.phone).replace(/[-\s]/g,'')=== normPhone) return true;
         if(name && c.name===name) return true;
         return false;
       });
       if(isBlacklisted(phone, xinIdno, '', name)){ skipped++; return; }
+      let curXin;
       if(existing){
         if(!existing.addr && addr) existing.addr = addr;
         // 批次標頭(1150522_資料(N))＝來源批次→放進 batch 欄(空白才補,不覆蓋手動批次);個人備註留在 note
@@ -2605,9 +2612,10 @@ function processCompanyData(raw) {
         const keepHeats = ['已簽約','無效案件','追很緊','覆訪'];
         if(!existing.heatManual && !keepHeats.includes(existing.heat)) existing.heat = '新鑫';
         existing.updatedAt = TODAY;
+        curXin = existing;
         updated++;
       } else {
-        clients.push({
+        curXin = {
           id: nextId++,
           name, phone, idno: xinIdno, addr,
           debtPhones: [],
@@ -2620,8 +2628,15 @@ function processCompanyData(raw) {
           logs: note ? [{date: TODAY, text: note}] : [],
           companyRaw: null,
           createdAt: TODAY, updatedAt: TODAY,
-        });
+        };
+        clients.push(curXin);
         added++;
+      }
+      // 有地址=這筆貸款的主借款人；沒地址=同筆貸款的共同借款人→自動綁到前一位主借款人(各自獨立建檔,不再併成一筆)
+      if(addr){
+        lastXinMain = curXin;
+      } else if(lastXinMain && lastXinMain !== curXin){
+        linkRelation(lastXinMain, curXin, '共同借款人');
       }
       return;
     }
@@ -3629,6 +3644,89 @@ function ltBatchApply(){
   showToast(v?`🏷️ 已標記 ${n} 筆為「${v}」`:`已清除 ${n} 筆的批次`);
   pushToSheet().catch(()=>{});
 }
+
+// ===== 🔗 人的關聯（親友／共同借款人）=====
+const REL_TYPES = ['共同借款人','夫妻','父母子女','兄弟姊妹','親戚','朋友','同事','其他'];
+const REL_COLOR = {'共同借款人':'#B45309','夫妻':'#BE185D'};
+function findBySerial(s){ s=String(s||''); return s ? clients.find(c=>String(c.serial||'')===s) : null; }
+// 在 A、B 兩位客戶間建立雙向關聯（同型別不重複）
+function linkRelation(a, b, relation){
+  if(!a||!b||a===b) return;
+  ensureSerials();
+  const add=(x,y)=>{ x.relations=Array.isArray(x.relations)?x.relations:[];
+    const ex=x.relations.find(r=>String(r.serial)===String(y.serial));
+    if(ex) ex.relation=relation; else x.relations.push({serial:String(y.serial),relation});
+  };
+  add(a,b); add(b,a);
+}
+function unlinkRelation(a, b){
+  if(!a||!b) return;
+  if(Array.isArray(a.relations)) a.relations=a.relations.filter(r=>String(r.serial)!==String(b.serial));
+  if(Array.isArray(b.relations)) b.relations=b.relations.filter(r=>String(r.serial)!==String(a.serial));
+}
+// 渲染目前編輯中客戶的關聯標籤
+function renderRelChips(){
+  const wrap=document.getElementById('relChips'); if(!wrap) return;
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const rels=(c&&Array.isArray(c.relations))?c.relations:[];
+  if(!rels.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML=rels.map(r=>{
+    const t=findBySerial(r.serial);
+    const nm=t?dispName(t):'（已刪除）';
+    const col=REL_COLOR[r.relation]||'var(--accent)';
+    const jump=t?`onclick="openEdit(${t.id})" style="cursor:pointer"`:'';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--abg);border:1px solid ${col};color:${col};border-radius:99px;padding:3px 6px 3px 10px;font-size:12px;font-weight:600">
+      <span ${jump} title="點一下跳到這個人">${calEsc(r.relation)}：${calEsc(nm)}</span>
+      <span onclick="removeRelation('${r.serial}')" title="解除關聯" style="cursor:pointer;color:var(--t3);font-weight:700;padding:0 2px">✕</span>
+    </span>`;
+  }).join('');
+}
+function openRelPicker(){
+  if(!editId){ showToast('⚠️ 請先儲存這位客戶，才能加關聯'); return; }
+  const sel=document.getElementById('relType');
+  sel.innerHTML=REL_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
+  sel.value='共同借款人';
+  document.getElementById('relSearch').value='';
+  renderRelPickList();
+  document.getElementById('relPickBg').classList.add('open');
+}
+function closeRelPick(){ document.getElementById('relPickBg').classList.remove('open'); }
+function renderRelPickList(){
+  const box=document.getElementById('relPickList'); if(!box) return;
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const q=(document.getElementById('relSearch').value||'').trim().toLowerCase();
+  const linked=new Set(((c&&c.relations)||[]).map(r=>String(r.serial)));
+  let list=clients.filter(x=>x.id!==editId && !linked.has(String(x.serial)));
+  if(q) list=list.filter(x=>String(x.name||'').toLowerCase().includes(q)||String(x.phone||'').includes(q));
+  list=list.slice(0,40);
+  if(!list.length){ box.innerHTML='<div style="color:var(--t3);font-size:13px;padding:14px;text-align:center">'+(q?'找不到符合的客戶':'輸入姓名或電話搜尋')+'</div>'; return; }
+  box.innerHTML=list.map(x=>`<div onclick="addRelation(${x.id})" style="padding:9px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;flex-direction:column;gap:1px">
+    <span style="font-weight:600;color:var(--text);font-size:14px">${calEsc(dispName(x))}</span>
+    <span style="font-size:12px;color:var(--t3)">${calEsc([x.phone,x.addr].filter(Boolean).join(' · '))||'　'}</span>
+  </div>`).join('');
+}
+function addRelation(targetId){
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const t=clients.find(x=>x.id===targetId);
+  if(!c||!t) return;
+  const relation=document.getElementById('relType').value||'其他';
+  linkRelation(c,t,relation);
+  saveLocal(); renderRelChips(); closeRelPick();
+  showToast(`🔗 已關聯「${dispName(t)}」（${relation}）`);
+  pushToSheet().catch(()=>{});
+}
+function removeRelation(serial){
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const t=findBySerial(serial);
+  if(!c) return;
+  unlinkRelation(c, t||{serial:String(serial),relations:[]});
+  // t 不存在時也要把 c 這邊清掉
+  if(Array.isArray(c.relations)) c.relations=c.relations.filter(r=>String(r.serial)!==String(serial));
+  saveLocal(); renderRelChips();
+  showToast('已解除關聯');
+  pushToSheet().catch(()=>{});
+}
+
 function ltMapCsv(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
   if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
@@ -4130,6 +4228,7 @@ function openAdd(){
   tempLogs=[];renderLogs();sSTabTo(0);
   properties=[{...emptyProperty(0)}]; curPropIdx=0; renderPropTabs();
   setTimeout(()=>renderPriceEval({}), 100);
+  renderRelChips();
   document.getElementById('sheetBg').classList.add('open');
 }
 
@@ -4200,6 +4299,7 @@ function openEdit(id){
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
   setTimeout(()=>renderPriceEval({...c,...properties[0]}), 100);
+  renderRelChips();
   document.getElementById('sheetBg').classList.add('open');
 }
 
