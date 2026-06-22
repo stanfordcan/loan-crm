@@ -49,6 +49,28 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .spill.warn{background:var(--obg)}
 .spill.warn b{color:var(--orange)}
 .spill.info b{color:var(--accent)}
+/* 工具列收合（手機）：預設展開的容器 + 收合切換鈕 */
+.hbtnsBar{display:flex;align-items:center;gap:2px}
+#hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+@media(min-width:900px){ #hbtnToggle{display:none} }
+@media(max-width:899px){
+  /* 統計卡縮成一條細的（橫向小字，省高度） */
+  .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
+  .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
+  .spill b{display:inline;font-size:15px;line-height:1}
+  .spill span{display:inline;margin-top:0}
+  /* 名單併到搜尋那行（不換行；名單只剩圖示） */
+  .search-wrap{flex-wrap:nowrap!important}
+  .search-input{min-width:0!important}
+  .listtool-txt{display:none}
+  /* 排序選單、篩選鈕縮小，省橫向空間 */
+  #sortSelect{padding:7px 4px!important;font-size:12px!important;max-width:120px}
+  #cityFilterBtn{padding:7px 8px!important;font-size:12px!important}
+  /* 上方功能鈕預設收合，點切換鈕才展開 */
+  #hbtnToggle{display:block}
+  .hbtnsBar{display:none}
+  .hbtnsBar.open{display:flex}
+}
 .tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px;display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;flex:1}
 .tabs::-webkit-scrollbar{display:none}
 .tabs-wrap{position:relative;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -441,6 +463,10 @@ auth.onAuthStateChanged(async user => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'flex';
 
+    // 載入鎖：取得雲端最新資料前先鎖住畫面，避免在舊資料上操作
+    showCloudLock();
+    let _lockSafety = setTimeout(hideCloudLock, 12000); // 萬一網路卡住，最多鎖 12 秒就放行
+
     // ── 1. 先清空，再載入本地快取（零等待）──
     clients = []; nextId = 1;
     loadLocal();
@@ -463,7 +489,7 @@ auth.onAuthStateChanged(async user => {
       if (typeof COMPANY_URL !== 'undefined' && COMPANY_URL && typeof syncGoogleCal === 'function') {
         syncGoogleCal(true).catch(()=>{});
       }
-    }).catch(() => {});
+    }).catch(() => {}).finally(()=>{ clearTimeout(_lockSafety); hideCloudLock(); }); // 拿到雲端資料(或失敗)就解鎖
 
     // 啟動定時自動 push
     startAutoPush();
@@ -524,14 +550,35 @@ function doLogout() {
 // 雲端備份寫入失敗時，只提醒一次（避免每次存檔都洗版）
 let backupWarned = false;
 
+// ── 雲端資料壓縮（gzip + base64，前綴「GZ:」辨識）──────────────────
+// 資料量大時避免超過 Firestore 單一文件 1MB 上限而寫入失敗。實測 1.5MB→約150KB。
+// 不支援 CompressionStream 的舊瀏覽器或壓縮出錯 → 退回不壓縮，確保不會卡住（相容）。
+async function packData(jsonStr){
+  try{
+    if(typeof CompressionStream==='undefined') return jsonStr;
+    const buf=await new Response(new Blob([jsonStr]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+    const bytes=new Uint8Array(buf); let bin='';
+    for(let i=0;i<bytes.length;i+=8192){ bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+8192)); }
+    return 'GZ:'+btoa(bin);
+  }catch(e){ console.error('packData:',e); return jsonStr; }
+}
+// 解壓縮：沒「GZ:」前綴=舊的未壓縮資料，直接回傳（向下相容）
+async function unpackData(s){
+  if(typeof s!=='string' || s.slice(0,3)!=='GZ:') return s;
+  const bin=atob(s.slice(3)); const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+
 // 寫入 Firestore（ts 可由 saveLocal 傳入，確保本地與雲端時間戳一致）
 async function saveToFirestore(ts) {
   if (!currentUser || !db) return;
   ts = ts || new Date().toISOString();
+  const packed = await packData(JSON.stringify({clients, nextId})); // 壓縮一次,data 與 backup 共用
   try {
     // merge:true — 只更新這些欄位，不整份覆蓋（保住 backup/backupAt/sessionToken，否則空資料存檔會把備份清掉）
     await db.collection('users').doc(currentUser.uid).set({
-      data: JSON.stringify({clients, nextId}),
+      data: packed,
       memos: JSON.stringify({memos: (typeof memos!=='undefined'?memos:[]), nextMemoId: (typeof nextMemoId!=='undefined'?nextMemoId:1)}),
       gasUrl: GAS_URL || '',
       companyUrl: COMPANY_URL || '',
@@ -545,7 +592,7 @@ async function saveToFirestore(ts) {
     try {
       await db.collection('users').doc(currentUser.uid)
         .collection('backups').doc('latest')
-        .set({ backup: JSON.stringify({clients, nextId}), backupAt: ts });
+        .set({ backup: packed, backupAt: ts });
       backupWarned = false;
     } catch(e) {
       console.error('Firestore backup save:', e);
@@ -556,6 +603,10 @@ async function saveToFirestore(ts) {
     }
   }
 }
+
+// 載入鎖：取得雲端資料時鎖住畫面
+function showCloudLock(){ const el=document.getElementById('cloudLock'); if(el) el.style.display='flex'; }
+function hideCloudLock(){ const el=document.getElementById('cloudLock'); if(el) el.style.display='none'; }
 
 // 從備份還原
 async function restoreBackup() {
@@ -573,7 +624,7 @@ async function restoreBackup() {
       if (doc.exists && doc.data().backup) raw = doc.data();
     }
     if (!raw || !raw.backup) { showToast('⚠️ 目前沒有可用的備份'); return; }
-    const d   = JSON.parse(raw.backup);
+    const d   = JSON.parse(await unpackData(raw.backup));
     if (!d || !d.clients || d.clients.length === 0) { showToast('⚠️ 備份是空的'); return; }
     const backupAt = raw.backupAt
       ? new Date(raw.backupAt).toLocaleString('zh-TW')
@@ -658,7 +709,7 @@ async function loadFromFirestore() {
       if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
       // 載入客戶資料
       if (raw.data) {
-        const d = JSON.parse(raw.data);
+        const d = JSON.parse(await unpackData(raw.data));
         if (d) {
           clients = (d.clients||[])
             .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
@@ -704,7 +755,7 @@ async function syncFromFirestoreIfNewer() {
 
     // Firestore 有更新的資料，覆蓋本地
     if (!raw.data) return false;
-    const d = JSON.parse(raw.data);
+    const d = JSON.parse(await unpackData(raw.data));
     if (!d) return false;
 
     clients = (d.clients||[])
@@ -755,6 +806,14 @@ async function applyUrlSettings() {
 }
 </script>
 <div class="pc-container">
+<!-- 載入鎖：取得雲端最新資料時蓋住畫面，避免在舊資料上操作 -->
+<div id="cloudLock" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(245,244,240,.97);flex-direction:column;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif">
+  <div style="font-size:42px;margin-bottom:16px;animation:cloudPulse 1.1s ease-in-out infinite">☁️</div>
+  <div style="font-size:15px;font-weight:700;color:#1A1916">正在從雲端取得最新資料…</div>
+  <div style="font-size:12px;color:#8A8780;margin-top:7px">取得後就能使用，避免改到舊資料</div>
+</div>
+<style>@keyframes cloudPulse{0%,100%{opacity:.45;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}</style>
+
 <div class="app" id="mainApp" style="display:none">
   <div class="sticky-top">
   <div class="header">
@@ -769,7 +828,8 @@ async function applyUrlSettings() {
         <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:2px">
+    <button id="hbtnToggle" onclick="toggleHbtns()">⚙️ 功能選單 ▾</button>
+    <div class="hbtnsBar" id="hbtnsBar">
     <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
     <div class="hbtns" id="hbtnsRow" style="flex:1">
       <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
@@ -827,7 +887,7 @@ async function applyUrlSettings() {
         <div style="margin-top:10px;font-size:11px;color:var(--t3)">標記批次請用工具列「📋 名單」</div>
       </div>
     </div>
-    <button onclick="openListTool()" title="勾選客戶→標批次/地圖名單/匯出公司格式" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 名單</button>
+    <button onclick="openListTool()" title="勾選客戶→標批次/地圖名單/匯出公司格式" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 <span class="listtool-txt">名單</span></button>
   </div>
   </div><!-- /sticky-top -->
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
@@ -1234,7 +1294,8 @@ async function applyUrlSettings() {
       <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔄 一鍵套用新規則<br><span style="font-size:10px;font-weight:400;opacity:.8">補身分證/戶籍/門牌、修區、新鑫批次、整理紀錄</span></button>
       <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
-      <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
+      <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
+      <button onclick="fixTrustClients()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🔍 找出信託案件＋修正委託人<br><span style="font-size:10px;font-weight:400;opacity:.8">把名字是受託人的改成委託人(原屋主)，抓不到的標記待補</span></button>
     </div>
   </div>
 </div>
@@ -1515,7 +1576,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.06.22 #1';
+const APP_VERSION = '2026.06.22 #2';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -1838,6 +1899,7 @@ const toRow = c => [
   c.pinned?'1':'',
   JSON.stringify({
     properties: c.properties||[],
+    companyRaw: c.companyRaw||null,   // 完整公司資料(含25欄 cols)放進富欄位JSON,避免同步來回時被砍成摘要
     evalData:   c.evalData||{},
     extraLoans: c.extraLoans||[],
     loanPurpose:c.loanPurpose||'',
@@ -1876,7 +1938,7 @@ const fromRow = (row, i) => {
     bank:parseFloat(g(16))||0, legal:parseFloat(g(17))||0, private:parseFloat(g(18))||0,
     purpose:g(19), buildNo:g(20), landNo:g(21), driveUrl:g(22),
     note:g(29), logs,
-    companyRaw: Object.keys(companyRaw).length ? companyRaw : null,
+    companyRaw: rich.companyRaw || (Object.keys(companyRaw).length ? companyRaw : null), // 優先用富欄位的完整版(含cols),沒有才退用摘要
     createdAt:g(30), updatedAt:g(31), debtPhones:[],
     pinned: g(33)==='1',
     // 富欄位：從 JSON 欄還原
@@ -2668,7 +2730,8 @@ function processCompanyData(raw) {
     const ownerRaw = String(row[6]||'');
     // Match full ID: A123456789 姓名, or masked ID: A221*****8 江＊＊ or A221*****8 江某某
     const ownerNameMatch = ownerRaw.match(/[A-Z]\d[\d*]{7,9}[\d*]\s+([\u4e00-\u9fff＊*]{2,8})/);
-    let ownerName = ownerNameMatch ? ownerNameMatch[1].replace(/[＊*]/g,'') : '';
+    const ownerNameRaw = ownerNameMatch ? ownerNameMatch[1] : '';   // 含遮罩,如「馬＊＊」
+    let ownerName = ownerNameRaw.replace(/[＊*]/g,'');               // 去遮罩後可能只剩單姓「馬」
     // Remove if only asterisks remain
     if(ownerName.length < 1) ownerName = '';
 
@@ -2676,11 +2739,11 @@ function processCompanyData(raw) {
     const col7Name = ownerName;
 
     // If name is masked or missing, fallback to restriction col (col 18) for 義務人
-    const isMasked = !ownerName || ownerName.includes('*') || ownerName.includes('＊');
+    const isMasked = !ownerName || ownerName.length<=1 || /[＊*]/.test(ownerNameRaw);
     if (isMasked) {
       const restrictRaw = String(row[18]||'');
       const obligorMatch = restrictRaw.match(/義務人[：:]\s*([\u4e00-\u9fff]{2,8})/);
-      if (obligorMatch) ownerName = obligorMatch[1];
+      if (obligorMatch && (!ownerName || obligorMatch[1].charAt(0)===ownerName.charAt(0))) ownerName = obligorMatch[1];
     }
 
     // Final fallback: try debt column (col 9)（僅供顯示，不用於比對）
@@ -2690,12 +2753,25 @@ function processCompanyData(raw) {
       if(debtMatch) ownerName = debtMatch[1];
     }
 
+    // 信託判斷：
+    //  「塗銷信託」= 信託已解除,所有權人就是原屋主 → 照常用(姓名+身分證都帶)
+    //  「信託」未塗銷 = 所有權部登記的是受託人(代持) → 改抓限制登記事項(col18)的「委託人」當客戶,且不帶受託人身分證
+    const isTrust = isTrustOwner(ownerRaw);
+    let trustNote = '';
+    if(isTrust){
+      const trustee = ownerName; // 受託人(代持名義)
+      const settlor = trustSettlorName(ownerRaw, String(row[18]||'')); // 委託人(原屋主)
+      if(settlor) ownerName = settlor; // 客戶 = 委託人(原屋主)
+      trustNote = '⚠️信託中，受託人' + (trustee||'？') + '，委託人(原屋主)' + (settlor||'未載於謄本,請補');
+    }
+
     const name = ownerName.trim();
 
     // 從所有權部抓身分證字號：優先完整(A+9碼);抓不到就帶遮罩版(F122*****2,僅供顯示參考)
     // 遮罩版只取「緊接在所有權人姓名前」那組,避免抓到他項權利部的債權人遮罩號
-    const idnoFull   = (ownerRaw.match(/([A-Z]\d{9})/)||[])[1] || '';
-    const idnoMasked = (ownerRaw.match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1] || '';
+    // 信託中：所有權部是受託人,身分證不帶(避免帶到受託人/銀行的統編)
+    const idnoFull   = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d{9})/)||[])[1] || '');
+    const idnoMasked = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1] || '');
     const idno = idnoFull || idnoMasked.replace(/＊/g,'*');
 
     // 姓名完全無法辨識的列跳過（不產生「未知」案件）
@@ -2853,7 +2929,8 @@ function processCompanyData(raw) {
 
     // Process log (col 1)
     const processText = String(row[1]||'').trim();
-    const noteText    = String(row[2]||'').trim();
+    let   noteText    = String(row[2]||'').trim();
+    if(isTrust && trustNote) noteText = [trustNote, noteText].filter(Boolean).join('｜'); // 信託案件：備註標註受託人/委託人
 
     // 如果電話欄空白且有建號，嘗試合併到上一筆相同建號的客戶
     if(!rawCell && buildNo && clients.length > 0) {
@@ -2905,7 +2982,13 @@ function processCompanyData(raw) {
     const normPhones = allPhones.map(p=>p.replace(/[-\s\(\)#]/g,''));
 
     // 持分判斷：所有權人欄位含「持分」或「分之」表示多人共有，不能用地址唯一識別
-    function hasFen(ownerStr) { return /持分|分之/.test(ownerStr || ''); }
+    // 真正的持分共有才回 true；「全部1分之1」(完整持有/單獨所有)不算，否則地址比對會被誤跳過、認不出舊客戶
+    function hasFen(ownerStr) {
+      const s = String(ownerStr || '');
+      if(/持分/.test(s)) return true;
+      const all = s.match(/(\d+)\s*分之\s*(\d+)/g) || []; // 例：2分之1、60000分之319
+      return all.some(x=>{ const m=x.match(/(\d+)\s*分之\s*(\d+)/); return !(m[1]==='1' && m[2]==='1'); }); // 只要有任一不是 1分之1 就是持分
+    }
     const incomingIsFen = hasFen(ownerRaw);
 
     const existing = clients.find(c => {
@@ -3463,6 +3546,13 @@ function scrollHbtns(dx) {
   const row = document.getElementById('hbtnsRow');
   row.scrollBy({ left: dx, behavior: 'smooth' });
 }
+// 手機：收合/展開上方功能鈕
+function toggleHbtns(){
+  const bar=document.getElementById('hbtnsBar');
+  const btn=document.getElementById('hbtnToggle');
+  const open=bar.classList.toggle('open');
+  if(btn) btn.textContent = open ? '⚙️ 功能選單 ▴' : '⚙️ 功能選單 ▾';
+}
 
 function setTab(t){
   const same=(t===curTab);
@@ -4003,6 +4093,7 @@ function render(){
         ${c.serial?`<span class="mi" style="font-weight:700;color:var(--accent)">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
         ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
+        ${c.batch?`<span class="mi" style="color:var(--accent);background:var(--abg)">🏷️${hl(c.batch,q)}</span>`:''}
         ${c.logs&&c.logs.length?`<span class="mi">💬${c.logs.length}筆</span>`:''}
       </div>
       ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📌${c.remindNote}</div>`:''}
@@ -4156,14 +4247,33 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Escape' && sheetOpen){ closeSheet(); return; }
   // Ctrl+S 儲存
   if(e.ctrlKey && e.key==='s' && sheetOpen){ e.preventDefault(); saveClient(); return; }
-  // ↑↓ 切換客戶（PC）
-  if((e.key==='ArrowUp'||e.key==='ArrowDown') && sheetOpen && window.innerWidth>=900){
+  // 方向鍵：焦點在輸入欄位(備註/姓名/下拉…)時一律不攔，讓游標正常移動
+  const isArrow = (e.key==='ArrowUp'||e.key==='ArrowDown'||e.key==='ArrowLeft'||e.key==='ArrowRight');
+  if(isArrow && sheetOpen && window.innerWidth>=900){
+    const tag=(e.target&&e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select'||(e.target&&e.target.isContentEditable)) return;
+    // ←→ 切換分頁（基本/不動產/聯絡記錄/公司資料/房價評估/雲端）
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      e.preventDefault();
+      const btns=document.querySelectorAll('.stab'); if(!btns.length) return;
+      let cur=[...btns].findIndex(b=>b.classList.contains('active')); if(cur<0) cur=0;
+      let nx=cur+(e.key==='ArrowLeft'?-1:1);
+      nx=Math.max(0,Math.min(btns.length-1,nx));
+      if(nx!==cur && btns[nx]) sSTab(nx, btns[nx]);
+      return;
+    }
+    // ↑↓ 切換客戶，但停留在同一個分頁（換成新客戶的同一分頁，不跳回基本）
     e.preventDefault();
+    const btns=document.querySelectorAll('.stab');
+    const keepTab=[...btns].findIndex(b=>b.classList.contains('active')); // 記住目前分頁
     const cards=Array.from(document.querySelectorAll('.ccard'));
     const ids=cards.map(el=>{const m=el.getAttribute('onclick')?.match(/openEdit\((\d+)\)/);return m?parseInt(m[1]):null;}).filter(Boolean);
     const idx=ids.indexOf(editId);
     const next=e.key==='ArrowUp'?idx-1:idx+1;
-    if(next>=0&&next<ids.length) openEdit(ids[next]);
+    if(next>=0&&next<ids.length){
+      openEdit(ids[next]);
+      if(keepTab>0){ const nb=document.querySelectorAll('.stab'); if(nb[keepTab]) sSTab(keepTab, nb[keepTab]); } // 還原到同一分頁(基本=0不用動)
+    }
   }
 });
 
@@ -6154,6 +6264,26 @@ function idnoFromOwner(ownerRaw){
   const masked=(String(ownerRaw||'').match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1]||'';
   return masked.replace(/＊/g,'*');
 }
+// 信託判斷：所有權部有「信託」但沒「塗銷」＝進行中信託(登記人是受託人)
+function isTrustOwner(ownerStr){ ownerStr=String(ownerStr||''); return /信託/.test(ownerStr) && !/塗銷/.test(ownerStr); }
+// 從信託謄本抓「委託人(原屋主)」：可能在 1.所有權部「信託（委託人：X）」 2.遮罩名後括號「張＊＊（高鄭慧貞）」 3.限制登記事項「委託人:X」
+function trustSettlorName(ownerStr, restrictStr){
+  ownerStr=String(ownerStr||''); restrictStr=String(restrictStr||'');
+  const m = ownerStr.match(/委託人[：:]\s*([一-鿿]{2,8})/)
+        || ownerStr.match(/[一-鿿][＊*]+（([一-鿿]{2,8})）/)
+        || restrictStr.match(/委託人[：:]\s*([一-鿿]{2,8})/);
+  return m ? m[1].trim() : '';
+}
+// 名字是不是遮罩/只剩姓(總檔的遮罩名會被縮成單姓如「馬」)
+function isMaskedShortName(n){ n=String(n||'').trim(); return !n || n.length<=1 || /[＊*○〇◯●Ｏ]/.test(n); }
+// 從總檔資料的「義務人」(預告登記/限制登記/查封)抓所有權人完整本名——謄本所有權部是遮罩的,但義務人欄通常是全名
+// 注意:「義務人」和冒號間可能有空白/換行(義務人  :馬曉芃)
+function ownerFullNameFromCompanyRaw(cr){
+  if(!cr) return '';
+  const pools=[String(cr.owner||''), ...((cr.cols||[]).map(String))];
+  for(const s of pools){ const m=s.match(/義務人\s*[：:]\s*([一-鿿]{2,8})/); if(m) return m[1]; }
+  return '';
+}
 // 從整列總檔抓戶籍地：優先第7欄,否則所有權部第二行(屋主住址)
 function censusFromCompanyRaw(cr){
   if(!cr) return '';
@@ -6195,7 +6325,8 @@ function fixAddrDistrict(addr, buildInfo){
 // 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
 function isJunkLog(t){ t=String(t||'').trim(); return !t || !/[^\d\s:：.,，、。\-_/／()（）]/.test(t); }
 function applyNewRulesToExisting(dryRun){
-  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0; const changed=new Set();
+  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0,nName=0; const changed=new Set();
+  const details=[]; // 會「改動非空欄位」的清單(本名、門牌區),給預覽用
   clients.forEach(c=>{
     // 新鑫批次標頭(1150522_資料(N))原本塞在備註→搬進「批次」欄(空白才補,並把標頭從備註移除)
     if(!String(c.batch||'').trim()){
@@ -6204,11 +6335,17 @@ function applyNewRulesToExisting(dryRun){
     }
     const cr=c.companyRaw;
     if(cr){
+      // 補遮罩本名：所有權部遮罩(如「馬」)→從預告登記/限制登記的義務人補完整本名(如馬曉芃),同姓才補
+      if(isMaskedShortName(c.name)){
+        const cur=String(c.name||'').trim();
+        const full=ownerFullNameFromCompanyRaw(cr) || (c.properties||[]).map(p=>ownerFullNameFromCompanyRaw(p.companyRaw)).find(Boolean) || '';
+        if(full && full.length>cur.length && (!cur || full.charAt(0)===cur.charAt(0))){ if(!dryRun)c.name=full; nName++; changed.add(c.id); details.push('🧑 本名：'+(cur||'(空白)')+' → '+full); }
+      }
       if(!c.idno){ const id=idnoFromOwner(cr.owner); if(id){ if(!dryRun)c.idno=id; nIdno++; changed.add(c.id); } }
       if(!c.censusAddr){ const ca=censusFromCompanyRaw(cr); if(ca){ if(!dryRun)c.censusAddr=ca; nCensus++; changed.add(c.id); } }
       // 門牌空白/沒有「號」→從標示部抓門牌(退用所有權部住址)
       if(!/號/.test(String(c.addr||''))){ const d=bestDoor(cr.buildInfo, cr.owner); if(d){ if(!dryRun)c.addr=d; nDoor++; changed.add(c.id); } }
-      if(c.addr && /號/.test(c.addr) && cr.buildInfo){ const fx=fixAddrDistrict(c.addr,cr.buildInfo); if(fx!==c.addr){ if(!dryRun)c.addr=fx; nDist++; changed.add(c.id); } }
+      if(c.addr && /號/.test(c.addr) && cr.buildInfo){ const fx=fixAddrDistrict(c.addr,cr.buildInfo); if(fx!==c.addr){ details.push('📍 門牌區：'+(c.name||'')+' '+c.addr+' → '+fx); if(!dryRun)c.addr=fx; nDist++; changed.add(c.id); } }
     }
     (c.properties||[]).forEach(p=>{ if(p.addr && p.companyRaw && p.companyRaw.buildInfo){ const fx=fixAddrDistrict(p.addr,p.companyRaw.buildInfo); if(fx!==p.addr){ if(!dryRun)p.addr=fx; nDist++; changed.add(c.id); } } });
     // 聯絡紀錄：用新解析重洗。有原始拜訪過程→重解析(保留手動加的、尊重刪過的);沒有→至少清掉純數字雜訊
@@ -6237,15 +6374,20 @@ function applyNewRulesToExisting(dryRun){
     }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
   });
-  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nClients:changed.size};
+  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nClients:changed.size,details};
 }
 function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
   if(!r.nClients){ showToast('✅ 既有客戶都已是最新，沒有需要補的'); return; }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。只補空白、修正填錯的區、重洗聯絡紀錄，不會動你手改的其他資料。\n\n建議先「下載備份檔」。確定執行？`)) return;
+  // 會「改動非空欄位」的明細（本名、門牌區）攤開讓你先看
+  let changeList='';
+  if(r.details && r.details.length){
+    changeList='\n\n【會改動的內容（其餘都只補空白）】\n'+r.details.slice(0,25).map(d=>'　'+d).join('\n')+(r.details.length>25?`\n　…等共 ${r.details.length} 項`:'');
+  }
+  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
-  showToast(`✅ 已套用：身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位`);
+  showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
@@ -6348,6 +6490,43 @@ function splitMergedCoborrowers(){
   });
   ensureSerials(); saveLocal(); render();
   showToast(`🔗 已拆分 ${nSplit} 筆、新增 ${nNew} 位共同借款人並綁定`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+  pushToSheet().catch(()=>{});
+}
+
+// 🔍 找出信託案件並修正：名字是受託人的→改成委託人(原屋主);抓不到委託人的→標記待補
+function fixTrustClients(){
+  const fixable=[], flagOnly=[];
+  clients.forEach(c=>{
+    const crs=[c.companyRaw, ...((c.properties||[]).map(p=>p.companyRaw))].filter(Boolean);
+    let owner='', restrict='';
+    for(const cr of crs){
+      const o=String(cr.owner||(cr.cols&&cr.cols[6])||'');
+      if(isTrustOwner(o)){ owner=o; restrict=String((cr.cols&&cr.cols[18])||''); break; }
+    }
+    if(!owner) return; // 不是信託案件
+    const settlor=trustSettlorName(owner, restrict);
+    if(settlor && c.name!==settlor) fixable.push({c, settlor});
+    else if(!settlor && !String(c.note||'').includes('信託')) flagOnly.push(c);
+  });
+  if(!fixable.length && !flagOnly.length){ showToast('✅ 沒有需要處理的信託案件'); return; }
+  let msg='';
+  if(fixable.length) msg+=`【自動修正 ${fixable.length} 筆】客戶名(受託人)→改成委託人(原屋主)：\n`+fixable.slice(0,12).map(t=>`  ${t.c.name} → ${t.settlor}`).join('\n')+(fixable.length>12?'\n  …等':'')+'\n\n';
+  if(flagOnly.length) msg+=`【標記待補 ${flagOnly.length} 筆】是信託但當初沒存到委託人，只能標⚠️提醒，請對照謄本手動補：\n`+flagOnly.slice(0,12).map(c=>'  '+c.name).join('\n')+(flagOnly.length>12?'\n  …等':'')+'\n\n';
+  if(!confirm(msg+'修正會把姓名改成委託人、清掉受託人身分證、備註標註。\n（建議先下載備份）\n\n確定處理？')) return;
+  fixable.forEach(t=>{
+    const c=t.c;
+    c.name=t.settlor;            // 客戶=委託人(原屋主)
+    c.idno='';                   // 清掉受託人身分證
+    if(!String(c.note||'').includes('信託')) c.note=['⚠️信託，委託人(原屋主)'+t.settlor, c.note].filter(Boolean).join('｜');
+    c.updatedAt=TODAY;
+  });
+  flagOnly.forEach(c=>{
+    c.note=['⚠️信託案件，所有權人為受託人，請補委託人(原屋主)', c.note].filter(Boolean).join('｜');
+    c.updatedAt=TODAY;
+  });
+  ensureSerials(); saveLocal(); render();
+  showToast(`🔧 信託：自動修正 ${fixable.length} 筆、標記待補 ${flagOnly.length} 筆`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
   pushToSheet().catch(()=>{});
 }
