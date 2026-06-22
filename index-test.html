@@ -1539,7 +1539,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t70 (信託偵錯按鈕:設定→「🔍找出信託案件＋修正委託人」,把名字是受託人的自動改成委託人(原屋主)、清受託人身分證,抓不到委託人的標記待補;匯入也強化抓括號格式「信託（委託人：X）」「張＊＊（本名）」) 2026.06.22';
+const APP_VERSION = '🧪測試版 t71 (修正:hasFen把「全部1分之1」誤判成持分,害遮罩證號/沒電話/沒建號的客戶(如馬小姐)地址比對被跳過→每次總檔更新都當新人(連帶跳批次/帶回髒地址/跳模糊比對);改成只有真持分(非1分之1)才跳過地址比對) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2943,7 +2943,13 @@ function processCompanyData(raw) {
     const normPhones = allPhones.map(p=>p.replace(/[-\s\(\)#]/g,''));
 
     // 持分判斷：所有權人欄位含「持分」或「分之」表示多人共有，不能用地址唯一識別
-    function hasFen(ownerStr) { return /持分|分之/.test(ownerStr || ''); }
+    // 真正的持分共有才回 true；「全部1分之1」(完整持有/單獨所有)不算，否則地址比對會被誤跳過、認不出舊客戶
+    function hasFen(ownerStr) {
+      const s = String(ownerStr || '');
+      if(/持分/.test(s)) return true;
+      const all = s.match(/(\d+)\s*分之\s*(\d+)/g) || []; // 例：2分之1、60000分之319
+      return all.some(x=>{ const m=x.match(/(\d+)\s*分之\s*(\d+)/); return !(m[1]==='1' && m[2]==='1'); }); // 只要有任一不是 1分之1 就是持分
+    }
     const incomingIsFen = hasFen(ownerRaw);
 
     const existing = clients.find(c => {
