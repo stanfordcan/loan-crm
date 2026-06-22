@@ -1257,7 +1257,8 @@ async function applyUrlSettings() {
       <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔄 一鍵套用新規則<br><span style="font-size:10px;font-weight:400;opacity:.8">補身分證/戶籍/門牌、修區、新鑫批次、整理紀錄</span></button>
       <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
-      <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
+      <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
+      <button onclick="fixTrustClients()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🔍 找出信託案件＋修正委託人<br><span style="font-size:10px;font-weight:400;opacity:.8">把名字是受託人的改成委託人(原屋主)，抓不到的標記待補</span></button>
     </div>
   </div>
 </div>
@@ -1538,7 +1539,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t69 (客戶名片顯示批次:meta那行加🏷️批次標籤) 2026.06.22';
+const APP_VERSION = '🧪測試版 t70 (信託偵錯按鈕:設定→「🔍找出信託案件＋修正委託人」,把名字是受託人的自動改成委託人(原屋主)、清受託人身分證,抓不到委託人的標記待補;匯入也強化抓括號格式「信託（委託人：X）」「張＊＊（本名）」) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2716,12 +2717,11 @@ function processCompanyData(raw) {
     // 信託判斷：
     //  「塗銷信託」= 信託已解除,所有權人就是原屋主 → 照常用(姓名+身分證都帶)
     //  「信託」未塗銷 = 所有權部登記的是受託人(代持) → 改抓限制登記事項(col18)的「委託人」當客戶,且不帶受託人身分證
-    const isTrust = /信託/.test(ownerRaw) && !/塗銷/.test(ownerRaw);
+    const isTrust = isTrustOwner(ownerRaw);
     let trustNote = '';
     if(isTrust){
       const trustee = ownerName; // 受託人(代持名義)
-      const sM = String(row[18]||'').match(/委託人[：:]\s*([一-鿿＊*、，,／\s]{2,30})/);
-      const settlor = sM ? sM[1].replace(/[、，,]/g,'／').replace(/[＊*\s]/g,'').trim() : '';
+      const settlor = trustSettlorName(ownerRaw, String(row[18]||'')); // 委託人(原屋主)
       if(settlor) ownerName = settlor; // 客戶 = 委託人(原屋主)
       trustNote = '⚠️信託中，受託人' + (trustee||'？') + '，委託人(原屋主)' + (settlor||'未載於謄本,請補');
     }
@@ -6202,6 +6202,16 @@ function idnoFromOwner(ownerRaw){
   const masked=(String(ownerRaw||'').match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1]||'';
   return masked.replace(/＊/g,'*');
 }
+// 信託判斷：所有權部有「信託」但沒「塗銷」＝進行中信託(登記人是受託人)
+function isTrustOwner(ownerStr){ ownerStr=String(ownerStr||''); return /信託/.test(ownerStr) && !/塗銷/.test(ownerStr); }
+// 從信託謄本抓「委託人(原屋主)」：可能在 1.所有權部「信託（委託人：X）」 2.遮罩名後括號「張＊＊（高鄭慧貞）」 3.限制登記事項「委託人:X」
+function trustSettlorName(ownerStr, restrictStr){
+  ownerStr=String(ownerStr||''); restrictStr=String(restrictStr||'');
+  const m = ownerStr.match(/委託人[：:]\s*([一-鿿]{2,8})/)
+        || ownerStr.match(/[一-鿿][＊*]+（([一-鿿]{2,8})）/)
+        || restrictStr.match(/委託人[：:]\s*([一-鿿]{2,8})/);
+  return m ? m[1].trim() : '';
+}
 // 從整列總檔抓戶籍地：優先第7欄,否則所有權部第二行(屋主住址)
 function censusFromCompanyRaw(cr){
   if(!cr) return '';
@@ -6396,6 +6406,43 @@ function splitMergedCoborrowers(){
   });
   ensureSerials(); saveLocal(); render();
   showToast(`🔗 已拆分 ${nSplit} 筆、新增 ${nNew} 位共同借款人並綁定`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+  pushToSheet().catch(()=>{});
+}
+
+// 🔍 找出信託案件並修正：名字是受託人的→改成委託人(原屋主);抓不到委託人的→標記待補
+function fixTrustClients(){
+  const fixable=[], flagOnly=[];
+  clients.forEach(c=>{
+    const crs=[c.companyRaw, ...((c.properties||[]).map(p=>p.companyRaw))].filter(Boolean);
+    let owner='', restrict='';
+    for(const cr of crs){
+      const o=String(cr.owner||(cr.cols&&cr.cols[6])||'');
+      if(isTrustOwner(o)){ owner=o; restrict=String((cr.cols&&cr.cols[18])||''); break; }
+    }
+    if(!owner) return; // 不是信託案件
+    const settlor=trustSettlorName(owner, restrict);
+    if(settlor && c.name!==settlor) fixable.push({c, settlor});
+    else if(!settlor && !String(c.note||'').includes('信託')) flagOnly.push(c);
+  });
+  if(!fixable.length && !flagOnly.length){ showToast('✅ 沒有需要處理的信託案件'); return; }
+  let msg='';
+  if(fixable.length) msg+=`【自動修正 ${fixable.length} 筆】客戶名(受託人)→改成委託人(原屋主)：\n`+fixable.slice(0,12).map(t=>`  ${t.c.name} → ${t.settlor}`).join('\n')+(fixable.length>12?'\n  …等':'')+'\n\n';
+  if(flagOnly.length) msg+=`【標記待補 ${flagOnly.length} 筆】是信託但當初沒存到委託人，只能標⚠️提醒，請對照謄本手動補：\n`+flagOnly.slice(0,12).map(c=>'  '+c.name).join('\n')+(flagOnly.length>12?'\n  …等':'')+'\n\n';
+  if(!confirm(msg+'修正會把姓名改成委託人、清掉受託人身分證、備註標註。\n（建議先下載備份）\n\n確定處理？')) return;
+  fixable.forEach(t=>{
+    const c=t.c;
+    c.name=t.settlor;            // 客戶=委託人(原屋主)
+    c.idno='';                   // 清掉受託人身分證
+    if(!String(c.note||'').includes('信託')) c.note=['⚠️信託，委託人(原屋主)'+t.settlor, c.note].filter(Boolean).join('｜');
+    c.updatedAt=TODAY;
+  });
+  flagOnly.forEach(c=>{
+    c.note=['⚠️信託案件，所有權人為受託人，請補委託人(原屋主)', c.note].filter(Boolean).join('｜');
+    c.updatedAt=TODAY;
+  });
+  ensureSerials(); saveLocal(); render();
+  showToast(`🔧 信託：自動修正 ${fixable.length} 筆、標記待補 ${flagOnly.length} 筆`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
   pushToSheet().catch(()=>{});
 }
