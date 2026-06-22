@@ -1538,7 +1538,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t67 (手機UI:排序選單、篩選鈕也縮小(小字、窄寬)省橫向空間;電腦版不變) 2026.06.22';
+const APP_VERSION = '🧪測試版 t68 (信託案件:總檔匯入偵測「信託」未塗銷→客戶改抓委託人(原屋主)、不帶受託人身分證、備註標註受託人/委託人;「塗銷信託」照常用所有權人;AI提示詞也加同規則) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2713,12 +2713,26 @@ function processCompanyData(raw) {
       if(debtMatch) ownerName = debtMatch[1];
     }
 
+    // 信託判斷：
+    //  「塗銷信託」= 信託已解除,所有權人就是原屋主 → 照常用(姓名+身分證都帶)
+    //  「信託」未塗銷 = 所有權部登記的是受託人(代持) → 改抓限制登記事項(col18)的「委託人」當客戶,且不帶受託人身分證
+    const isTrust = /信託/.test(ownerRaw) && !/塗銷/.test(ownerRaw);
+    let trustNote = '';
+    if(isTrust){
+      const trustee = ownerName; // 受託人(代持名義)
+      const sM = String(row[18]||'').match(/委託人[：:]\s*([一-鿿＊*、，,／\s]{2,30})/);
+      const settlor = sM ? sM[1].replace(/[、，,]/g,'／').replace(/[＊*\s]/g,'').trim() : '';
+      if(settlor) ownerName = settlor; // 客戶 = 委託人(原屋主)
+      trustNote = '⚠️信託中，受託人' + (trustee||'？') + '，委託人(原屋主)' + (settlor||'未載於謄本,請補');
+    }
+
     const name = ownerName.trim();
 
     // 從所有權部抓身分證字號：優先完整(A+9碼);抓不到就帶遮罩版(F122*****2,僅供顯示參考)
     // 遮罩版只取「緊接在所有權人姓名前」那組,避免抓到他項權利部的債權人遮罩號
-    const idnoFull   = (ownerRaw.match(/([A-Z]\d{9})/)||[])[1] || '';
-    const idnoMasked = (ownerRaw.match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1] || '';
+    // 信託中：所有權部是受託人,身分證不帶(避免帶到受託人/銀行的統編)
+    const idnoFull   = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d{9})/)||[])[1] || '');
+    const idnoMasked = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1] || '');
     const idno = idnoFull || idnoMasked.replace(/＊/g,'*');
 
     // 姓名完全無法辨識的列跳過（不產生「未知」案件）
@@ -2876,7 +2890,8 @@ function processCompanyData(raw) {
 
     // Process log (col 1)
     const processText = String(row[1]||'').trim();
-    const noteText    = String(row[2]||'').trim();
+    let   noteText    = String(row[2]||'').trim();
+    if(isTrust && trustNote) noteText = [trustNote, noteText].filter(Boolean).join('｜'); // 信託案件：備註標註受託人/委託人
 
     // 如果電話欄空白且有建號，嘗試合併到上一筆相同建號的客戶
     if(!rawCell && buildNo && clients.length > 0) {
