@@ -1386,7 +1386,7 @@ async function applyUrlSettings() {
 </div>
 
 <!-- 🏷️ 標批次（名單面板用：可選現有批次或輸入新的）-->
-<div class="imbg" id="ltBatchBg" style="z-index:2600" onclick="if(event.target===this)closeLtBatch()">
+<div class="imbg" id="ltBatchBg" style="z-index:9500" onclick="if(event.target===this)closeLtBatch()">
   <div class="immodal" style="max-width:380px">
     <h3 style="margin-bottom:6px">🏷️ 標批次</h3>
     <p style="font-size:12px;color:var(--t3);margin-bottom:12px">為勾選的 <span id="ltBatchCount">0</span> 位客戶設定來源批次。</p>
@@ -1490,7 +1490,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t57 (建物持分:不動產頁「面積(坪)」旁可填建物持分?／?,房價評估的建物坪會自動×建物持分(土地不變,土地是算好持分才填);AI匯入也會抓建物持分) 2026.06.22';
+const APP_VERSION = '🧪測試版 t58 (修正:名單→標批次的視窗會被名單蓋住(z-index 2600→9500),現在會正常顯示在最上層) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
