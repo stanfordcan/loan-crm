@@ -1291,11 +1291,18 @@ async function applyUrlSettings() {
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
-      <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔄 一鍵套用新規則<br><span style="font-size:10px;font-weight:400;opacity:.8">補身分證/戶籍/門牌、修區、新鑫批次、整理紀錄</span></button>
-      <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
-      <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
-      <button onclick="fixTrustClients()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🔍 找出信託案件＋修正委託人<br><span style="font-size:10px;font-weight:400;opacity:.8">把名字是受託人的改成委託人(原屋主)，抓不到的標記待補</span></button>
+      <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
+      <button onclick="var d=document.getElementById('oldDataTools');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.arr').textContent=open?'▴':'▾'" style="width:100%;background:var(--s2);color:var(--t2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <span>🧰 舊資料整理（一次性）</span><span class="arr" style="font-size:11px">▾</span>
+      </button>
+      <div id="oldDataTools" style="display:none;margin-top:7px">
+        <div style="font-size:10px;color:var(--t3);margin-bottom:7px;line-height:1.5">老員工資料匯入後各按一次即可；之後「從總檔更新」都已內建這些規則，不會再跑掉，平常用不到。</div>
+        <button onclick="runApplyNewRules()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔄 一鍵套用新規則<br><span style="font-size:10px;font-weight:400;opacity:.8">補身分證/戶籍/門牌/本名、修區、新鑫批次、整理紀錄</span></button>
+        <button onclick="splitMergedCoborrowers()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔗 拆分舊的共同借款人<br><span style="font-size:10px;font-weight:400;opacity:.8">把「名字／名字」拆成兩筆＋自動綁共同借款人</span></button>
+        <button onclick="fixTrustClients()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔍 找出信託案件＋修正委託人<br><span style="font-size:10px;font-weight:400;opacity:.8">把名字是受託人的改成委託人(原屋主)，抓不到的標記待補</span></button>
+        <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
+      </div>
     </div>
   </div>
 </div>
@@ -1576,7 +1583,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t78 (修共同持分人誤判:建號只在同段內唯一,光比數字會跨段誤配(霧峰00343≠松山343);改成用完整建號(含段)或同區+同段+同建號才算共有,沒填段就不比) 2026.06.22';
+const APP_VERSION = '🧪測試版 t79 (設定整理:把4顆一次性舊資料工具(一鍵套用新規則/拆分共同借款人/找信託委託人/清理髒資料)收進可摺疊的「🧰舊資料整理(一次性)」,預設收合;清除無效空資料留在外面當日常工具) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
