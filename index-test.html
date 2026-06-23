@@ -1576,7 +1576,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t76 (修不同步根因:資料1.5MB超過雲端單文件1MB上限→存雲端默默失敗→換裝置看到舊的;改成存雲端前gzip壓縮(1528→211KB,無損向下相容),連備份也修好;另加「載入鎖」:取雲端最新資料時鎖住畫面,拿到才放行) 2026.06.22';
+const APP_VERSION = '🧪測試版 t77 (從總檔更新也直接補本名:義務人 regex 修好空白(義務人　:馬曉芃);既有遮罩/單姓客戶(馬/亓)在總檔更新時就升級成完整本名,不用再手動按修復) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2742,7 +2742,7 @@ function processCompanyData(raw) {
     const isMasked = !ownerName || ownerName.length<=1 || /[＊*]/.test(ownerNameRaw);
     if (isMasked) {
       const restrictRaw = String(row[18]||'');
-      const obligorMatch = restrictRaw.match(/義務人[：:]\s*([\u4e00-\u9fff]{2,8})/);
+      const obligorMatch = restrictRaw.match(/義務人\s*[：:]\s*([\u4e00-\u9fff]{2,8})/);
       if (obligorMatch && (!ownerName || obligorMatch[1].charAt(0)===ownerName.charAt(0))) ownerName = obligorMatch[1];
     }
 
@@ -3046,6 +3046,8 @@ function processCompanyData(raw) {
       })();
       // 公司資料（總檔來源）：永遠更新，這是總檔的職責
       existing.companyRaw = companyRaw;
+      // 補本名：既有客戶若是遮罩/單姓(如「馬」)，這次總檔從義務人補到完整本名(同姓且更長)→升級，免得每次都要手動按修復
+      if(isMaskedShortName(existing.name) && name && name.length>String(existing.name||'').length && (!existing.name || name.charAt(0)===String(existing.name).charAt(0))) existing.name = name;
       // 空白才補，有值就保留用戶資料
       if(!existing.addr && addr) existing.addr = addr;
       if(!existing.censusAddr && ownerAddr) existing.censusAddr = ownerAddr; // 所有權人住址→戶籍地址(空白才補)
