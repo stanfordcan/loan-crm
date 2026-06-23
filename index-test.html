@@ -1576,7 +1576,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t77 (從總檔更新也直接補本名:義務人 regex 修好空白(義務人　:馬曉芃);既有遮罩/單姓客戶(馬/亓)在總檔更新時就升級成完整本名,不用再手動按修復) 2026.06.22';
+const APP_VERSION = '🧪測試版 t78 (修共同持分人誤判:建號只在同段內唯一,光比數字會跨段誤配(霧峰00343≠松山343);改成用完整建號(含段)或同區+同段+同建號才算共有,沒填段就不比) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -3831,15 +3831,29 @@ function removeRelation(serial){
 }
 
 // 🏠 不動產頁「共同持分人」：同一個建號出現在別的客戶身上＝這間房子持分共有，列出來提醒(二胎要全部共有人同意)
+// 一棟房子的唯一識別鍵：建號「只在同段內唯一」，所以光比數字(343)會跨段誤判。
+// 優先用完整建號(col4，含縣市/區/段)；沒有才退用「區+段+建號數字」，且「沒填段就不比」避免亂配。
+function bldKeys(buildNo, col4, district, purpose){
+  const keys=[];
+  const c4=String(col4||'').trim();
+  if(/^[A-Z]_\d+_\d+_/.test(c4)) keys.push('C4|'+c4.replace(/[-－]0+$/,''));
+  const bn=normBuildNo(buildNo);
+  const sec=String(purpose||'').replace(/\s+/g,'');
+  const dist=String(district||'').replace(/台/g,'臺').replace(/\s+/g,'');
+  if(bn && sec) keys.push('BS|'+dist+'|'+sec+'|'+bn);
+  return keys;
+}
 function renderCoOwners(){
   const box=document.getElementById('coOwnerBox'); if(!box) return;
-  const bn=normBuildNo(document.getElementById('fBuildNo')?.value||'');
-  if(!bn){ box.style.display='none'; return; }
-  const others=clients.filter(c=>{
-    if(c.id===editId) return false;
-    const arr=[normBuildNo(c.buildNo), normBuildNo(c.col4BuildNo)];
-    (c.properties||[]).forEach(p=>{ arr.push(normBuildNo(p.buildNo)); if(p.col4BuildNo) arr.push(normBuildNo(p.col4BuildNo)); });
-    return arr.filter(Boolean).includes(bn);
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const curCol4=(c&&c.properties&&c.properties[curPropIdx]&&c.properties[curPropIdx].col4BuildNo)||(c&&c.col4BuildNo)||'';
+  const my=new Set(bldKeys(document.getElementById('fBuildNo')?.value||'', curCol4, document.getElementById('fDistrict')?.value||'', document.getElementById('fPurpose')?.value||''));
+  if(!my.size){ box.style.display='none'; return; }
+  const others=clients.filter(o=>{
+    if(o.id===editId) return false;
+    let keys=bldKeys(o.buildNo, o.col4BuildNo, o.district, o.purpose);
+    (o.properties||[]).forEach(p=>{ keys=keys.concat(bldKeys(p.buildNo, p.col4BuildNo, p.district||o.district, p.purpose||o.purpose)); });
+    return keys.some(k=>my.has(k));
   });
   if(!others.length){ box.style.display='none'; return; }
   box.style.display='block';
