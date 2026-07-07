@@ -1106,13 +1106,14 @@ async function applyUrlSettings() {
                   <input type="number" id="fBuildShareNum" placeholder="？" title="持分分子，例：2分之1就填1" style="width:40px;text-align:center" oninput="calcEvalBuildArea()"/>／<input type="number" id="fBuildShareDen" placeholder="？" title="持分分母，例：2分之1就填2" style="width:40px;text-align:center" oninput="calcEvalBuildArea()"/>
                 </span>
               </div>
+              <div style="font-size:10px;color:var(--t3);margin:-2px 0 7px">持分只乘「建物」坪；土地不乘持分（地號面積請填已算好持分的坪）</div>
               <div class="fg3" id="areaGrid">
                 <div class="frow cmp"><label>主建物</label><input type="number" id="fMainArea" placeholder=""/></div>
                 <div class="frow cmp"><label>附屬</label><input type="number" id="fSubArea" placeholder=""/></div>
                 <div class="frow cmp"><label>公設</label><input type="number" id="fCommonArea" placeholder=""/></div>
                 <div class="frow cmp"><label>總面積</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value)"/></div>
                 <div class="frow cmp"><label>車位</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
-                <div class="frow cmp"><label id="fLandAreaLabel">土地坪數</label><input type="number" id="fLandArea" placeholder="" oninput="updateLandTotals()"/></div>
+                <div class="frow cmp"><label id="fLandAreaLabel">土地坪數</label><input type="number" id="fLandArea" placeholder="" title="填已算好持分的坪（土地㎡×土地持分×0.3025），系統不會再乘建物持分" oninput="updateLandTotals()"/></div>
               </div>
             </div>
             <div class="prop-card">
@@ -1583,7 +1584,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t79 (設定整理:把4顆一次性舊資料工具(一鍵套用新規則/拆分共同借款人/找信託委託人/清理髒資料)收進可摺疊的「🧰舊資料整理(一次性)」,預設收合;清除無效空資料留在外面當日常工具) 2026.06.22';
+const APP_VERSION = '🧪測試版 t80 (面積卡加標註:持分只乘「建物」坪、土地不乘持分(地號面積請填已算好持分的坪);土地欄位滑鼠提示同說明) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
