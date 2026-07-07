@@ -1584,7 +1584,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t80 (面積卡加標註:持分只乘「建物」坪、土地不乘持分(地號面積請填已算好持分的坪);土地欄位滑鼠提示同說明) 2026.06.22';
+const APP_VERSION = '🧪測試版 t81 (AI匯入補車位:JSON新增parkArea/parkType(無平面機械)/parkTitle(獨立非獨立),匯入會帶進不動產+評估;提示詞加第11條車位判斷規則) 2026.06.22';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -6032,6 +6032,10 @@ function recordToProps(rec){
     // 建物持分：AI 可給 buildShare:"1/2"、"2分之1" 或 buildShareNum/Den（土地持分不處理）
     const _sh=parseShare(p.buildShare, p.buildShareNum, p.buildShareDen);
     np.buildShareNum=_sh.num; np.buildShareDen=_sh.den;
+    // 車位：坪數/型式(無/平面/機械)/權狀(獨立/非獨立)；property 沒有就從 eval 帶
+    np.parkArea=parseFloat(p.parkArea)||0;
+    const _pt=String(p.parkType||ev.parking||'').trim(); if(_pt) np.parkType=_pt;
+    const _pk=String(p.parkTitle||ev.parkTitle||'').trim(); if(_pk) np.parkTitle=_pk;
     // 多筆土地：extraLands = [{landNo, landArea}, ...] → 地號②③…，系統會自動加總坪數、算土增稅筆數
     if(Array.isArray(p.extraLands)){
       np.extraLands=p.extraLands.map(l=>({landNo:String(l.landNo||'').trim(), landArea:parseFloat(l.landArea)||0}))
@@ -6060,9 +6064,12 @@ function mergePropInto(dst, src){
   ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
-  ['mainArea','subArea','commonArea','area','landArea','bank','legal','private','landtaxNormal','landtaxSelf'].forEach(k=>{
+  ['mainArea','subArea','commonArea','area','landArea','parkArea','bank','legal','private','landtaxNormal','landtaxSelf'].forEach(k=>{
     if((!dst[k]||dst[k]===0) && src[k]) dst[k]=src[k];
   });
+  // 車位型式/權狀：還是預設值(無/非獨立)才補,不覆蓋使用者選過的
+  if((!dst.parkType||dst.parkType==='無') && src.parkType && src.parkType!=='無') dst.parkType=src.parkType;
+  if((!dst.parkTitle||dst.parkTitle==='非獨立') && src.parkTitle==='獨立') dst.parkTitle='獨立';
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
@@ -6138,7 +6145,7 @@ function doAiImport(){
         addr:first.addr, purpose:first.purpose, buildNo:first.buildNo, landNo:first.landNo,
         district:first.district, landzone:first.landzone, landArea:first.landArea,
         area:first.area, mainArea:first.mainArea, subArea:first.subArea, commonArea:first.commonArea,
-        parkArea:0, parkType:'無', parkTitle:'非獨立', parkVal:0,
+        parkArea:first.parkArea||0, parkType:first.parkType||'無', parkTitle:first.parkTitle||'非獨立', parkVal:0,
         bank:first.bank, legal:first.legal, private:first.private,
         loanPurpose:String(r.loanPurpose||'').trim(), evalData:mapEval(r)||{}, driveUrl:'',
         properties:newProps.length?newProps:[emptyProp()],
