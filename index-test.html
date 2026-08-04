@@ -1581,7 +1581,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t83 (債權人名稱只留本名/登序自動填入/金額欄直接顯示÷1.2估值可手改/下方小字改顯示原始抵押設定金額) 2026.08.04';
+const APP_VERSION = '🧪測試版 t84 (債權人名稱洗更乾淨:公司統編、新臺幣金額尾巴、個人身分證(含遮罩)全部去掉,只留本名;已存的舊筆打開時也會自動洗) 2026.08.04';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2585,6 +2585,10 @@ function cleanCreditorName(name){
   s = s.replace(/^\s*\d+[).、]\s*/, '');       // 開頭序號「1)」「1.」「1、」
   s = s.replace(/【[銀私法]】/g, '');            // 標籤
   s = s.replace(/民國\s*\d+\s*年\s*\d+\s*月\s*\d+\s*日/g, ''); // 民國日期
+  s = s.replace(/新臺幣[\s\S]*$/, '');           // 「新臺幣」起整段尾巴(金額+元正最高限額抵押權設定)
+  s = s.replace(/(?:最高限額)?抵押權設定[\s\S]*$/, ''); // 保險:殘留尾巴
+  s = s.replace(/[A-Z][\d*＊]{8,10}/g, '');       // 個人身分證(含遮罩,如 Q120*****3)
+  s = s.replace(/(\d{8})(?!\d)/g, '');            // 公司統編8碼(如 04231910)
   s = s.replace(/\d{4}-\d{3}/g, '');            // 登序（0009-001 格式）
   s = s.replace(/(?:^|[^\d])(\d{7})(?!\d)/g, ''); // 登序（七碼格式）
   s = s.replace(/[\s、,，]+/g, ' ').trim();
@@ -2676,7 +2680,10 @@ function applyLoansToProp(p, loans){
 function ensurePropLoans(c, p){
   if(!p) return [];
   if(p.loans){
-    p.loans.forEach(l=>{ if(l.e==null || l.e==='') l.e = defaultLoanE(l.a, l.t); });
+    p.loans.forEach(l=>{
+      if(l.e==null || l.e==='') l.e = defaultLoanE(l.a, l.t);
+      l.n = cleanCreditorName(l.n);   // 已存的舊筆也重洗名稱(統編/新臺幣尾巴);乾淨名稱洗了不變,安全
+    });
     return p.loans;
   }
   const rightsText = (p.companyRaw && p.companyRaw.rights) || (c && c.companyRaw && c.companyRaw.rights) || '';
