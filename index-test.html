@@ -1581,7 +1581,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t82 (抵押貸款改逐筆列債權人名稱+登序:不動產頁動態清單/房價評估有什麼顯示什麼(不含登序)/試算帶真實債權人名,分類與÷1.2規則不變) 2026.08.04';
+const APP_VERSION = '🧪測試版 t83 (債權人名稱只留本名/登序自動填入/金額欄直接顯示÷1.2估值可手改/下方小字改顯示原始抵押設定金額) 2026.08.04';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2572,17 +2572,33 @@ function claudeReviewSkipAll() {
 }
 
 // ── 抵押貸款：他項權利部逐筆解析（總檔匯入 / 舊資料補值 共用）─────
-// 回傳 [{n:債權人名稱, a:金額(萬,謄本原值), t:'bank'|'legal'|'private', s:登序}]
+// 回傳 [{n:債權人名稱(已清成本名), a:金額(萬,謄本設定原值), t:'bank'|'legal'|'private', s:登序, e:實貸估值(萬)}]
 // 分類規則（銀行/法人/民間）與 ÷1.2 估算完全沿用既有邏輯，不得更動判定結果
+// 單筆 e 預設值：bank/legal → Math.ceil(a/1.2)；private → a（原值即實貸）
+function defaultLoanE(a, t){
+  const amt = parseFloat(a)||0;
+  return (t==='bank'||t==='legal') ? (Math.ceil(amt/1.2)||0) : amt;
+}
+// 清洗債權人名稱：去掉開頭序號「1)」、標籤【銀】【私】【法】、民國日期、登序字串，只留本名
+function cleanCreditorName(name){
+  let s = String(name||'');
+  s = s.replace(/^\s*\d+[).、]\s*/, '');       // 開頭序號「1)」「1.」「1、」
+  s = s.replace(/【[銀私法]】/g, '');            // 標籤
+  s = s.replace(/民國\s*\d+\s*年\s*\d+\s*月\s*\d+\s*日/g, ''); // 民國日期
+  s = s.replace(/\d{4}-\d{3}/g, '');            // 登序（0009-001 格式）
+  s = s.replace(/(?:^|[^\d])(\d{7})(?!\d)/g, ''); // 登序（七碼格式）
+  s = s.replace(/[\s、,，]+/g, ' ').trim();
+  return s;
+}
 function parseRightsLoans(text){
   const rightsRaw = String(text||'');
   const loans = [];
   const allLines = rightsRaw.split('\n');
-  // 登記次序號：常見獨立成一行的 7 碼數字（如 0010000），出現在該筆條列前；記住最近一個當作此後條目的登序
+  // 登記次序號：常見獨立成一行的「0009-001」或七碼數字（如 0010000），出現在該筆條列前；記住最近一個當作此後條目的登序
   let lastSeq = '';
   const seqByLineIdx = {};
   allLines.forEach((line, idx) => {
-    const soloSeqM = line.trim().match(/^(\d{7})$/);
+    const soloSeqM = line.trim().match(/^(\d{4}-\d{3}|\d{7})$/);
     if(soloSeqM) lastSeq = soloSeqM[1];
     seqByLineIdx[idx] = lastSeq;
   });
@@ -2590,15 +2606,16 @@ function parseRightsLoans(text){
     .map((line, idx) => ({line, idx}))
     .filter(o => o.line.match(/【[銀私法]】/));
   entries.forEach(({line, idx}) => {
-    // 登序：優先抓行內自帶的獨立 7 碼數字，抓不到就用該行之前最近一次出現的獨立登序行
-    const inlineSeqM = line.match(/(?:^|[^\d])(\d{7})(?!\d)/);
-    const seq = inlineSeqM ? inlineSeqM[1] : (seqByLineIdx[idx] || '');
+    // 登序：優先抓行內自帶的「0009-001」或獨立七碼數字，抓不到就用該行之前最近一次出現的獨立登序行
+    const dashSeqM = line.match(/(\d{4}-\d{3})/);
+    const inlineSeqM = dashSeqM ? null : line.match(/(?:^|[^\d])(\d{7})(?!\d)/);
+    const seq = dashSeqM ? dashSeqM[1] : (inlineSeqM ? inlineSeqM[1] : (seqByLineIdx[idx] || ''));
     const amtMatch = line.match(/新臺幣\s*([\d,]+)\s*元|（新臺幣([\d,]+)元）|（([\d,]+)）|\(([\d,]+)\)/);
     const amt = amtMatch ? Math.round(parseInt((amtMatch[1]||amtMatch[2]||amtMatch[3]||amtMatch[4]||'0').replace(/,/g,''))/10000) : 0;
     if(!amt) return;
     const creditorMatch = line.match(/最高\s+(.+?)\s+[\dA-Z]{8,}/) ||
                           line.match(/[\dA-Z]{8,}\s+([一-鿿（）\s]{2,20})\s+新臺幣/);
-    const creditorName = (creditorMatch ? creditorMatch[1] : line).trim();
+    const creditorName = cleanCreditorName(creditorMatch ? creditorMatch[1] : line);
     let type;
     if(line.includes('【銀】')) {
       const isRealBank = /銀行|農會|信合社|信用合作|漁會/.test(line);
@@ -2609,7 +2626,7 @@ function parseRightsLoans(text){
       const isLegal = !isBank && /股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(creditorName);
       type = isBank ? 'bank' : (isLegal ? 'legal' : 'private');
     }
-    loans.push({n:creditorName, a:amt, t:type, s:seq});
+    loans.push({n:creditorName, a:amt, t:type, s:seq, e:defaultLoanE(amt,type)});
   });
   if(loans.length) return loans;
   // Fallback：條列格式解析不到時，改用摘要行（銀行：/民間：/法人：）
@@ -2619,19 +2636,24 @@ function parseRightsLoans(text){
   const rawBank  = bankMatch  ? parseInt(bankMatch[1].replace(/,/g,''))/10000 : 0;
   const rawLegal = legalMatch ? parseInt(legalMatch[1].replace(/,/g,''))/10000 : 0;
   const rawPriv  = privMatch  ? Math.round(parseInt(privMatch[1].replace(/,/g,''))/10000) : 0;
-  if(rawBank>0)  loans.push({n:'銀行貸款', a:rawBank, t:'bank', s:''});
-  if(rawLegal>0) loans.push({n:'法人／租賃', a:rawLegal, t:'legal', s:''});
-  if(rawPriv>0)  loans.push({n:'民間借貸', a:rawPriv, t:'private', s:''});
+  if(rawBank>0)  loans.push({n:'銀行貸款', a:rawBank, t:'bank', s:'', e:defaultLoanE(rawBank,'bank')});
+  if(rawLegal>0) loans.push({n:'法人／租賃', a:rawLegal, t:'legal', s:'', e:defaultLoanE(rawLegal,'legal')});
+  if(rawPriv>0)  loans.push({n:'民間借貸', a:rawPriv, t:'private', s:'', e:defaultLoanE(rawPriv,'private')});
   return loans;
 }
-// loans[] → {bank,legal,private} 加總（萬）：銀行/法人 ÷1.2 無條件進位，民間保留原值加總
+// 取得單筆 loan 的實貸估值：有 e 就用 e（可能是使用者手改過的值），沒有才用預設規則現算（相容舊資料）
+function getLoanE(l){
+  if(!l) return 0;
+  return (l.e!=null && l.e!=='') ? (parseFloat(l.e)||0) : defaultLoanE(l.a, l.t);
+}
+// loans[] → {bank,legal,private} 加總（萬）：直接加總各筆 e（使用者手改過的金額也算進去，絕不再 ÷1.2）
 function loansToTotals(loans){
   const arr = loans||[];
-  const sumT = t => arr.filter(l=>l.t===t).reduce((s,l)=>s+(parseFloat(l.a)||0),0);
+  const sumE = t => arr.filter(l=>l.t===t).reduce((s,l)=>s+getLoanE(l),0);
   return {
-    bank: Math.ceil(sumT('bank')/1.2) || 0,
-    legal: Math.ceil(sumT('legal')/1.2) || 0,
-    private: sumT('private') || 0,
+    bank: sumE('bank') || 0,
+    legal: sumE('legal') || 0,
+    private: sumE('private') || 0,
   };
 }
 // 依關鍵字預判債權人名稱屬於銀行／法人／民間（規則與 parseRightsLoans 一致）
@@ -2650,15 +2672,20 @@ function applyLoansToProp(p, loans){
   if(t.private>0 && p.privateConfirmed===undefined) p.privateConfirmed = false;
 }
 // 舊資料 lazy 補值：p 沒有 loans 時，優先用他項權利部原文解析；否則用 bank/legal/private 現值轉成通用名條目
+// 若 p.loans 已存在但缺 e（t82 舊資料），就地補上 e（同 defaultLoanE 預設規則）
 function ensurePropLoans(c, p){
   if(!p) return [];
-  if(p.loans) return p.loans;
+  if(p.loans){
+    p.loans.forEach(l=>{ if(l.e==null || l.e==='') l.e = defaultLoanE(l.a, l.t); });
+    return p.loans;
+  }
   const rightsText = (p.companyRaw && p.companyRaw.rights) || (c && c.companyRaw && c.companyRaw.rights) || '';
   let loans = rightsText ? parseRightsLoans(rightsText) : [];
   if(!loans.length){
-    if((p.bank||0)>0)    loans.push({n:'銀行貸款', a:p.bank, t:'bank', s:''});
-    if((p.legal||0)>0)   loans.push({n:'法人／租賃', a:p.legal, t:'legal', s:''});
-    if((p.private||0)>0) loans.push({n:'民間借貸', a:p.private, t:'private', s:''});
+    // 已無他項權利部原文可解析，僅有現存加總值，此值本身即已是估值，e 直接沿用不再 ÷1.2
+    if((p.bank||0)>0)    loans.push({n:'銀行貸款', a:p.bank, t:'bank', s:'', e:p.bank});
+    if((p.legal||0)>0)   loans.push({n:'法人／租賃', a:p.legal, t:'legal', s:'', e:p.legal});
+    if((p.private||0)>0) loans.push({n:'民間借貸', a:p.private, t:'private', s:'', e:p.private});
   }
   p.loans = loans;
   return loans;
@@ -4641,10 +4668,9 @@ function renderPriceEval(c) {
       <div id="ev_loan_section" style="background:var(--s2);border-radius:var(--rs);padding:12px 14px;display:${((c.loans&&c.loans.length)||(extraLoans||[]).some(l=>l.name&&l.amount))?'block':'none'}">
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">🏦 貸款狀況</div>
         ${(c.loans||[]).map((l,i)=>{
-          const isBL=l.t==='bank'||l.t==='legal';
-          const est=isBL?Math.ceil((parseFloat(l.a)||0)/1.2):(parseFloat(l.a)||0);
+          const est=getLoanE(l);
           const typeLabel=l.t==='bank'?'銀行':l.t==='legal'?'法人':'民間';
-          return `<div id="ev_loan_row_${i}" style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">${typeLabel}・${calEsc(l.n||'（未命名）')}${isBL?'（÷1.2估）':'（原值）'}</label><input type="number" id="ev_loan_${i}" data-type="${l.t}" value="${est}" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div>`;
+          return `<div id="ev_loan_row_${i}" style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">${typeLabel}・${calEsc(l.n||'（未命名）')}</label><input type="number" id="ev_loan_${i}" data-type="${l.t}" value="${est}" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div>`;
         }).join('')}
         ${(c.loans||[]).some(l=>l.t==='private') ? `<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px">民間利率（分）</label><input type="number" id="ev_rate" value="${e.rate||''}" placeholder="1.5" step="0.1" style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;font-family:inherit;outline:none"/></div>` : ''}
         ${(extraLoans||[]).map((l,i)=>l.name?`<div class="frow" style="margin-bottom:6px"><label>${l.name}（萬）</label><input type="number" id="ev_extra_${i}" value="${l.amount||''}"/></div>`:'').join('')}
@@ -4811,13 +4837,12 @@ function generateReport(clientId) {
     ? `一般 ${taxGenWan}萬、自用 ${taxSelfWan}萬＜共${taxCount}筆＞`
     : '—';
 
-  // 貸款狀況：逐筆列債權人（銀行/法人已÷1.2估、民間原值）
+  // 貸款狀況：逐筆列債權人（金額為實貸估值 e，可能已被手動調整過）
   const curLoans = (properties[curPropIdx] && properties[curPropIdx].loans) || [];
   const loanLines = curLoans.length ? curLoans.map(l=>{
-    const isBL = l.t==='bank'||l.t==='legal';
-    const est = isBL ? Math.ceil((parseFloat(l.a)||0)/1.2) : (parseFloat(l.a)||0);
+    const est = getLoanE(l);
     const typeLabel = l.t==='bank'?'銀行':l.t==='legal'?'法人':'民間';
-    return `${typeLabel}：${l.n||'—'}　${est}萬${isBL?`（謄本${l.a}萬÷1.2估）`:''}`;
+    return `${typeLabel}：${l.n||'—'}　${est}萬${l.a?`（抵押設定${l.a}萬）`:''}`;
   }).join('\n') : '貸款：—';
   const rateLine = curLoans.some(l=>l.t==='private') ? `\n民間利率：${g('ev_rate')||'—'}分` : '';
 
@@ -5090,13 +5115,12 @@ function renderLoanRows(){
   });
   container.innerHTML = order.map(i=>{
     const l=p.loans[i];
-    const isBL = l.t==='bank'||l.t==='legal';
-    const est = isBL ? Math.ceil((parseFloat(l.a)||0)/1.2) : 0;
+    const est = getLoanE(l);
     return `<div>
       <div style="display:flex;align-items:center;gap:6px">
         <input value="${calEsc(l.s||'')}" placeholder="登序" onchange="setLoanField(${i},'s',this.value)" style="width:52px;flex-shrink:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 6px;font-size:11px;color:var(--t3);font-family:inherit;outline:none"/>
         <input value="${calEsc(l.n||'')}" placeholder="債權人名稱" onchange="setLoanField(${i},'n',this.value)" style="flex:1.3;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
-        <input type="number" value="${l.a||''}" placeholder="金額(萬)" onchange="setLoanField(${i},'a',this.value)" style="flex:0 0 88px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
+        <input type="number" value="${est||''}" placeholder="金額(萬)" onchange="setLoanField(${i},'e',this.value)" style="flex:0 0 88px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
         <select onchange="setLoanField(${i},'t',this.value)" style="flex:0 0 64px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 2px;font-size:12px;font-family:inherit;outline:none;-webkit-appearance:none">
           <option value="bank" ${l.t==='bank'?'selected':''}>銀行</option>
           <option value="legal" ${l.t==='legal'?'selected':''}>法人</option>
@@ -5104,7 +5128,7 @@ function renderLoanRows(){
         </select>
         <button onclick="removeLoanRow(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1">✕</button>
       </div>
-      ${isBL&&l.a?`<div style="font-size:10px;color:var(--t3);margin:2px 0 0 58px">≈÷1.2估 ${est}萬</div>`:''}
+      ${l.a?`<div style="font-size:10px;color:var(--t3);margin:2px 0 0 58px">抵押設定 ${l.a}萬</div>`:''}
     </div>`;
   }).join('');
   refreshLoanSection();
@@ -5112,7 +5136,7 @@ function renderLoanRows(){
 function addLoanRow(){
   const p=properties[curPropIdx]; if(!p) return;
   if(!p.loans) p.loans=[];
-  p.loans.push({n:'',a:0,t:'private',s:''});
+  p.loans.push({n:'',a:0,t:'private',s:'',e:0});
   p.loansManual=true;
   renderLoanRows();
   syncLoanTotalsToForm();
@@ -5127,6 +5151,7 @@ function removeLoanRow(i){
 function setLoanField(i,key,val){
   const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
   if(key==='a') p.loans[i].a = parseFloat(val)||0;
+  else if(key==='e') p.loans[i].e = parseFloat(val)||0;
   else if(key==='n'){ p.loans[i].n = val; if(val) p.loans[i].t = classifyCreditor(val); }
   else p.loans[i][key] = val;
   p.loansManual = true;
@@ -5373,10 +5398,9 @@ function buildLoanCalcState(c, p){
     stages:[{fromMonth:1,rate:0}], startDate:'', lockPeriods:0, penaltyPct:0 });
   const origLoans = [];
   if(p.loans && p.loans.length){
-    // 有逐筆債權清單 → 用真實債權人名稱＋金額（銀行/法人 ÷1.2 估值，isBank 依 t==='bank'）
+    // 有逐筆債權清單 → 用真實債權人名稱＋實貸估值 e（isBank 依 t==='bank'）
     p.loans.forEach(l=>{
-      const isBL = l.t==='bank'||l.t==='legal';
-      const wan = isBL ? Math.ceil((parseFloat(l.a)||0)/1.2) : (parseFloat(l.a)||0);
+      const wan = getLoanE(l);
       if(wan>0) origLoans.push(mk(l.n||(l.t==='bank'?'銀行貸款':l.t==='legal'?'法人／租賃':'民間借貸'), wan, l.t==='bank'));
     });
   } else {
@@ -5585,7 +5609,7 @@ function parseSuo(text){
 
 function parseTa(text){
   const t=normNum(text); const r={loans:[]};
-  const creditor=(t.match(/權利人(?:姓名)?\s*([^\n]{2,30})/)||[])[1]?.trim()||'';
+  const creditor=cleanCreditorName((t.match(/權利人(?:姓名)?\s*([^\n]{2,30})/)||[])[1]||'');
   // Amount: try various label formats
   const amtM=t.match(/擔保債權(?:總金額|金額)\s*(?:新台幣|新臺幣)?\s*([\d,]+)\s*元/) ||
              t.match(/(?:新台幣|新臺幣)\s*([\d,]+)\s*元/);
@@ -5719,12 +5743,10 @@ function doTenImport(){
 function applyTenParsed(mode){
   if(!tenParsed) return;
   const b=tenParsed.biao||{}, s=tenParsed.suo||{}, loans=tenParsed.ta||[];
-  // 銀行/租賃：謄本是最高限額，÷1.2 估實貸（與總檔、AI 匯入一致）；民間保留原值待確認
-  const bankRaw=loans.filter(l=>l.type==='bank').reduce((a,l)=>a+l.amt,0);
-  const legalRaw=loans.filter(l=>l.type==='legal').reduce((a,l)=>a+l.amt,0);
-  const bankT=Math.ceil(bankRaw/1.2);
-  const legalT=Math.ceil(legalRaw/1.2);
-  const privT=loans.filter(l=>l.type==='private').reduce((a,l)=>a+l.amt,0);
+  // 銀行/租賃：謄本是最高限額，單筆 e 用 ÷1.2 估實貸（與總檔、AI 匯入一致）；民間保留原值待確認
+  const newLoans = loans.map(l=>({n:cleanCreditorName(l.creditor), a:l.amt, t:l.type, s:l.seq||'', e:defaultLoanE(l.amt,l.type)}));
+  const totals = loansToTotals(newLoans);
+  const bankT=totals.bank, legalT=totals.legal, privT=totals.private;
   if(mode==='new'){
     if(s.name) document.getElementById('fName').value=s.name;
     if(s.idno) document.getElementById('fIdno').value=s.idno;
@@ -5735,7 +5757,7 @@ function applyTenParsed(mode){
     addr:b.addr||'',purpose:b.purpose||'',buildNo:b.buildNo||'',landNo:b.landNo||'',
     area:b.area||0,mainArea:b.mainArea||0,subArea:b.subArea||0,commonArea:b.commonArea||0,
     parkArea:0,bank:bankT,legal:legalT,private:privT,
-    loans:loans.map(l=>({n:l.creditor, a:l.amt, t:l.type, s:l.seq||''})),
+    loans:newLoans,
     loanEstimated:(bankT>0||legalT>0)?true:undefined,
     privateConfirmed:privT>0?false:undefined,
     extraLoans:[],driveUrl:'',parkType:'無',parkTitle:'非獨立',parkVal:0,
