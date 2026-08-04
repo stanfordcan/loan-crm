@@ -1581,7 +1581,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t87 (AI匯入吃逐筆債權:JSON新增loans[{creditor,amt,type,seq}],匯入每筆帶債權人本名/登序/估值,總額自動=逐筆加總;提示詞加第12條) 2026.08.04';
+const APP_VERSION = '🧪測試版 t88 (公設扣車位:AI匯入時車位權狀=非獨立→公設自動扣掉車位坪(公設不夠扣改扣附屬),同一塊面積不再列兩次;總面積不變,房價評估照舊) 2026.08.04';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -6222,6 +6222,12 @@ function recordToProps(rec){
                                 .filter(l=>l.landNo||l.landArea);
     }
     np.area=parseFloat(p.area)|| (np.mainArea+np.subArea+np.commonArea) ||0;
+    // 車位含在公設(非獨立)時：公設扣掉車位坪,避免同一塊面積列兩次(總面積不變,在上一行已用原始公設算好)
+    // 公設不夠扣就從附屬扣(車位登記在附屬建物的情況);都不夠就不動(資料可能有誤,寧可保留原值)
+    if(np.parkTitle==='非獨立' && np.parkArea>0){
+      if(np.commonArea>=np.parkArea)   np.commonArea=Math.round((np.commonArea-np.parkArea)*100)/100;
+      else if(np.subArea>=np.parkArea) np.subArea=Math.round((np.subArea-np.parkArea)*100)/100;
+    }
     // 銀行/租賃：謄本設定金額是最高限額(通常實貸×1.2)，÷1.2 估實貸（與總檔匯入一致）
     np.bank=Math.ceil((parseFloat(p.bank)||0)/1.2);
     np.legal=Math.ceil((parseFloat(p.legal)||0)/1.2);
