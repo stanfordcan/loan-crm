@@ -1581,7 +1581,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t84 (債權人名稱洗更乾淨:公司統編、新臺幣金額尾巴、個人身分證(含遮罩)全部去掉,只留本名;已存的舊筆打開時也會自動洗) 2026.08.04';
+const APP_VERSION = '🧪測試版 t85 (謄本上傳預覽:銀行/法人金額拿掉舊字樣「(÷1.2估)」,數字照舊是估值) 2026.08.04';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5718,7 +5718,7 @@ function renderTenPreview(){
     ['建號',b.buildNo],['地號',b.landNo],
     ['主建物',b.mainArea?b.mainArea+'坪':null],['附屬',b.subArea?b.subArea+'坪':null],
     ['公設',b.commonArea?b.commonArea+'坪':null],['總坪數',b.area?b.area+'坪':null],
-    ['銀行貸款',bankT?bankT+'萬(÷1.2估)':null],['法人貸款',legalT?legalT+'萬(÷1.2估)':null],
+    ['銀行貸款',bankT?bankT+'萬':null],['法人貸款',legalT?legalT+'萬':null],
     ['民間借貸',privT?privT+'萬(最高限額)':null],['備註',s.note],
   ].filter(r=>r[1]);
   if(!rows.length){document.getElementById('tenPreview').innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">未能解析出任何資料</div>';return;}
