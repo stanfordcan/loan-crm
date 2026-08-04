@@ -1581,7 +1581,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t86 (名片金額同步:銀行/法人/民間總額改成從抵押貸款「逐筆估值」即時加總(含你手改過的金額),不再用存的舊總額,和不動產頁永遠一致) 2026.08.04';
+const APP_VERSION = '🧪測試版 t87 (AI匯入吃逐筆債權:JSON新增loans[{creditor,amt,type,seq}],匯入每筆帶債權人本名/登序/估值,總額自動=逐筆加總;提示詞加第12條) 2026.08.04';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2580,6 +2580,14 @@ function defaultLoanE(a, t){
   return (t==='bank'||t==='legal') ? (Math.ceil(amt/1.2)||0) : amt;
 }
 // 清洗債權人名稱：去掉開頭序號「1)」、標籤【銀】【私】【法】、民國日期、登序字串，只留本名
+// 貸款類型正規化：AI/總檔可能給中文或英文
+function normLoanType(t){
+  t=String(t||'').trim();
+  if(/銀|bank/i.test(t)) return 'bank';
+  if(/法|租賃|legal/i.test(t)) return 'legal';
+  if(/私|民間|private/i.test(t)) return 'private';
+  return 'private'; // 不明類型當民間(保守,提醒使用者確認)
+}
 function cleanCreditorName(name){
   let s = String(name||'');
   s = s.replace(/^\s*\d+[).、]\s*/, '');       // 開頭序號「1)」「1.」「1、」
@@ -6221,6 +6229,19 @@ function recordToProps(rec){
     np.private=parseFloat(p.private)||0;
     if(np.bank>0||np.legal>0) np.loanEstimated=true;
     if(np.private>0) np.privateConfirmed=false;
+    // 逐筆債權：AI 可給 loans:[{creditor,amt,type,seq}]（amt=設定金額原值萬）→ 每筆帶債權人/登序/估值；有逐筆時總額以逐筆Σ估值為準
+    if(Array.isArray(p.loans)&&p.loans.length){
+      np.loans=p.loans.map(l=>{
+        const ty=normLoanType(l.type||l.t);
+        const a=parseFloat(l.amt!=null?l.amt:l.a)||0;
+        return {n:cleanCreditorName(l.creditor||l.n||''), a:a, t:ty, s:String(l.seq||l.s||'').trim(), e:defaultLoanE(a,ty)};
+      }).filter(l=>l.a>0||l.n);
+      let _b=0,_g=0,_p=0;
+      np.loans.forEach(l=>{ if(l.t==='bank')_b+=l.e; else if(l.t==='legal')_g+=l.e; else _p+=l.e; });
+      np.bank=Math.round(_b); np.legal=Math.round(_g); np.private=Math.round(_p);
+      if(np.bank>0||np.legal>0) np.loanEstimated=true;
+      if(np.private>0) np.privateConfirmed=false;
+    }
     // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算；只放第一筆避免多筆重複
     if(idx===0){
       np.landtaxNormal=Math.round((parseFloat(ev.taxGeneral)||0)*10000);
@@ -6243,6 +6264,7 @@ function mergePropInto(dst, src){
   if((!dst.parkType||dst.parkType==='無') && src.parkType && src.parkType!=='無') dst.parkType=src.parkType;
   if((!dst.parkTitle||dst.parkTitle==='非獨立') && src.parkTitle==='獨立') dst.parkTitle='獨立';
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
+  if((!dst.loans||!dst.loans.length) && src.loans && src.loans.length) dst.loans=src.loans; // 逐筆債權：空的才補,不覆蓋既有(含手改)
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
   if(dst.private>0 && dst.privateConfirmed===undefined && src.privateConfirmed===false) dst.privateConfirmed=false;
