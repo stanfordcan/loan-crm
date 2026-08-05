@@ -6,7 +6,7 @@
 //   "https://www.googleapis.com/auth/calendar.readonly"
 // 第一次或加新權限後：跑一次 authorize() 授權，再「建立新版本」重新部署。
 
-var SPREADSHEET_ID = '1ROlo6EXFpFDUsE_Gx2JB31mAk3CNOhZTxq2KbQxAtAM';  // ← 各自的試算表 ID
+var SPREADSHEET_ID = '1hdGl7DKBD4wZpcaN4_9mm7dqisqpz54HdCfAJ5QMDDc';  // ← 各自的試算表 ID(2026/08/05 新總檔)
 var TOKEN = 'stanford87';
 
 function doGet(e) {
