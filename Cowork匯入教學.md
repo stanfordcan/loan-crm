@@ -37,6 +37,7 @@ Content-Type: application/json
 - 建物面積填全額、`buildShare` 另填持分；土地坪填**已算好持分**的數字。
 - 車位含在公設時 `commonArea` 照謄本全額填，CRM 會自動扣——你不要先扣。
 - 信託未塗銷：name 填委託人、idno 留空、note 標⚠️。
+- **估價寫入（t91 起）**：`eval` 可帶 `aiEvalBasis`（多行純文字，放實價登錄錨點逐筆／A/B/C分級／四情境／母體統計，自行排版，等寬字型顯示）＋照舊的 `unitprice`（行情單價，萬/坪）與 `evalNote`。顯示在 CRM 房價評估頁「🤖 AI估價依據」。重送同客戶會覆蓋舊的 aiEvalBasis（估價新版蓋舊版）。
 
 ## 常見錯誤
 
