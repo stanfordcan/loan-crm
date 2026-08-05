@@ -392,7 +392,9 @@ async function claimSession(uid) {
         const existing = snap.data().sessionToken;
         if (existing && existing !== token) {
           // 已有其他裝置在線 → 詢問使用者
-          const proceed = confirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
+          // 例外：網址帶 ?claim=1（自動化用，如 Cowork 匯入資料）→ 直接接管不彈窗；一般網址行為不變
+          const autoClaim = new URLSearchParams(location.search).get('claim') === '1';
+          const proceed = autoClaim || confirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
           if (!proceed) {
             // 使用者取消 → 清掉剛產生的 token 並登出
             sessionStorage.removeItem('crm_session_token');
@@ -1581,7 +1583,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t88 (公設扣車位:AI匯入時車位權狀=非獨立→公設自動扣掉車位坪(公設不夠扣改扣附屬),同一塊面積不再列兩次;總面積不變,房價評估照舊) 2026.08.04';
+const APP_VERSION = '🧪測試版 t89 (自動化登入:網址帶 ?claim=1 時遇「其他裝置在線」直接接管不彈窗(給Cowork匯資料用);一般網址行為完全不變照樣彈確認) 2026.08.05';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
