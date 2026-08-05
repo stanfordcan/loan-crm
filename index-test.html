@@ -443,6 +443,7 @@ function startAutoPush() {
     if (currentUser && GAS_URL) {
       pushToSheet().catch(() => {});
     }
+    if (typeof checkInbox === 'function') checkInbox();   // 每5分鐘順便看收件匣有沒有新待審(紅點)
   }, 5 * 60 * 1000);
 }
 
@@ -491,6 +492,7 @@ auth.onAuthStateChanged(async user => {
       if (typeof COMPANY_URL !== 'undefined' && COMPANY_URL && typeof syncGoogleCal === 'function') {
         syncGoogleCal(true).catch(()=>{});
       }
+      if (typeof checkInbox === 'function') checkInbox();   // 檢查AI匯入待審收件匣(紅點)
     }).catch(() => {}).finally(()=>{ clearTimeout(_lockSafety); hideCloudLock(); }); // 拿到雲端資料(或失敗)就解鎖
 
     // 啟動定時自動 push
@@ -838,6 +840,7 @@ async function applyUrlSettings() {
       <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
       <button class="hbtn" id="tenBtn" style="background:#ECEAF3;color:#6A5E8A" onclick="openTenModal()">📄 謄本匯入</button>
       <button class="hbtn" id="aiBtn" style="background:var(--abg);color:var(--accent)" onclick="openAiImport()">🤖 AI 匯入</button>
+      <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📥 待審<span id="inboxCount"></span></button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
       <button class="hbtn" id="selectModeBtn" onclick="toggleSelectMode()" style="background:var(--s2);color:var(--t2)">☑ 選取</button>
       <button class="hbtn" id="clearBtn" style="background:var(--rbg);color:var(--red)" onclick="clearAllData()">🗑️ 清除</button>
@@ -1583,7 +1586,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t89 (自動化登入:網址帶 ?claim=1 時遇「其他裝置在線」直接接管不彈窗(給Cowork匯資料用);一般網址行為完全不變照樣彈確認) 2026.08.05';
+const APP_VERSION = '🧪測試版 t90 (AI匯入待審收件匣:Cowork可POST資料進GAS佇列→CRM工具列跳紅色「📥待審(N)」→點開自動載入AI匯入預覽→你確認匯入後自動標記已處理紅點消失;需重新部署GAS新版本) 2026.08.05';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -5973,9 +5976,41 @@ function openAiImport(){
   document.getElementById('aiParseBtn').disabled=true;
   document.getElementById('aiGo').disabled=true;
   _aiParsed=null;
+  _inboxRows=null;   // 手動開AI匯入=不是收件匣流程,避免誤標已處理
   document.getElementById('aiBg').classList.add('open');
 }
 function closeAiImport(){document.getElementById('aiBg').classList.remove('open');}
+
+// ── 📥 AI匯入待審收件匣：Cowork POST 進 GAS 佇列 → 這裡紅點提示 → 點開走既有AI匯入預覽 → 確認匯入後標記已處理 ──
+let _inboxItems=null, _inboxRows=null;
+async function checkInbox(){
+  if(!COMPANY_URL || !currentUser) return;
+  try{
+    const d=await jsonpFetch(COMPANY_URL+'?action=inboxList&token='+API_TOKEN);
+    const items=(d&&d.status==='ok'&&Array.isArray(d.items))?d.items:[];
+    _inboxItems=items;
+    const btn=document.getElementById('inboxBtn');
+    if(btn){ btn.style.display=items.length?'':'none'; const c=document.getElementById('inboxCount'); if(c)c.textContent=items.length?('('+items.length+')'):''; }
+  }catch(e){}
+}
+function openInbox(){
+  if(!_inboxItems||!_inboxItems.length){ showToast('✅ 沒有待審資料'); checkInbox(); return; }
+  const recs=[];
+  _inboxItems.forEach(it=>{ try{ const r=JSON.parse(it.payload); Array.isArray(r)?recs.push(...r):recs.push(r); }catch(e){} });
+  if(!recs.length){ showToast('⚠️ 待審資料解析失敗'); return; }
+  openAiImport();
+  _inboxRows=_inboxItems.map(it=>it.row);   // 要在 openAiImport 之後設(它會清掉)
+  document.getElementById('aiInput').value=JSON.stringify(recs, null, 1);
+  document.getElementById('aiParseBtn').disabled=false;
+  parseAiImport();
+  showToast('📥 已載入 '+recs.length+' 筆待審，確認後按匯入');
+}
+// 匯入成功後呼叫:通知 GAS 標記已處理、紅點消失
+function inboxMarkDone(){
+  if(!_inboxRows||!_inboxRows.length) return;
+  const rows=_inboxRows.join(','); _inboxRows=null; _inboxItems=null;
+  jsonpFetch(COMPANY_URL+'?action=inboxDone&rows='+rows+'&token='+API_TOKEN).then(()=>checkInbox()).catch(()=>{});
+}
 
 function parseAiImport(){
   const raw=document.getElementById('aiInput').value.trim();
@@ -6362,6 +6397,7 @@ function doAiImport(){
   closeAiImport();
   render();
   showToast(`✅ AI 匯入完成：新增 ${added} 筆，更新 ${updated} 筆`);
+  inboxMarkDone();   // 收件匣流程:匯入成功→通知GAS標記已處理、紅點消失(手動AI匯入時 _inboxRows 為空,不動作)
   pushToSheet().then(()=>showToast('☁️ 已同步')).catch(()=>{});
 }
 

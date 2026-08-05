@@ -92,6 +92,28 @@ function doGet(e) {
     }
   }
 
+  // ── AI匯入待審收件匣：列出待審(inboxList) / 標記已處理(inboxDone) ──
+  // 佇列存在自動建立的專用試算表「CRM_AI匯入佇列」(ID記在指令碼屬性)，與總檔無關
+  if (action === 'inboxList') {
+    try {
+      var sh = inboxSheet();
+      var data = sh.getDataRange().getValues();
+      var out = [];
+      for (var r = 0; r < data.length; r++) {
+        if (String(data[r][2]) === 'pending') out.push({ row: r + 1, ts: String(data[r][0]), payload: String(data[r][1]) });
+      }
+      return jsonp(callback, { status: 'ok', items: out });
+    } catch(err) { return jsonp(callback, { status: 'error', message: err.toString() }); }
+  }
+  if (action === 'inboxDone') {
+    try {
+      var rows = String(e.parameter.rows || '').split(',').filter(function(x){ return x; });
+      var sh2 = inboxSheet();
+      rows.forEach(function(r){ sh2.getRange(parseInt(r, 10), 3).setValue('done'); });
+      return jsonp(callback, { status: 'ok', done: rows.length });
+    } catch(err) { return jsonp(callback, { status: 'error', message: err.toString() }); }
+  }
+
   // ── 預設：回傳總檔資料 ──
   try {
     var result = getSheetData();
@@ -156,6 +178,27 @@ function doPost(e) {
   if (p.token !== TOKEN) {
     return jsonp(callback, {status: 'error', message: 'invalid token'});
   }
+  // ── AI匯入收件：Cowork POST {token, action:'inbox', dryRun?, payload:[AI匯入JSON陣列]} ──
+  // 只排入待審佇列，不直接寫入客戶資料；業主在 CRM 看紅點、確認後才真正匯入
+  if (p.action === 'inbox') {
+    try {
+      var payload = p.payload;
+      if (!payload) return jsonp(callback, { status: 'error', message: 'no payload' });
+      if (!Array.isArray(payload)) payload = [payload];
+      var valid = 0, invalid = 0;
+      for (var i = 0; i < payload.length; i++) { (payload[i] && String(payload[i].name || '').trim()) ? valid++ : invalid++; }
+      if (p.dryRun) return jsonp(callback, { status: 'ok', dryRun: true, valid: valid, invalid: invalid });
+      var sh = inboxSheet();
+      var ts = new Date().toISOString();
+      var queued = 0;
+      for (var i = 0; i < payload.length; i++) {
+        if (!payload[i] || !String(payload[i].name || '').trim()) continue; // 沒姓名的不收
+        sh.appendRow([ts, JSON.stringify(payload[i]), 'pending']);  // 一筆客戶一列
+        queued++;
+      }
+      return jsonp(callback, { status: 'ok', queued: queued, invalid: invalid });
+    } catch(err) { return jsonp(callback, { status: 'error', message: err.toString() }); }
+  }
   if (p.action === 'uploadFile') {
     try {
       var m = String(p.url || '').match(/folders\/([A-Za-z0-9_-]+)/);
@@ -171,6 +214,19 @@ function doPost(e) {
     }
   }
   return jsonp(callback, {status: 'error', message: 'unknown action'});
+}
+
+// AI匯入佇列的試算表：第一次用到自動建立「CRM_AI匯入佇列」，ID 記在指令碼屬性；與總檔完全無關
+function inboxSheet() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('INBOX_SS_ID');
+  var ss = null;
+  if (id) { try { ss = SpreadsheetApp.openById(id); } catch(e) { ss = null; } }
+  if (!ss) {
+    ss = SpreadsheetApp.create('CRM_AI匯入佇列');
+    props.setProperty('INBOX_SS_ID', ss.getId());
+  }
+  return ss.getSheets()[0];
 }
 
 // 跑一次來授權（含 Drive + 試算表 + 行事曆）；不要在編輯器跑 doGet
