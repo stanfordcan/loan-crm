@@ -38,6 +38,9 @@ Content-Type: application/json
 - 車位含在公設時 `commonArea` 照謄本全額填，CRM 會自動扣——你不要先扣。
 - 信託未塗銷：name 填委託人、idno 留空、note 標⚠️。
 - **估價寫入（t91 起）**：`eval` 可帶 `aiEvalBasis`（多行純文字，放實價登錄錨點逐筆／A/B/C分級／四情境／母體統計，自行排版，等寬字型顯示）＋照舊的 `unitprice`（行情單價，萬/坪）與 `evalNote`。顯示在 CRM 房價評估頁「🤖 AI估價依據」。重送同客戶會覆蓋舊的 aiEvalBasis（估價新版蓋舊版）。
+- **實欠（t93 起）**：業主口述實欠時，該筆 loans 加 `"owed": 實欠(萬)`，amt 照填設定額；系統用 owed 當實貸估值（不÷1.2），note 標「客述」。
+- **土增稅三態（t93 起）**：算過才帶 taxGeneral/taxSelf（**算出 0 也要填 0**）；沒算→欄位整個省略，別拿 0 占位。
+- **⚠️ payload 大小**：單次 POST 過大會被 GAS 截斷、錯誤回「invalid token」（不是 token 問題）。**單批建議 ≤5 筆客戶**，多的分批送。
 
 ## 常見錯誤
 

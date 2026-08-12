@@ -1586,7 +1586,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t92 (土增稅整理:評估頁「不動產資訊」裡重複的土增稅(元)兩欄拿掉(不動產頁元卡+評估頁萬卡保留);匯入時稅額0=還沒算→不寫入,欄位不再冒出0) 2026.08.11';
+const APP_VERSION = '🧪測試版 t93 (土增稅三態:算過=0會顯示0(不動產頁+評估頁都顯示,確認有算過)、沒算=空白;loans新增owed實欠欄位(業主口述實欠直接當實貸估值,不再÷1.2);收件匣單批建議≤5筆) 2026.08.11';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4684,8 +4684,8 @@ function renderPriceEval(c) {
       <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">💰 土增稅</div>
         <div class="fg2">
-          <div class="frow" style="margin:0"><label>一般（萬）</label><input type="number" id="ev_tax_general" value="${e.taxGeneral||(c.landtaxNormal?Math.round(c.landtaxNormal/10000):'')||''}" placeholder=""/></div>
-          <div class="frow" style="margin:0"><label>自用（萬）</label><input type="number" id="ev_tax_self" value="${e.taxSelf||(c.landtaxSelf?Math.round(c.landtaxSelf/10000):'')||''}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>一般（萬）</label><input type="number" id="ev_tax_general" value="${(e.taxGeneral!=null&&e.taxGeneral!=='')?e.taxGeneral:(c.landtaxCalced?Math.round((c.landtaxNormal||0)/10000):(c.landtaxNormal?Math.round(c.landtaxNormal/10000):''))}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>自用（萬）</label><input type="number" id="ev_tax_self" value="${(e.taxSelf!=null&&e.taxSelf!=='')?e.taxSelf:(c.landtaxCalced?Math.round((c.landtaxSelf||0)/10000):(c.landtaxSelf?Math.round(c.landtaxSelf/10000):''))}" placeholder=""/></div>
         </div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>筆數</label><input type="number" id="ev_tax_count" value="${e.taxCount||([c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).length)||''}" placeholder="1"/></div>
       </div>
@@ -5332,8 +5332,11 @@ function savePropFields(){
   p.landArea=parseFloat(document.getElementById('fLandArea')?.value)||0;
   p.buildShareNum=parseFloat(document.getElementById('fBuildShareNum')?.value)||0;
   p.buildShareDen=parseFloat(document.getElementById('fBuildShareDen')?.value)||0;
-  p.landtaxNormal=parseFloat(document.getElementById('fLandtaxNormal')?.value)||0;
-  p.landtaxSelf=parseFloat(document.getElementById('fLandtaxSelf')?.value)||0;
+  const _rtN=String(document.getElementById('fLandtaxNormal')?.value??'').trim();
+  const _rtS=String(document.getElementById('fLandtaxSelf')?.value??'').trim();
+  p.landtaxNormal=parseFloat(_rtN)||0;
+  p.landtaxSelf=parseFloat(_rtS)||0;
+  p.landtaxCalced=(_rtN!==''||_rtS!=='');   // 欄位有值(含手打0)=算過→之後0也顯示;清空=未算→空白
   p.bank=parseFloat(document.getElementById('fBank')?.value)||0;
   p.legal=parseFloat(document.getElementById('fLegal')?.value)||0;
   p.private=parseFloat(document.getElementById('fPrivate')?.value)||0;
@@ -5365,8 +5368,9 @@ function loadPropFields(idx){
   document.getElementById('fLandArea').value=p.landArea||'';
   document.getElementById('fBuildShareNum').value=p.buildShareNum||'';
   document.getElementById('fBuildShareDen').value=p.buildShareDen||'';
-  document.getElementById('fLandtaxNormal').value=p.landtaxNormal||'';
-  document.getElementById('fLandtaxSelf').value=p.landtaxSelf||'';
+  // 土增稅三態顯示:landtaxCalced=算過→0也要顯示(業主要能確認「算過=0」);沒標記→0=沒算過顯示空白
+  document.getElementById('fLandtaxNormal').value=p.landtaxCalced?(p.landtaxNormal||0):(p.landtaxNormal||'');
+  document.getElementById('fLandtaxSelf').value=p.landtaxCalced?(p.landtaxSelf||0):(p.landtaxSelf||'');
   document.getElementById('fDriveUrl').value=p.driveUrl||'';
   const btnO=document.getElementById('btnOpenDrive'),btnC=document.getElementById('btnDrive');
   if(p.driveUrl){btnO.style.display='';btnC.textContent='✅ 已建立';}
@@ -6279,7 +6283,9 @@ function recordToProps(rec){
       np.loans=p.loans.map(l=>{
         const ty=normLoanType(l.type||l.t);
         const a=parseFloat(l.amt!=null?l.amt:l.a)||0;
-        return {n:cleanCreditorName(l.creditor||l.n||''), a:a, t:ty, s:String(l.seq||l.s||'').trim(), e:defaultLoanE(a,ty)};
+        // owed=業主口述實欠(萬):有給就直接當實貸估值(不再÷1.2),沒給才照類型算(銀/法÷1.2、民間原值)
+        const owed=parseFloat(l.owed)||0;
+        return {n:cleanCreditorName(l.creditor||l.n||''), a:a, t:ty, s:String(l.seq||l.s||'').trim(), e:owed>0?owed:defaultLoanE(a,ty)};
       }).filter(l=>l.a>0||l.n);
       let _b=0,_g=0,_p=0;
       np.loans.forEach(l=>{ if(l.t==='bank')_b+=l.e; else if(l.t==='legal')_g+=l.e; else _p+=l.e; });
@@ -6289,10 +6295,12 @@ function recordToProps(rec){
     }
     // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算；只放第一筆避免多筆重複
     if(idx===0){
-      // 0=還沒算(Cowork公式未建時照規則填0)，不寫入，欄位保持空白；有值才換算成元
-      const _tg=parseFloat(ev.taxGeneral)||0, _ts=parseFloat(ev.taxSelf)||0;
-      if(_tg>0) np.landtaxNormal=Math.round(_tg*10000);
-      if(_ts>0) np.landtaxSelf=Math.round(_ts*10000);
+      // 三態：欄位沒帶/空=還沒算→不寫入(空白)；帶了數字(含0)=算過→寫入並標記 landtaxCalced,0 也要顯示讓業主知道「算過=0」
+      const _hasTg=(ev.taxGeneral!==undefined&&ev.taxGeneral!==null&&ev.taxGeneral!=='');
+      const _hasTs=(ev.taxSelf!==undefined&&ev.taxSelf!==null&&ev.taxSelf!=='');
+      if(_hasTg) np.landtaxNormal=Math.round((parseFloat(ev.taxGeneral)||0)*10000);
+      if(_hasTs) np.landtaxSelf=Math.round((parseFloat(ev.taxSelf)||0)*10000);
+      if(_hasTg||_hasTs) np.landtaxCalced=true;
     }
     np.label=propLabel(np)||'不動產';
     return np;
@@ -6312,6 +6320,7 @@ function mergePropInto(dst, src){
   if((!dst.parkTitle||dst.parkTitle==='非獨立') && src.parkTitle==='獨立') dst.parkTitle='獨立';
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
   if((!dst.loans||!dst.loans.length) && src.loans && src.loans.length) dst.loans=src.loans; // 逐筆債權：空的才補,不覆蓋既有(含手改)
+  if(src.landtaxCalced && !dst.landtaxCalced && !dst.landtaxNormal && !dst.landtaxSelf){ dst.landtaxCalced=true; dst.landtaxNormal=src.landtaxNormal||0; dst.landtaxSelf=src.landtaxSelf||0; } // 土增稅「算過=0」也要能補進空的
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
   if(dst.private>0 && dst.privateConfirmed===undefined && src.privateConfirmed===false) dst.privateConfirmed=false;
