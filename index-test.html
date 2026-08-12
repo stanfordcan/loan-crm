@@ -1586,7 +1586,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t93 (土增稅三態:算過=0會顯示0(不動產頁+評估頁都顯示,確認有算過)、沒算=空白;loans新增owed實欠欄位(業主口述實欠直接當實貸估值,不再÷1.2);收件匣單批建議≤5筆) 2026.08.11';
+const APP_VERSION = '🧪測試版 t94 (匯入防呆:債權type寫「融資公司/資融/迪和/裕融」不再誤判成民間(歸法人);AI匯入審核預覽加「⚠️面積偏大疑似㎡」「總面積≈主建×3.3058疑似混填」警告,按確認前就看得到) 2026.08.11';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2589,8 +2589,8 @@ function defaultLoanE(a, t){
 function normLoanType(t){
   t=String(t||'').trim();
   if(/銀|bank/i.test(t)) return 'bank';
-  if(/法|租賃|legal/i.test(t)) return 'legal';
-  if(/私|民間|private/i.test(t)) return 'private';
+  if(/法|租賃|融資|資融|迪和|裕融|legal/i.test(t)) return 'legal'; // 「融資公司」等寫法也認得,不誤判成民間
+  if(/私|民間|個人|private/i.test(t)) return 'private';
   return 'private'; // 不明類型當民間(保守,提醒使用者確認)
 }
 function cleanCreditorName(name){
@@ -6158,6 +6158,14 @@ function renderAiPreview(){
         (p.bank?'銀'+p.bank:''),(p.legal?'法'+p.legal:''),(p.private?'民'+p.private:'')].filter(Boolean);
       return bits.join(' / ');
     }).filter(Boolean);
+    // 防呆警告:面積異常大→疑似把㎡當坪填(Cowork犯過);持分共有但沒帶buildShare也提醒
+    const warns=[];
+    props.forEach(p=>{
+      const mA=parseFloat(p.mainArea)||0, tA=parseFloat(p.area)||0;
+      if(mA>85||tA>250) warns.push('⚠️ '+(p.addr||'')+' 面積偏大('+(mA>85?('主建'+mA):('總'+tA))+')，確認單位是「坪」不是㎡(廠房/大透天可忽略)');
+      if(tA>0&&mA>0&&Math.abs((parseFloat(p.mainArea)||0)*3.3058-tA)<tA*0.03) warns.push('⚠️ '+(p.addr||'')+' 總面積≈主建物×3.3058，強烈懷疑㎡/坪混填');
+    });
+    const warnLine=warns.length?`<div style="font-size:11px;color:var(--red);background:var(--rbg);border-radius:6px;padding:3px 8px;margin-top:4px">${warns.join('<br>')}</div>`:'';
     return `<div style="background:var(--s2);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1">
@@ -6169,6 +6177,7 @@ function renderAiPreview(){
       </div>
       ${sub?`<div style="font-size:11px;color:var(--t3);margin-left:22px">${sub}</div>`:''}
       ${propLine.map(l=>`<div style="font-size:11px;color:var(--t2);margin-left:22px;margin-top:2px">🏠 ${l}</div>`).join('')}
+      ${warnLine?`<div style="margin-left:22px">${warnLine}</div>`:''}
       ${isStrong?`<label style="display:flex;align-items:center;gap:5px;margin-left:22px;margin-top:5px;font-size:11px;color:var(--t3);cursor:pointer"><input type="checkbox" class="aiAsNew" data-i="${i}"> 改為新增（不更新既有客戶）</label>`:''}
       ${isWeak?weakMatchBox(x,i):''}
     </div>`;
