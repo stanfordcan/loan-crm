@@ -892,7 +892,7 @@ async function applyUrlSettings() {
       <option value="heat">🔥 熱度</option>
       <option value="created">🕐 新增時間</option>
       <option value="addr">📍 地址縣市</option>
-      <option value="phone">📞 有電話優先</option>
+      <option value="phone">📞 有電話優先（本人→債電→無）</option>
       <option value="lastlog">💬 最後聯絡紀錄</option>
     </select>
     <div style="position:relative;flex-shrink:0">
@@ -1609,7 +1609,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t102 (右邊在看誰,左邊那張卡就浮起來:藍框+底色+微微抬高,一眼看出目前是哪位;用↑↓切換客戶時左邊清單會自動跟著捲過去(跑出畫面才捲,不會亂跳),關掉編輯面板就取消標記) 2026.08.14';
+const APP_VERSION = '🧪測試版 t103 (「有電話優先」排序改成三段:有本人電話 → 只有債電(未確認) → 完全沒電話;原本只分有跟沒有,債電客戶跟完全打不通的混在一起) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4254,6 +4254,12 @@ function render(){
     }
     return 99;
   }
+  // 電話優先排序的三段分級：0=有本人電話、1=只有債電(未確認)、2=完全沒電話
+  function phoneRank(c){
+    if(String(c.phone||'').trim()) return 0;
+    if((c.debtPhones||[]).some(p=>String(p||'').trim())) return 1;
+    return 2;
+  }
 
   list.sort((a,b)=>{
     // 置頂優先
@@ -4275,7 +4281,7 @@ function render(){
       if(ca!==cb) return ca-cb;
       return (a.addr||'').localeCompare(b.addr||'');
     } else if(sortBy==='phone'){
-      const pa=a.phone?0:1, pb=b.phone?0:1;
+      const pa=phoneRank(a), pb=phoneRank(b);   // 有電話 → 只有債電 → 完全沒電話
       if(pa!==pb) return pa-pb;
       const ra=rOrd[remSt(a.remind)]??4,rb=rOrd[remSt(b.remind)]??4;
       return ra-rb;
