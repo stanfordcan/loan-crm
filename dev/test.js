@@ -10,7 +10,7 @@ var clients=[]; var nextId=1;
 function saveLocal(){} function render(){} function pushToSheet(){return Promise.resolve();} function closeUrlSettings(){} function showToast(){}
 function calEsc(s){return String(s==null?'':s);}
 
-const need=['normalizeAddr','normBuildNo','addrCore','addrHit','propLabel','emptyProperty','extractDistrict','migrateProperties','mergePropInto','isFullId','clientRichness','genderFromId','dispName','noticeAddrParts','parseVisitLogs','foldClientInto','consolidateByIdno'];
+const need=['normalizeAddr','normBuildNo','addrCore','addrHit','propLabel','emptyProperty','extractDistrict','migrateProperties','mergePropInto','isFullId','clientRichness','genderFromId','dispName','noticeAddrParts','parseVisitLogs','normPhoneKey','mergeDebtPhones','foldClientInto','consolidateByIdno'];
 eval(need.map(ext).join('\n\n'));
 
 let pass=0,fail=0;
@@ -56,6 +56,10 @@ const A={id:1,name:'甲',properties:[{addr:'台北A路1號',buildNo:'100-1',bank
 foldClientInto(A,{id:2,name:'甲',properties:[{addr:'台北A路1號',buildNo:'100-1',private:300,label:'x'}]});
 ok(A.properties.length===1&&A.properties[0].bank===500&&A.properties[0].private===300,'同建號房產合併、金額都在');
 ok(clientRichness({phone:'0912',logs:[1,2],properties:[{addr:'a'}]})>clientRichness({phone:'',logs:[],properties:[]}),'clientRichness 較完整者高');
+// 債電去重：總檔同步跑幾次都不該長出重複(t99)
+let dp=[]; for(let i=0;i<5;i++) dp=mergeDebtPhones(dp,['0955728829','033278783']);
+ok(dp.length===2,'債電同步5次仍2支(不重複)',JSON.stringify(dp));
+ok(mergeDebtPhones(['0955-728-829'],['0955728829']).length===1,'債電有無「-」視為同一支');
 
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
