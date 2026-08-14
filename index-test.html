@@ -99,6 +99,10 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .ccard.soon{border-left-color:var(--accent)}
 /* Pinned card */
 .ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
+/* 右邊正在看的那位 → 左邊清單這張卡「浮起來」(蓋過置頂的樣式,所以放後面) */
+.ccard{transition:box-shadow .18s,transform .18s}
+.ccard.active{background:var(--abg);box-shadow:0 6px 20px rgba(44,99,207,.22);outline:2px solid var(--accent);outline-offset:-1px;transform:translateY(-2px);position:relative;z-index:1}
+.ccard.active .cname{color:var(--accent)}
 /* Heat-based left border (only when no remind-state border) */
 .ccard.heat-hw:not(.over):not(.today):not(.soon){border-left-color:rgba(196,106,0,.55)}
 .ccard.heat-hc:not(.over):not(.today):not(.soon){border-left-color:rgba(43,91,226,.45)}
@@ -1605,7 +1609,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t101 (配色翻新:底色退到後面讓卡片浮起來、金額改成深色粗體變主角、身分證/編號/批次退成淺灰;紅色只留給要馬上處理的(逾期/風險),民間金額改用橘色代表待確認;深色模式一起翻新,對比度全部拉到無障礙標準) 2026.08.14';
+const APP_VERSION = '🧪測試版 t102 (右邊在看誰,左邊那張卡就浮起來:藍框+底色+微微抬高,一眼看出目前是哪位;用↑↓切換客戶時左邊清單會自動跟著捲過去(跑出畫面才捲,不會亂跳),關掉編輯面板就取消標記) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4295,6 +4299,7 @@ function render(){
   });
   const wrap=document.getElementById('listWrap');
   if(!list.length){wrap.innerHTML=`<div class="empty">🔍 查無資料</div>`;return;}
+  const sheetIsOpen=isSheetOpen();   // 編輯面板開著才標「正在看的那位」
   wrap.innerHTML=list.map(c=>{
     let st=remSt(c.remind);
     // 今天的提醒，但時間已過 → 視為逾期
@@ -4310,7 +4315,7 @@ function render(){
     const heatCls=hCls[c.heat]||'';
     const isSel=selectMode&&selectedIds.has(c.id);
     const cardClick=selectMode?`toggleSelect(${c.id},event)`:`openEdit(${c.id})`;
-    return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}" onclick="${cardClick}">
+    return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
         <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
@@ -4498,8 +4503,8 @@ document.addEventListener('keydown', e=>{
     e.preventDefault();
     const btns=document.querySelectorAll('.stab');
     const keepTab=[...btns].findIndex(b=>b.classList.contains('active')); // 記住目前分頁
-    const cards=Array.from(document.querySelectorAll('.ccard'));
-    const ids=cards.map(el=>{const m=el.getAttribute('onclick')?.match(/openEdit\((\d+)\)/);return m?parseInt(m[1]):null;}).filter(Boolean);
+    const cards=Array.from(document.querySelectorAll('.ccard[data-cid]'));
+    const ids=cards.map(el=>parseInt(el.getAttribute('data-cid'),10)).filter(Boolean);
     const idx=ids.indexOf(editId);
     const next=e.key==='ArrowUp'?idx-1:idx+1;
     if(next>=0&&next<ids.length){
@@ -4598,6 +4603,29 @@ function openAdd(){
   document.getElementById('sheetBg').classList.add('open');
 }
 
+function isSheetOpen(){ const el=document.getElementById('sheetBg'); return !!(el&&el.classList.contains('open')); }
+// 左邊清單標出「右邊正在看的那位」：卡片浮起來，並把它捲進可視範圍(↑↓切換客戶時清單會跟著走)
+function highlightActiveCard(doScroll){
+  const wrap=document.getElementById('listWrap'); if(!wrap) return;
+  wrap.querySelectorAll('.ccard.active').forEach(el=>el.classList.remove('active'));
+  if(selectMode || !editId || !isSheetOpen()) return;
+  const el=wrap.querySelector('.ccard[data-cid="'+editId+'"]');
+  if(!el) return;
+  el.classList.add('active');
+  if(!doScroll) return;
+  // 自己算位移，不用 scrollIntoView：它帶 behavior:'smooth' 時在某些瀏覽器/系統設定下會完全不捲(實測過)
+  let sc=el.parentElement;
+  while(sc && sc!==document.body && !(/(auto|scroll)/.test(getComputedStyle(sc).overflowY) && sc.scrollHeight>sc.clientHeight+4)) sc=sc.parentElement;
+  const isPage = (!sc || sc===document.body);
+  if(isPage) sc=document.scrollingElement||document.documentElement;
+  const er=el.getBoundingClientRect();
+  const sr=isPage ? {top:0,bottom:window.innerHeight} : sc.getBoundingClientRect();
+  const pad=14;   // 留一點邊，卡片不會剛好貼齊邊緣
+  let delta=0;
+  if(er.top < sr.top+pad) delta = er.top - sr.top - pad;                    // 跑到上面 → 往回捲
+  else if(er.bottom > sr.bottom-pad) delta = er.bottom - sr.bottom + pad;   // 跑到下面 → 往下捲
+  if(delta) sc.scrollTop += delta;   // 只有真的跑出畫面才捲,在畫面內就完全不動
+}
 function openEdit(id){
   editId=id;formDirty=false;
   const c=clients.find(x=>x.id===id);
@@ -4661,6 +4689,7 @@ function openEdit(id){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  highlightActiveCard(true);   // 左邊清單同步標記＋捲到這位
 }
 
 function closeSheet(){
