@@ -1586,7 +1586,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t97 (設定日期補得進已有債權的客戶:AI匯入/總檔同步遇到客戶已經有債權清單時,整包照舊不動,只把缺的「設定日期」補進對應筆(登序對得上、或金額+分類唯一才補,不亂猜)) 2026.08.14';
+const APP_VERSION = '🧪測試版 t98 (摘要佔位債權也補得到日期:總檔只給摘要金額的那種「銀行貸款/法人／租賃/民間借貸」佔位筆,金額常跟謄本設定額對不上,現在同分類兩邊都只有一筆就會補日期,並順便補登序、把佔位名稱換成真實債權人) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2697,7 +2697,10 @@ function classifyCreditor(name){
   if(/股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(s)) return 'legal';
   return 'private';
 }
-// 只補「設定日期」：把 src 債權的 d 補進 dst 對應筆——登序對得上優先；否則金額+分類唯一才補（不亂猜）。絕不覆蓋已有日期、不動金額名稱。
+// 總檔摘要佔位筆的系統代填名稱（parseRightsLoans fallback 產生的）
+function isPlaceholderLoanName(n){ n=String(n||'').trim(); return !n || n==='銀行貸款' || n==='法人／租賃' || n==='民間借貸'; }
+// 只補「設定日期」：把 src 債權的 d 補進 dst 對應筆——登序對得上優先；否則金額+分類唯一才補（不亂猜）。絕不覆蓋已有日期。
+// 例外：總檔摘要佔位筆（系統代填名稱＋沒登序，金額是摘要數字常對不上謄本設定額）→ 放寬成「分類兩邊都唯一」就補，並順便補登序、把佔位名稱換成真實債權人。
 function patchLoanDates(dstLoans, srcLoans){
   if(!Array.isArray(dstLoans)||!dstLoans.length||!Array.isArray(srcLoans)) return false;
   const src=srcLoans.filter(x=>x&&x.d);
@@ -2711,6 +2714,16 @@ function patchLoanDates(dstLoans, srcLoans){
       const cand=src.filter(x=>x.a===l.a&&x.t===l.t);
       const own=dstLoans.filter(x=>x.a===l.a&&x.t===l.t);
       if(cand.length===1 && own.length===1) m=cand[0];
+    }
+    // 佔位筆放寬：同分類兩邊都只有一筆就認定是同一筆
+    if(!m && !l.s && isPlaceholderLoanName(l.n)){
+      const candT=src.filter(x=>x.t===l.t);
+      const ownT=dstLoans.filter(x=>x.t===l.t);
+      if(candT.length===1 && ownT.length===1){
+        m=candT[0];
+        if(m.s && !l.s) l.s=m.s;
+        if(m.n && !isPlaceholderLoanName(m.n)) l.n=m.n;
+      }
     }
     if(m){ l.d=m.d; hit=true; }
   });
