@@ -1610,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t106 (修房價評估跑錯標的:多筆不動產時,評估頁會把別筆的建號/地址/社區/坪數/屋齡填進來(缺欄位就抓客戶層級的舊值),而且評估內容全客戶共用一份、切一筆就蓋掉另一筆;現在每筆各自獨立,舊資料自動接到第一筆) 2026.08.14';
+const APP_VERSION = '🧪測試版 t107 (再修評估頁殘留:切換不動產時評估頁沒有跟著重畫,還停在上一筆(社區/屋齡/建號都是舊的),存檔還會把上一筆的內容寫進這一筆;現在切換就重畫、內容各自存回正確那筆;一鍵套用新規則可清掉已被互相蓋掉的評估內容) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4604,7 +4604,8 @@ function openAdd(){
   tempLogs=[];renderLogs();sSTabTo(0);
   properties=[{...emptyProperty(0)}]; curPropIdx=0; renderPropTabs();
   ensurePropLoans(null, properties[0]); renderLoanRows(); syncLoanTotalsToForm();
-  setTimeout(()=>renderPriceEval({}), 100);
+  _evalRenderedIdx=-1;
+  setTimeout(()=>{ renderPriceEval({}); _evalRenderedIdx=0; }, 100);
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
@@ -4692,7 +4693,8 @@ function openEdit(id){
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
-  setTimeout(()=>{ renderPriceEval(evalCtx(c, properties[0])); autoGrowNote(document.getElementById('fNote')); }, 100);
+  _evalRenderedIdx=-1;   // 換客戶了，舊的渲染索引作廢，避免把上一位的評估內容寫進來
+  setTimeout(()=>{ refreshPriceEval(); autoGrowNote(document.getElementById('fNote')); }, 100);
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
@@ -5075,13 +5077,8 @@ function sSTab(i,el){
   el.classList.add('active');
   // 聯絡記錄頁：進入時捲到最底，讓輸入框可見
   if(i===2){const sb=document.querySelector('#sp2').closest('.sbody'); if(sb) requestAnimationFrame(()=>{sb.scrollTop=sb.scrollHeight;});}
-  // 進入「房價評估」分頁 → 用目前不動產重新渲染（跟「前往此筆房價評估」按鈕一致）
-  if(i===4){
-    const c=editId?(clients.find(x=>x.id===editId)||{}):{};
-    const p=properties[curPropIdx]||{};
-    renderPriceEval(evalCtx(c,p));
-    if(typeof updateEvalIndicator==='function') updateEvalIndicator();
-  }
+  // 進入「房價評估」分頁 → 先把面板上既有內容存回原本那筆(避免重畫時弄丟)，再用目前不動產重新渲染
+  if(i===4){ saveEvalFields(); refreshPriceEval(); }
   // 進入「☁️ 雲端」分頁 → 進去才打 GAS 讀資料夾（不要每次 render 都打）
   if(i===5) renderCloudTab();
   // 進入「公司資料」分頁 → 預設選目前不動產，並建立可切換的不動產頁籤
@@ -5689,35 +5686,73 @@ function togglePrivateConfirm(v){
 }
 
 function switchProperty(idx){
-  savePropFields(); curPropIdx=idx; loadPropFields(idx); renderPropTabs();
+  savePropFields(); saveEvalFields();     // 先把現在畫面上的內容存回原本那筆，再換
+  curPropIdx=idx; loadPropFields(idx); renderPropTabs();
+  refreshPriceEval();                      // 評估頁跟著換，不會停在上一筆
 }
 
 function addProperty(){
-  savePropFields();
+  savePropFields(); saveEvalFields();
   properties.push(emptyProperty(properties.length));
   curPropIdx=properties.length-1;
   loadPropFields(curPropIdx); renderPropTabs();
+  refreshPriceEval();
   showToast('➕ 已新增不動產');
 }
 
 function removeProperty(idx){
   if(properties.length<=1){showToast('至少需要保留一筆不動產');return;}
   if(!confirm(`確定刪除「${properties[idx].label}」？`)) return;
+  savePropFields(); saveEvalFields();
   properties.splice(idx,1);
+  _evalRenderedIdx=-1;                     // 陣列位置變了，舊索引作廢
   curPropIdx=Math.min(curPropIdx,properties.length-1);
   loadPropFields(curPropIdx); renderPropTabs();
+  refreshPriceEval();
 }
 
 function jumpToEval(){
   savePropFields();
-  const c=editId?(clients.find(x=>x.id===editId)||{}):{};
-  const p=properties[curPropIdx]||{};
   sSTabTo(4);
   document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===4));
-  renderPriceEval(evalCtx(c,p));
-  updateEvalIndicator();
+  refreshPriceEval();
 }
 
+// ── 房價評估：畫面上顯示的是「哪一筆」不動產 ────────────────────
+// _evalRenderedIdx＝評估面板目前渲染的是第幾筆。切換不動產時若不重畫，面板會停在上一筆，
+// 存檔就會把上一筆的評估內容寫進現在這筆（互相污染的根源）。
+let _evalRenderedIdx=-1;
+// 讀取評估表單目前的內容（存檔與切換前保存都用這個，只有一份定義）
+function collectEvalData(){
+  const v=(id,d)=>document.getElementById(id)?.value||(d||'');
+  return {
+    district:v('ev_district'), section:v('ev_section'), landno:v('ev_landno'), landzone:v('ev_landzone'),
+    landtaxNormal:v('ev_landtax_normal'), landtaxSelf:v('ev_landtax_self'),
+    buildno:v('ev_buildno'), addr:v('ev_addr'), community:v('ev_community'),
+    buildarea:v('ev_buildarea'), landarea:v('ev_landarea'),
+    parking:v('ev_parking','無'), parkTitle:v('ev_park_title','非獨立'), parkval:v('ev_park_val'),
+    floors:v('ev_floors'), age:v('ev_age'),
+    taxGeneral:v('ev_tax_general'), taxSelf:v('ev_tax_self'), taxCount:v('ev_tax_count'),
+    condition:v('ev_condition'), resistance:v('ev_resistance'), jinzhai:v('ev_jinzhai'),
+    unitprice:v('ev_unitprice'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
+    evalNote:v('ev_note'), aiEvalBasis:v('ev_ai_basis'),
+  };
+}
+// 把畫面上的評估內容存回「畫面正在顯示的那一筆」（不是 curPropIdx，切換途中兩者可能不同）
+function saveEvalFields(){
+  if(_evalRenderedIdx<0) return;
+  const p=properties[_evalRenderedIdx];
+  if(!p || !document.getElementById('ev_community')) return;   // 評估面板還沒渲染過就不動
+  p.evalData=collectEvalData();
+}
+// 重畫評估面板成「目前這筆」，並記住畫的是哪一筆
+function refreshPriceEval(){
+  const c=editId?(clients.find(x=>x.id===editId)||{}):{};
+  const p=properties[curPropIdx]||{};
+  renderPriceEval(evalCtx(c,p));
+  _evalRenderedIdx=curPropIdx;
+  updateEvalIndicator();
+}
 function updateEvalIndicator(){
   const p=properties[curPropIdx]||{};
   const el=document.getElementById('evalPropIndicator');
@@ -6061,36 +6096,7 @@ async function saveClient(silent){
     extraLoans:[...extraLoans],
     purpose:document.getElementById('fPurpose').value.trim(),
     loanPurpose:document.getElementById('ev_purpose')?.value?.trim()||'',
-    evalData:{
-      district:document.getElementById('ev_district')?.value||'',
-      section:document.getElementById('ev_section')?.value||'',
-      landno:document.getElementById('ev_landno')?.value||'',
-      landzone:document.getElementById('ev_landzone')?.value||'',
-      landtaxNormal:document.getElementById('ev_landtax_normal')?.value||'',
-      landtaxSelf:document.getElementById('ev_landtax_self')?.value||'',
-      buildno:document.getElementById('ev_buildno')?.value||'',
-      addr:document.getElementById('ev_addr')?.value||'',
-      community:document.getElementById('ev_community')?.value||'',
-      buildarea:document.getElementById('ev_buildarea')?.value||'',
-      landarea:document.getElementById('ev_landarea')?.value||'',
-      parking:document.getElementById('ev_parking')?.value||'無',
-      parkTitle:document.getElementById('ev_park_title')?.value||'非獨立',
-      parkval:document.getElementById('ev_park_val')?.value||'',
-      floors:document.getElementById('ev_floors')?.value||'',
-      age:document.getElementById('ev_age')?.value||'',
-      taxGeneral:document.getElementById('ev_tax_general')?.value||'',
-      taxSelf:document.getElementById('ev_tax_self')?.value||'',
-      taxCount:document.getElementById('ev_tax_count')?.value||'',
-      condition:document.getElementById('ev_condition')?.value||'',
-      resistance:document.getElementById('ev_resistance')?.value||'',
-      jinzhai:document.getElementById('ev_jinzhai')?.value||'',
-      unitprice:document.getElementById('ev_unitprice')?.value||'',
-      rate:document.getElementById('ev_rate')?.value||'',
-      job:document.getElementById('ev_job')?.value||'',
-      need:document.getElementById('ev_need')?.value||'',
-      evalNote:document.getElementById('ev_note')?.value||'',
-      aiEvalBasis:document.getElementById('ev_ai_basis')?.value||'',
-    },
+    evalData:collectEvalData(),
     buildNo:document.getElementById('fBuildNo').value.trim(),
     landNo:document.getElementById('fLandNo').value.trim(),
     driveUrl:document.getElementById('fDriveUrl').value.trim(),
@@ -6098,9 +6104,8 @@ async function saveClient(silent){
     debtPhones:tempDebtPhones.map(p=>String(p||'').trim()).filter(Boolean),
     updatedAt:TODAY,
   };
-  // 房價評估內容跟著「目前正在評估的那一筆」不動產存，不再一位客戶共用一份
-  // （共用會讓多筆案件互相蓋掉：切到第二筆看到的是第一筆填的社區/屋齡/樓層/坪數）
-  if(properties[curPropIdx]) properties[curPropIdx].evalData={...data.evalData};
+  // 房價評估內容存回「評估面板正在顯示的那一筆」（不是 curPropIdx，兩者不同步時寫錯筆就會互相污染）
+  saveEvalFields();
   data.properties=properties.map(p=>({...p}));
   // 手動分類鎖：用戶親手分了類(非待分類)→鎖住,之後匯入(總檔/新鑫)都不再覆蓋分類
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(data.heat)) data.heatManual = true;
@@ -6799,7 +6804,7 @@ function fixAddrDistrict(addr, buildInfo){
 // 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
 function isJunkLog(t){ t=String(t||'').trim(); return !t || !/[^\d\s:：.,，、。\-_/／()（）]/.test(t); }
 function applyNewRulesToExisting(dryRun){
-  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0,nName=0,nLoanDate=0,nDebtPhone=0; const changed=new Set();
+  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0,nName=0,nLoanDate=0,nDebtPhone=0,nEvalDup=0; const changed=new Set();
   const details=[]; // 會「改動非空欄位」的清單(本名、門牌區),給預覽用
   clients.forEach(c=>{
     // 新鑫批次標頭(1150522_資料(N))原本塞在備註→搬進「批次」欄(空白才補,並把標頭從備註移除)
@@ -6845,6 +6850,17 @@ function applyNewRulesToExisting(dryRun){
     if(cr&&cr.rights&&fillLoanDates(c.loans,cr.rights)) dHit=true;
     (c.properties||[]).forEach(p=>{ if(p.companyRaw&&p.companyRaw.rights&&fillLoanDates(p.loans,p.companyRaw.rights)) dHit=true; });
     if(dHit){ nLoanDate++; changed.add(c.id); }
+    // 評估內容污染清理：第2筆以後的不動產,若評估內容跟第1筆「一字不差」→ 是舊版共用一份造成的，清掉讓它重填
+    // （不同標的的社區/屋齡/單價/評估說明不可能完全相同，所以只在完全一致時才動）
+    const _ps=c.properties||[];
+    if(_ps.length>1 && _ps[0] && _ps[0].evalData && Object.keys(_ps[0].evalData).length){
+      const first=JSON.stringify(_ps[0].evalData);
+      let hit=false;
+      for(let i=1;i<_ps.length;i++){
+        if(_ps[i] && _ps[i].evalData && JSON.stringify(_ps[i].evalData)===first){ if(!dryRun) delete _ps[i].evalData; hit=true; }
+      }
+      if(hit){ nEvalDup++; changed.add(c.id); }
+    }
     // 債電去重：舊版總檔同步每跑一次就多加一輪同樣號碼,這裡把重複收成一筆(保留最早出現的寫法)
     if((c.debtPhones||[]).length){
       const dedup=mergeDebtPhones(c.debtPhones, []);
@@ -6880,7 +6896,7 @@ function applyNewRulesToExisting(dryRun){
     }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
   });
-  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nLoanDate,nDebtPhone,nClients:changed.size,details};
+  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nLoanDate,nDebtPhone,nEvalDup,nClients:changed.size,details};
 }
 function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
@@ -6890,10 +6906,10 @@ function runApplyNewRules(){
   if(r.details && r.details.length){
     changeList='\n\n【會改動的內容（其餘都只補空白）】\n'+r.details.slice(0,25).map(d=>'　'+d).join('\n')+(r.details.length>25?`\n　…等共 ${r.details.length} 項`:'');
   }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
+  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n• 清理重複的房價評估內容 ${r.nEvalDup} 位（第2筆以後跟第1筆一模一樣＝舊版共用造成，清掉重填）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
-  showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位、設定日期+${r.nLoanDate}位、債電去重${r.nDebtPhone}位`);
+  showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位、設定日期+${r.nLoanDate}位、債電去重${r.nDebtPhone}位、評估清理${r.nEvalDup}位`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
