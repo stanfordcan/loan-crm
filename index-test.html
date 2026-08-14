@@ -1610,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t104 (選到的客戶卡不再反藍:拿掉藍底跟粗藍框、姓名也不變色,改成整張卡明顯抬起來+淡淡的細邊,乾淨很多還是一眼看得出選到誰) 2026.08.14';
+const APP_VERSION = '🧪測試版 t105 (多筆不動產的土增稅各自顯示:以前一位客戶只能填一組,第二筆之後卡片都空白,現在AI匯入可以逐筆帶各自的土增稅;舊格式(只帶一組)照舊相容) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -6464,15 +6464,16 @@ function recordToProps(rec){
       if(np.bank>0||np.legal>0) np.loanEstimated=true;
       if(np.private>0) np.privateConfirmed=false;
     }
-    // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算；只放第一筆避免多筆重複
-    if(idx===0){
-      // 三態：欄位沒帶/空=還沒算→不寫入(空白)；帶了數字(含0)=算過→寫入並標記 landtaxCalced,0 也要顯示讓業主知道「算過=0」
-      const _hasTg=(ev.taxGeneral!==undefined&&ev.taxGeneral!==null&&ev.taxGeneral!=='');
-      const _hasTs=(ev.taxSelf!==undefined&&ev.taxSelf!==null&&ev.taxSelf!=='');
-      if(_hasTg) np.landtaxNormal=Math.round((parseFloat(ev.taxGeneral)||0)*10000);
-      if(_hasTs) np.landtaxSelf=Math.round((parseFloat(ev.taxSelf)||0)*10000);
-      if(_hasTg||_hasTs) np.landtaxCalced=true;
-    }
+    // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算。
+    // 來源優先序：這筆不動產自己帶的 taxGeneral/taxSelf（多筆案件每筆各自一組）→ 沒帶才退用客戶層級的 eval（只給第一筆，避免多筆重複）
+    // 三態：欄位沒帶/空=還沒算→不寫入(空白)；帶了數字(含0)=算過→寫入並標記 landtaxCalced，0 也要顯示讓業主知道「算過=0」
+    const _has=v=>(v!==undefined&&v!==null&&v!=='');
+    const _ownTax=_has(p.taxGeneral)||_has(p.taxSelf);
+    const _tg = _ownTax ? p.taxGeneral : (idx===0 ? ev.taxGeneral : undefined);
+    const _ts = _ownTax ? p.taxSelf    : (idx===0 ? ev.taxSelf    : undefined);
+    if(_has(_tg)) np.landtaxNormal=Math.round((parseFloat(_tg)||0)*10000);
+    if(_has(_ts)) np.landtaxSelf=Math.round((parseFloat(_ts)||0)*10000);
+    if(_has(_tg)||_has(_ts)) np.landtaxCalced=true;
     np.label=propLabel(np)||'不動產';
     return np;
   });
