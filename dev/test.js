@@ -10,7 +10,7 @@ var clients=[]; var nextId=1;
 function saveLocal(){} function render(){} function pushToSheet(){return Promise.resolve();} function closeUrlSettings(){} function showToast(){}
 function calEsc(s){return String(s==null?'':s);}
 
-const need=['normalizeAddr','normBuildNo','addrCore','addrHit','propLabel','emptyProperty','extractDistrict','migrateProperties','mergePropInto','isFullId','clientRichness','genderFromId','dispName','noticeAddrParts','parseVisitLogs','normPhoneKey','mergeDebtPhones','foldClientInto','consolidateByIdno'];
+const need=['normalizeAddr','normBuildNo','addrCore','addrHit','propLabel','emptyProperty','extractDistrict','migrateProperties','mergePropInto','isFullId','clientRichness','genderFromId','dispName','noticeAddrParts','parseVisitLogs','normPhoneKey','mergeDebtPhones','mergeDebtPhonesInto','foldClientInto','consolidateByIdno'];
 eval(need.map(ext).join('\n\n'));
 
 let pass=0,fail=0;
@@ -60,6 +60,8 @@ ok(clientRichness({phone:'0912',logs:[1,2],properties:[{addr:'a'}]})>clientRichn
 let dp=[]; for(let i=0;i<5;i++) dp=mergeDebtPhones(dp,['0955728829','033278783']);
 ok(dp.length===2,'債電同步5次仍2支(不重複)',JSON.stringify(dp));
 ok(mergeDebtPhones(['0955-728-829'],['0955728829']).length===1,'債電有無「-」視為同一支');
+// 手動刪過的債電：總檔更新永不再帶回來(t100)
+ok(mergeDebtPhonesInto({debtPhones:[],deletedDebtPhones:['0223659585']},['0223659585','0228261376']).join()==='0228261376','刪過的債電不再被帶回,其餘照補');
 
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

@@ -1067,9 +1067,10 @@ async function applyUrlSettings() {
         </div>
         <div class="note-debt-row">
           <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…" oninput="autoGrowNote(this)" style="overflow:hidden;min-height:85px"></textarea></div>
-          <div id="debtPhoneArea" style="display:none">
+          <div id="debtPhoneArea">
             <div style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">債電（未確認）</div>
             <div id="debtPhoneList" style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);line-height:1.8"></div>
+            <button type="button" onclick="addDebtPhone()" style="width:100%;margin-top:6px;background:none;border:1px dashed var(--border);border-radius:var(--rs);padding:7px;font-size:12px;color:var(--t3);font-family:inherit;cursor:pointer">＋ 新增債電</button>
           </div>
         </div>
       </div>
@@ -1586,7 +1587,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t99 (修債務人電話無限重複:同建號併戶時債電是直接接在後面沒去重,每按一次總檔更新就多長一輪,現在同一支號碼只留一筆;一鍵套用新規則會把已長出來的重複收掉) 2026.08.14';
+const APP_VERSION = '🧪測試版 t100 (債電可以手動改了:每支號碼都能直接編輯、刪除,也能自己新增;刪掉或改掉的號碼會被記住,之後總檔更新永遠不會再帶回來(跟聯絡紀錄刪除同一套規矩)) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2313,6 +2314,13 @@ function renderDupPanel(c) {
 // 把 b 整筆併進 a（a 保留為主）：房產合併去重、缺的欄位用 b 補、電話/記錄/財力合併。回傳 a。
 // 債電比對用：去掉 -、空白、括號、#，只留可比對的號碼本體
 function normPhoneKey(s){ return String(s==null?'':s).replace(/[-\s()#]/g,''); }
+// 併進某位客戶的債電：先濾掉他手動刪過的號碼（deletedDebtPhones 記正規化後的號碼），再去重合併。
+// 業主刪過的債電＝永不再由總檔/匯入帶回來，跟聯絡紀錄的 deletedLogKeys 同一套規矩。
+function mergeDebtPhonesInto(client, incoming){
+  const del=new Set(client&&client.deletedDebtPhones||[]);
+  const fresh=(incoming||[]).filter(p=>p && !del.has(normPhoneKey(p)));
+  return mergeDebtPhones(client&&client.debtPhones, fresh);
+}
 // 債電合併去重：回傳新陣列（保留既有順序與寫法，只加沒看過的號碼）。
 // 同一支號碼不管重跑幾次總檔同步都只留一筆——這裡不去重就會每同步一次多長一輪。
 function mergeDebtPhones(existing, incoming){
@@ -2350,8 +2358,9 @@ function foldClientInto(a, b){
     if(!a[k] && b[k]) a[k]=b[k];
   });
   if(!a.companyRaw && b.companyRaw) a.companyRaw=b.companyRaw;
-  // 債電合併去重
-  a.debtPhones=mergeDebtPhones(a.debtPhones, b.debtPhones);
+  // 債電合併去重（兩邊刪過的名單一起帶走，b 的號碼要通過 a 的刪除名單才進得來）
+  a.deletedDebtPhones=[...new Set([...(a.deletedDebtPhones||[]),...(b.deletedDebtPhones||[])])];
+  a.debtPhones=mergeDebtPhonesInto(a, b.debtPhones);
   // 聯絡記錄合併去重
   const lkey=l=>(l.date||'')+(l.text||'').slice(0,20);
   const lset=new Set((a.logs||[]).map(lkey));
@@ -3104,9 +3113,9 @@ function processCompanyData(raw) {
         if(name && name !== '（未知）' && !prevSameBuilding.name.includes(name)) {
           prevSameBuilding.name = prevSameBuilding.name + '／' + name;
         }
-        // 合併債電（去重：同一支號碼只留一筆，否則每跑一次總檔同步就多長一輪）
+        // 合併債電（去重＋跳過手動刪過的：否則每跑一次總檔更新就多長一輪、刪掉的也會復活）
         if(allDebtPhones.length) {
-          prevSameBuilding.debtPhones = mergeDebtPhones(prevSameBuilding.debtPhones, allDebtPhones);
+          prevSameBuilding.debtPhones = mergeDebtPhonesInto(prevSameBuilding, allDebtPhones);
         }
         prevSameBuilding.updatedAt = TODAY;
         updated++;
@@ -3238,8 +3247,8 @@ function processCompanyData(raw) {
                             (heat === '追很緊' && existing.heat === '覆訪');
       // heatManual＝用戶在CRM親手分過類→分類絕對不動(總檔不覆蓋手動分類)
       if(canUpdateHeat && !existing.heatManual) existing.heat = heat;
-      // 負債電話：空白才補
-      if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
+      // 負債電話：空白才補（且手動刪過的不再帶回來——刪光後這裡會補成空的，不會整批復活）
+      if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = mergeDebtPhonesInto(existing, allDebtPhones);
       // 聯絡記錄：只加入新的，不恢復已刪除的
       if(processText){
         const newLogs = parseVisitLogs(processText);
@@ -3366,7 +3375,7 @@ function processCompanyData(raw) {
           if(f.sectionName && !ex.purpose) ex.purpose = f.sectionName;
           const defaultHeats = ['追很緊',''];
           if(defaultHeats.includes(ex.heat||'') && !ex.heatManual) ex.heat = f.heat;
-          if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = f.allDebtPhones;
+          if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = mergeDebtPhonesInto(ex, f.allDebtPhones);
           if(f.processText){
             const newLogs = parseVisitLogs(f.processText);
             const t20 = l=>(l.text||'').slice(0,20);
@@ -4558,7 +4567,7 @@ function openAdd(){
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
   document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
-  document.getElementById('debtPhoneArea').style.display='none';
+  tempDebtPhones=[]; renderDebtPhones();
   finProofs=[];renderFinProofs();
   extraLoans=[];renderExtraLoans();
   extraLands=[];renderExtraLands();
@@ -4622,15 +4631,8 @@ function openEdit(id){
   document.getElementById('fLandNo').value=c.landNo||'';
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
-  // Debt phones
-  const debtArea = document.getElementById('debtPhoneArea');
-  const debtList = document.getElementById('debtPhoneList');
-  if(c.debtPhones && c.debtPhones.length) {
-    debtArea.style.display='block';
-    debtList.innerHTML = c.debtPhones.map(p=>`<div>${p}</div>`).join('');
-  } else {
-    debtArea.style.display='none';
-  }
+  // Debt phones（可手動編輯；刪過的記進 deletedDebtPhones，總檔更新不再帶回）
+  tempDebtPhones=[...(c.debtPhones||[])]; renderDebtPhones();
   // Company data tab
   _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
@@ -5109,6 +5111,33 @@ function renderLogs(){
       </div>`).join('')
     :'<p style="font-size:12px;color:var(--t3);text-align:center;padding:20px 0">尚無聯絡記錄</p>';
   const sb=el.closest('.sbody'); if(sb) sb.scrollTop = sb.scrollHeight; // 捲到最底（輸入框）
+}
+// ── 債電（可手動編輯）───────────────────────────────────────
+// 刪掉/改掉的號碼會記進該客戶的 deletedDebtPhones（正規化後的號碼），之後總檔更新永不再帶回來
+let tempDebtPhones=[];
+function markDebtPhoneDeleted(p){
+  const k=normPhoneKey(p); if(!k||!editId) return;
+  const c=clients.find(x=>x.id===editId); if(!c) return;
+  if(!c.deletedDebtPhones) c.deletedDebtPhones=[];
+  if(!c.deletedDebtPhones.includes(k)) c.deletedDebtPhones.push(k);
+}
+function renderDebtPhones(){
+  const list=document.getElementById('debtPhoneList'); if(!list) return;
+  list.innerHTML = tempDebtPhones.length ? tempDebtPhones.map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <input value="${calEsc(p)}" placeholder="債務人電話" onchange="setDebtPhone(${i},this.value)" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:6px 9px;font-size:13px;color:var(--t2);font-family:inherit;outline:none"/>
+      <button type="button" onclick="removeDebtPhone(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;line-height:1">✕</button>
+    </div>`).join('') : '<div style="font-size:12px;color:var(--t3)">尚無債電</div>';
+}
+function addDebtPhone(){ tempDebtPhones.push(''); renderDebtPhones(); formDirty=true; }
+function setDebtPhone(i,v){
+  const old=tempDebtPhones[i], val=String(v||'').trim();
+  if(old && normPhoneKey(old)!==normPhoneKey(val)) markDebtPhoneDeleted(old); // 改成別支＝舊那支也不要再回來
+  tempDebtPhones[i]=val; formDirty=true;
+}
+function removeDebtPhone(i){
+  markDebtPhoneDeleted(tempDebtPhones[i]);
+  tempDebtPhones.splice(i,1); renderDebtPhones(); formDirty=true;
 }
 function addLog(){
   const d=document.getElementById('fLogDate').value;
@@ -5996,6 +6025,7 @@ async function saveClient(silent){
     landNo:document.getElementById('fLandNo').value.trim(),
     driveUrl:document.getElementById('fDriveUrl').value.trim(),
     logs:[...tempLogs],
+    debtPhones:tempDebtPhones.map(p=>String(p||'').trim()).filter(Boolean),
     updatedAt:TODAY,
     properties:properties.map(p=>({...p})),
   };
