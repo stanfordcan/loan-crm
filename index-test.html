@@ -1586,7 +1586,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t96 (抵押貸款每筆顯示設定日期:從謄本他項權利部抓民國登記日期,顯示在「抵押設定XX萬」前面;既有客戶按「一鍵套用新規則」會從已存謄本原文補上;AI匯入JSON的loans也可帶date欄) 2026.08.14';
+const APP_VERSION = '🧪測試版 t97 (設定日期補得進已有債權的客戶:AI匯入/總檔同步遇到客戶已經有債權清單時,整包照舊不動,只把缺的「設定日期」補進對應筆(登序對得上、或金額+分類唯一才補,不亂猜)) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2697,6 +2697,25 @@ function classifyCreditor(name){
   if(/股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(s)) return 'legal';
   return 'private';
 }
+// 只補「設定日期」：把 src 債權的 d 補進 dst 對應筆——登序對得上優先；否則金額+分類唯一才補（不亂猜）。絕不覆蓋已有日期、不動金額名稱。
+function patchLoanDates(dstLoans, srcLoans){
+  if(!Array.isArray(dstLoans)||!dstLoans.length||!Array.isArray(srcLoans)) return false;
+  const src=srcLoans.filter(x=>x&&x.d);
+  if(!src.length) return false;
+  let hit=false;
+  dstLoans.forEach(l=>{
+    if(l.d) return;
+    let m=l.s ? src.find(x=>x.s===l.s) : null;
+    // 金額+分類比對要「兩邊都唯一」才補：來源唯一且自己這邊也只有一筆同金額同分類，否則不猜（避免一個日期錯套到兩筆）
+    if(!m){
+      const cand=src.filter(x=>x.a===l.a&&x.t===l.t);
+      const own=dstLoans.filter(x=>x.a===l.a&&x.t===l.t);
+      if(cand.length===1 && own.length===1) m=cand[0];
+    }
+    if(m){ l.d=m.d; hit=true; }
+  });
+  return hit;
+}
 // 把 loans[] 套用到不動產物件 p：設定 p.loans 並從中加總回寫 p.bank/legal/private
 function applyLoansToProp(p, loans){
   p.loans = loans;
@@ -3160,6 +3179,7 @@ function processCompanyData(raw) {
         if(dup){
           dup.companyRaw=companyRaw;
           if(!dup.loansManual) applyLoansToProp(dup, loans); // 手動編輯過債權清單→匯入不覆蓋
+          else patchLoanDates(dup.loans, loans);             // 手改過的整包不動,只補設定日期
           mergePropInto(dup, np);
         } // 同一間 → 公司資料(總檔來源)永遠刷新、其餘欄位補空格，不重複
         else { existing.properties.push(np); }   // 不同間 → 累積成新一筆房產
@@ -3178,6 +3198,7 @@ function processCompanyData(raw) {
       if(priv && !existing.private){ existing.private = priv; if(existing.privateConfirmed===undefined) existing.privateConfirmed = false; }
       if(legal && !existing.legal){ existing.legal = legal; existing.loanEstimated = true; }
       if(loans.length && !(existing.loans&&existing.loans.length) && !existing.loansManual) existing.loans = loans;
+      else if(loans.length) patchLoanDates(existing.loans, loans); // 既有債權不動,只補設定日期
       if(area && !existing.area) existing.area = area;
       if(mainArea && !existing.mainArea) existing.mainArea = mainArea;
       if(subArea && !existing.subArea) existing.subArea = subArea;
@@ -3310,6 +3331,7 @@ function processCompanyData(raw) {
           if(f.priv && !ex.private) ex.private = f.priv;
           if(f.legal && !ex.legal) ex.legal = f.legal;
           if(f.loans && f.loans.length && !(ex.loans&&ex.loans.length) && !ex.loansManual) ex.loans = f.loans;
+          else if(f.loans && f.loans.length) patchLoanDates(ex.loans, f.loans); // 既有債權不動,只補設定日期
           if(f.area && !ex.area) ex.area = f.area;
           if(f.mainArea && !ex.mainArea) ex.mainArea = f.mainArea;
           if(f.subArea && !ex.subArea) ex.subArea = f.subArea;
@@ -6360,6 +6382,7 @@ function mergePropInto(dst, src){
   if((!dst.parkTitle||dst.parkTitle==='非獨立') && src.parkTitle==='獨立') dst.parkTitle='獨立';
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
   if((!dst.loans||!dst.loans.length) && src.loans && src.loans.length) dst.loans=src.loans; // 逐筆債權：空的才補,不覆蓋既有(含手改)
+  else if(src.loans && src.loans.length) patchLoanDates(dst.loans, src.loans); // 既有債權整包不動,只把「設定日期」補進對應筆
   if(src.landtaxCalced && !dst.landtaxCalced && !dst.landtaxNormal && !dst.landtaxSelf){ dst.landtaxCalced=true; dst.landtaxNormal=src.landtaxNormal||0; dst.landtaxSelf=src.landtaxSelf||0; } // 土增稅「算過=0」也要能補進空的
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
@@ -6679,7 +6702,12 @@ function applyNewRulesToExisting(dryRun){
         if(l.d) return;
         let m=null;
         if(l.s) m=parsed.find(x=>x.s===l.s);
-        if(!m){ const cand=parsed.filter(x=>x.a===l.a&&x.t===l.t); if(cand.length===1) m=cand[0]; }
+        // 金額+分類要「兩邊都唯一」才補（同 patchLoanDates 規則），避免一個日期錯套到兩筆
+        if(!m){
+          const cand=parsed.filter(x=>x.a===l.a&&x.t===l.t);
+          const own=loansArr.filter(x=>x.a===l.a&&x.t===l.t);
+          if(cand.length===1 && own.length===1) m=cand[0];
+        }
         if(m){ if(!dryRun) l.d=m.d; hit=true; }
       });
       return hit;
