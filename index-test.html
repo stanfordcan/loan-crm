@@ -1610,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t105 (多筆不動產的土增稅各自顯示:以前一位客戶只能填一組,第二筆之後卡片都空白,現在AI匯入可以逐筆帶各自的土增稅;舊格式(只帶一組)照舊相容) 2026.08.14';
+const APP_VERSION = '🧪測試版 t106 (修房價評估跑錯標的:多筆不動產時,評估頁會把別筆的建號/地址/社區/坪數/屋齡填進來(缺欄位就抓客戶層級的舊值),而且評估內容全客戶共用一份、切一筆就蓋掉另一筆;現在每筆各自獨立,舊資料自動接到第一筆) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -4692,7 +4692,7 @@ function openEdit(id){
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
-  setTimeout(()=>{ renderPriceEval({...c,...properties[0]}); autoGrowNote(document.getElementById('fNote')); }, 100);
+  setTimeout(()=>{ renderPriceEval(evalCtx(c, properties[0])); autoGrowNote(document.getElementById('fNote')); }, 100);
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
@@ -4709,6 +4709,19 @@ function closeSheet(){
   render();
 }
 
+// 房價評估頁的資料來源：不動產相關欄位「只認正在評估的那一筆」。
+// 以前用 {...客戶, ...這筆不動產} 直接合併，這筆缺的欄位會被客戶層級(＝第一筆不動產留下的舊值)補上，
+// 結果多筆案件會互相污染（例如土地持分那筆顯示出另一間的建號/地址/社區/坪數）。
+const EVAL_PROP_KEYS=['addr','district','landzone','purpose','buildNo','col4BuildNo','landNo',
+  'area','mainArea','subArea','commonArea','landArea','parkArea','parkType','parkTitle','parkVal',
+  'buildShare','buildShareNum','buildShareDen','bank','legal','private','loans','loansManual',
+  'extraLoans','extraLands','landtaxNormal','landtaxSelf','landtaxCalced',
+  'loanEstimated','privateConfirmed','companyRaw','label','driveUrl','evalData'];
+function evalCtx(c, p){
+  const base={...(c||{})};
+  EVAL_PROP_KEYS.forEach(k=>{ delete base[k]; });   // 客戶層級的不動產欄位一律不參與，缺的就是缺的
+  return {...base, ...(p||{})};
+}
 function renderPriceEval(c) {
   const panel = document.getElementById('priceEvalPanel');
   if(!panel) return;
@@ -5066,7 +5079,7 @@ function sSTab(i,el){
   if(i===4){
     const c=editId?(clients.find(x=>x.id===editId)||{}):{};
     const p=properties[curPropIdx]||{};
-    renderPriceEval({...c,...p});
+    renderPriceEval(evalCtx(c,p));
     if(typeof updateEvalIndicator==='function') updateEvalIndicator();
   }
   // 進入「☁️ 雲端」分頁 → 進去才打 GAS 讀資料夾（不要每次 render 都打）
@@ -5427,6 +5440,8 @@ function migrateProperties(c){
   if(c.properties&&c.properties.length) return c.properties.map((p,i)=>{
     const np={...emptyProperty(0),...p};
     np.label = propLabel(np) || np.label || `不動產${i+1}`;
+    // 舊資料的房價評估內容存在客戶層級(一位客戶只有一份)，那份其實是第一筆不動產填的 → 接回第一筆，之後各筆各自存
+    if(i===0 && !np.evalData && c.evalData && Object.keys(c.evalData).length) np.evalData={...c.evalData};
     return np;
   });
   const p=emptyProperty(0);
@@ -5439,6 +5454,7 @@ function migrateProperties(c){
     landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
     loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed,
     companyRaw:c.companyRaw||null, col4BuildNo:c.col4BuildNo||''});
+  if(c.evalData && Object.keys(c.evalData).length) p.evalData={...c.evalData};   // 舊客戶只有一筆不動產，評估內容就是它的
   p.label = propLabel(p) || '不動產';
   return [p];
 }
@@ -5698,7 +5714,7 @@ function jumpToEval(){
   const p=properties[curPropIdx]||{};
   sSTabTo(4);
   document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===4));
-  renderPriceEval({...c,...p});
+  renderPriceEval(evalCtx(c,p));
   updateEvalIndicator();
 }
 
@@ -6081,8 +6097,11 @@ async function saveClient(silent){
     logs:[...tempLogs],
     debtPhones:tempDebtPhones.map(p=>String(p||'').trim()).filter(Boolean),
     updatedAt:TODAY,
-    properties:properties.map(p=>({...p})),
   };
+  // 房價評估內容跟著「目前正在評估的那一筆」不動產存，不再一位客戶共用一份
+  // （共用會讓多筆案件互相蓋掉：切到第二筆看到的是第一筆填的社區/屋齡/樓層/坪數）
+  if(properties[curPropIdx]) properties[curPropIdx].evalData={...data.evalData};
+  data.properties=properties.map(p=>({...p}));
   // 手動分類鎖：用戶親手分了類(非待分類)→鎖住,之後匯入(總檔/新鑫)都不再覆蓋分類
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(data.heat)) data.heatManual = true;
   if(editId){
