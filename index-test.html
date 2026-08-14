@@ -1586,7 +1586,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t94 (匯入防呆:債權type寫「融資公司/資融/迪和/裕融」不再誤判成民間(歸法人);AI匯入審核預覽加「⚠️面積偏大疑似㎡」「總面積≈主建×3.3058疑似混填」警告,按確認前就看得到) 2026.08.11';
+const APP_VERSION = '🧪測試版 t95 (修聯絡記錄重複:總檔拜訪過程沒寫日期的那幾句,以前每按一次同步就多長一筆(日期變同步當天),現在同一句話只留一筆;一鍵套用新規則會把已長出來的重複收掉並保留最早日期) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2011,7 +2011,9 @@ function parseVisitLogs(text){
     const content = line;
     // 內容空白、或只剩數字/標點（沒有任何中文或字母）→ 視為雜訊，丟掉（不再出現「1」「11」「20」那種無意義紀錄）
     if(!content || !/[^\d\s:：.,，、。\-_/／()（）]/.test(content)) return;
-    logs.push({ date: date || TODAY, time, text: content });
+    const rec = { date: date || TODAY, time, text: content };
+    if(!date) rec.nd = 1;   // nd＝原文沒寫日期(日期是解析當天蓋的)，去重時只能比內容不能比日期；存檔前會拿掉
+    logs.push(rec);
   });
 
   return logs.reverse();
@@ -3191,12 +3193,19 @@ function processCompanyData(raw) {
       // 聯絡記錄：只加入新的，不恢復已刪除的
       if(processText){
         const newLogs = parseVisitLogs(processText);
-        const existingKeys = new Set((existing.logs||[]).map(l=>(l.date||'')+(l.text||'').slice(0,20)));
+        const t20 = l=>(l.text||'').slice(0,20);
+        const existingKeys = new Set((existing.logs||[]).map(l=>(l.date||'')+t20(l)));
+        const existingTexts = new Set((existing.logs||[]).map(t20));
         const deletedKeys = new Set(existing.deletedLogKeys||[]);
+        const deletedTexts = new Set([...deletedKeys].map(k=>k.replace(/^\d{4}-\d{2}-\d{2}/,'')));
         const toAdd = newLogs.filter(l=>{
-          const key = (l.date||'')+(l.text||'').slice(0,20);
-          return !existingKeys.has(key) && !deletedKeys.has(key);
+          const t = t20(l);
+          // 原文沒寫日期(nd)的記錄只比內容：同一句話不管日期都算已存在，否則每次同步都被蓋上當天日期、重複長一筆
+          if(l.nd){ if(existingTexts.has(t) || deletedTexts.has(t)) return false; existingTexts.add(t); return true; }
+          const key = (l.date||'')+t;
+          if(existingKeys.has(key) || deletedKeys.has(key)) return false; existingKeys.add(key); return true;
         });
+        toAdd.forEach(l=>{ delete l.nd; });
         if(toAdd.length) existing.logs = [...toAdd, ...(existing.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       }
       // driveUrl、note、remind、job 等用戶欄位：完全不動
@@ -3225,6 +3234,7 @@ function processCompanyData(raw) {
         });
       } else {
         const logs = parseVisitLogs(processText);
+        logs.forEach(l=>{ delete l.nd; });
         clients.push({
           id: nextId++,
           name, phone, idno,
@@ -3308,8 +3318,19 @@ function processCompanyData(raw) {
           if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = f.allDebtPhones;
           if(f.processText){
             const newLogs = parseVisitLogs(f.processText);
-            const existingKeys = new Set((ex.logs||[]).map(l=>(l.date||'')+(l.text||'').slice(0,20)));
-            const toAdd = newLogs.filter(l=>!existingKeys.has((l.date||'')+(l.text||'').slice(0,20)));
+            const t20 = l=>(l.text||'').slice(0,20);
+            const existingKeys = new Set((ex.logs||[]).map(l=>(l.date||'')+t20(l)));
+            const existingTexts = new Set((ex.logs||[]).map(t20));
+            const deletedKeys = new Set(ex.deletedLogKeys||[]);
+            const deletedTexts = new Set([...deletedKeys].map(k=>k.replace(/^\d{4}-\d{2}-\d{2}/,'')));
+            const toAdd = newLogs.filter(l=>{
+              const t = t20(l);
+              // 同上：沒寫日期的記錄只比內容，避免每次同步重複長
+              if(l.nd){ if(existingTexts.has(t) || deletedTexts.has(t)) return false; existingTexts.add(t); return true; }
+              const key = (l.date||'')+t;
+              if(existingKeys.has(key) || deletedKeys.has(key)) return false; existingKeys.add(key); return true;
+            });
+            toAdd.forEach(l=>{ delete l.nd; });
             if(toAdd.length) ex.logs = [...toAdd,...(ex.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
           }
           ex.updatedAt = TODAY;
@@ -3317,6 +3338,7 @@ function processCompanyData(raw) {
         } else {
           // 新增
           const logs = parseVisitLogs(f.processText||'');
+          logs.forEach(l=>{ delete l.nd; });
           clients.push({
             id: nextId++,
             name: f.name, phone: f.phone, idno: f.idno,
@@ -6643,13 +6665,17 @@ function applyNewRulesToExisting(dryRun){
     let candidate=null;
     if(cr && cr.process){
       const fresh=parseVisitLogs(cr.process);
+      // 原文沒寫日期(nd)的記錄：沿用既有紀錄裡「同內容」的最早日期(第一次匯入那天)，不要每按一次就變成今天
+      fresh.forEach(l=>{ if(l.nd){ const ds=(c.logs||[]).filter(x=>String(x.text||'').trim()===String(l.text||'').trim()).map(x=>String(x.date||'')).filter(Boolean).sort(); if(ds.length && ds[0]<l.date) l.date=ds[0]; } });
       const proc=String(cr.process);
       const del=new Set(c.deletedLogKeys||[]);
+      const delTexts=new Set([...del].map(k=>k.replace(/^\d{4}-\d{2}-\d{2}/,'')));
       const manual=(c.logs||[]).filter(l=>{ const t=String(l.text||'').trim(); if(isJunkLog(t)) return false; return proc.indexOf(t.slice(0,12))<0; });
       const seen=new Set();
       candidate=[...fresh,...manual]
-        .filter(l=>!del.has((l.date||'')+(l.text||'').slice(0,20)))
-        .filter(l=>{ const k=(l.date||'')+'|'+(l.text||''); if(seen.has(k))return false; seen.add(k); return true; });
+        .filter(l=>{ if(del.has((l.date||'')+(l.text||'').slice(0,20))) return false; if(l.nd && delTexts.has((l.text||'').slice(0,20))) return false; return true; })
+        .filter(l=>{ const k=l.nd?('ND|'+(l.text||'')):((l.date||'')+'|'+(l.text||'')); if(seen.has(k))return false; seen.add(k); return true; })
+        .map(l=>{ if(!l.nd) return l; const o=Object.assign({},l); delete o.nd; return o; });
     } else {
       candidate=(c.logs||[]).filter(l=>!isJunkLog(l.text));
     }
