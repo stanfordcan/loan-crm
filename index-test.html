@@ -30,7 +30,8 @@
 --green:#0F7A55;--gbg:#E4F4EC;--gbd:#BFE5D2;
 --orange:#A25F00;--obg:#FCF0DC;--obd:#F0D6A3;
 --purple:#6941C6;--pbg:#F0EBFB;--pbd:#DCCFF5;--pink:#BE185D;
---r:14px;--rs:8px;--sh:0 1px 2px rgba(20,32,56,.05),0 4px 14px rgba(20,32,56,.08)}
+--r:14px;--rs:8px;--sh:0 1px 2px rgba(20,32,56,.05),0 4px 14px rgba(20,32,56,.08);
+--shx:0 10px 26px rgba(20,32,56,.16),0 2px 6px rgba(20,32,56,.09)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
@@ -101,8 +102,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
 /* 右邊正在看的那位 → 左邊清單這張卡「浮起來」(蓋過置頂的樣式,所以放後面) */
 .ccard{transition:box-shadow .18s,transform .18s}
-.ccard.active{background:var(--abg);box-shadow:0 6px 20px rgba(44,99,207,.22);outline:2px solid var(--accent);outline-offset:-1px;transform:translateY(-2px);position:relative;z-index:1}
-.ccard.active .cname{color:var(--accent)}
+.ccard.active{box-shadow:var(--shx);outline:1px solid var(--abd);outline-offset:-1px;transform:translateY(-3px);position:relative;z-index:1}
 /* Heat-based left border (only when no remind-state border) */
 .ccard.heat-hw:not(.over):not(.today):not(.soon){border-left-color:rgba(196,106,0,.55)}
 .ccard.heat-hc:not(.over):not(.today):not(.soon){border-left-color:rgba(43,91,226,.45)}
@@ -279,7 +279,8 @@ input[type=number]{min-width:0}
     --green:#4FC08D;--gbg:#16302A;--gbd:#24503C;
     --orange:#DFA245;--obg:#33281A;--obd:#58452A;
     --purple:#A98BF0;--pbg:#272040;--pbd:#3A2F5C;--pink:#F0709F;
-    --sh:0 2px 14px rgba(0,0,0,.35)
+    --sh:0 2px 14px rgba(0,0,0,.35);
+    --shx:0 10px 26px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4)
   }
   .pw-screen{background:#12151B}
   .pw-box{background:#1B1F27}
@@ -1609,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t103 (「有電話優先」排序改成三段:有本人電話 → 只有債電(未確認) → 完全沒電話;原本只分有跟沒有,債電客戶跟完全打不通的混在一起) 2026.08.14';
+const APP_VERSION = '🧪測試版 t104 (選到的客戶卡不再反藍:拿掉藍底跟粗藍框、姓名也不變色,改成整張卡明顯抬起來+淡淡的細邊,乾淨很多還是一眼看得出選到誰) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
