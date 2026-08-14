@@ -1610,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t108 (多間房各自的估價資料:AI匯入可逐間帶自己的社區/屋齡/樓層/單價,不再全客戶共用一組只有第一間吃得到;另修土增稅「只算了一般」時自用會顯示0(看起來像算過是零),現在沒算的那格留空白) 2026.08.14';
+const APP_VERSION = '🧪測試版 t109 (修重複匯入會弄丟估價資料:同一位客戶再匯入一次時,各筆不動產自己的社區/屋齡/樓層/單價會被整個丟掉(車位社區變空白就是這樣來的),土增稅的一般/自用旗標也沒帶;現在都會補進空的欄位) 2026.08.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -6520,7 +6520,8 @@ function mergePropInto(dst, src){
   ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
-  ['mainArea','subArea','commonArea','area','landArea','parkArea','bank','legal','private','landtaxNormal','landtaxSelf'].forEach(k=>{
+  // 注意：土增稅不放這裡。放進來的話金額會先被複製，下面「土增稅」那段的 !dst.landtaxNormal 條件就失效，旗標永遠帶不過去
+  ['mainArea','subArea','commonArea','area','landArea','parkArea','bank','legal','private'].forEach(k=>{
     if((!dst[k]||dst[k]===0) && src[k]) dst[k]=src[k];
   });
   // 車位型式/權狀：還是預設值(無/非獨立)才補,不覆蓋使用者選過的
@@ -6529,7 +6530,20 @@ function mergePropInto(dst, src){
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
   if((!dst.loans||!dst.loans.length) && src.loans && src.loans.length) dst.loans=src.loans; // 逐筆債權：空的才補,不覆蓋既有(含手改)
   else if(src.loans && src.loans.length) patchLoanDates(dst.loans, src.loans); // 既有債權整包不動,只把「設定日期」補進對應筆
-  if(src.landtaxCalced && !dst.landtaxCalced && !dst.landtaxNormal && !dst.landtaxSelf){ dst.landtaxCalced=true; dst.landtaxNormal=src.landtaxNormal||0; dst.landtaxSelf=src.landtaxSelf||0; } // 土增稅「算過=0」也要能補進空的
+  // 土增稅：金額＋「算過」旗標整組一起補（空的才補）。「算過=0」也要補得進去；
+  // 一般/自用各自的旗標一定要跟著走，否則沒算的那格會退回舊旗標而顯示 0（看起來像「算過是零」）
+  const _dstHasTax = dst.landtaxCalced||dst.landtaxCalcedN||dst.landtaxCalcedS||dst.landtaxNormal||dst.landtaxSelf;
+  const _srcHasTax = src.landtaxCalced||src.landtaxCalcedN||src.landtaxCalcedS||src.landtaxNormal||src.landtaxSelf;
+  if(!_dstHasTax && _srcHasTax){
+    dst.landtaxNormal=src.landtaxNormal||0;
+    dst.landtaxSelf=src.landtaxSelf||0;
+    dst.landtaxCalced=!!src.landtaxCalced;
+    if(src.landtaxCalcedN!==undefined) dst.landtaxCalcedN=src.landtaxCalcedN;
+    if(src.landtaxCalcedS!==undefined) dst.landtaxCalcedS=src.landtaxCalcedS;
+  }
+  // 這筆不動產自己的估價資料（社區/屋齡/樓層/單價）：空的才補。
+  // 漏掉這行的後果：客戶已存在時再匯入一次，各筆的估價資料會被整個丟掉（例如車位的社區變空白）
+  if((!dst.evalData||!Object.keys(dst.evalData).length) && src.evalData && Object.keys(src.evalData).length) dst.evalData={...src.evalData};
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
   if(dst.private>0 && dst.privateConfirmed===undefined && src.privateConfirmed===false) dst.privateConfirmed=false;
