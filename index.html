@@ -12,16 +12,26 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 /* Password screen */
-.pw-screen{position:fixed;inset:0;background:#F5F4F0;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif}
-.pw-box{background:#fff;border-radius:18px;padding:36px 28px;width:300px;max-width:90vw;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center}
-.pw-box h2{font-size:18px;font-weight:600;margin-bottom:6px;color:#1A1916}
-.pw-box p{font-size:13px;color:#A09D96;margin-bottom:24px}
-.pw-input{width:100%;background:#EBEDF0;border:1px solid #DCDFE4;border-radius:10px;padding:13px 16px;font-size:20px;font-family:inherit;outline:none;text-align:center;letter-spacing:6px;color:#202329;-webkit-appearance:none}
-.pw-input:focus{border-color:#3E5F92;background:#fff}
-.pw-btn{width:100%;margin-top:14px;background:#3E5F92;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+.pw-screen{position:fixed;inset:0;background:#E9EDF4;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif}
+.pw-box{background:#fff;border-radius:18px;padding:36px 28px;width:300px;max-width:90vw;box-shadow:0 4px 24px rgba(20,32,56,.12);text-align:center}
+.pw-box h2{font-size:18px;font-weight:600;margin-bottom:6px;color:var(--text)}
+.pw-box p{font-size:13px;color:var(--t3);margin-bottom:24px}
+.pw-input{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:13px 16px;font-size:20px;font-family:inherit;outline:none;text-align:center;letter-spacing:6px;color:var(--text);-webkit-appearance:none}
+.pw-input:focus{border-color:var(--accent);background:var(--surface)}
+.pw-btn{width:100%;margin-top:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
 .pw-btn:active{opacity:.88}
-.pw-error{color:#B5564F;font-size:13px;margin-top:10px;display:none}
-:root{--bg:#F3F4F6;--surface:#fff;--s2:#EBEDF0;--border:#DCDFE4;--text:#202329;--t2:#5B626C;--t3:#969CA6;--accent:#3E5F92;--abg:#EAEEF5;--red:#B5564F;--rbg:#F7EDEC;--green:#42816A;--gbg:#EBF2EE;--orange:#A87A45;--obg:#F4EFE6;--r:14px;--rs:8px;--sh:0 2px 10px rgba(30,40,60,.05)}
+.pw-error{color:var(--red);font-size:13px;margin-top:10px;display:none}
+/* 配色原則：底色退到後面讓卡片浮起來；語意色拉開飽和度與明暗，各有各的職責。
+   紅＝真的要馬上處理（逾期、風險、錯誤）；橘＝待確認/待補；綠＝已完成/已確認；
+   藍＝可點擊的東西；紫＝次要工具。灰階三層負責「主要/次要/背景資訊」的輕重。 */
+:root{--bg:#E9EDF4;--surface:#fff;--s2:#F0F3F8;--border:#D8DFE9;--text:#151B26;--t2:#4B5565;--t3:#6F7889;
+--accent:#2C63CF;--abg:#E8F0FD;--abd:#C3D8F8;
+--red:#D22B2B;--rbg:#FDECEC;--rbd:#F6CDCD;
+--green:#0F7A55;--gbg:#E4F4EC;--gbd:#BFE5D2;
+--orange:#A25F00;--obg:#FCF0DC;--obd:#F0D6A3;
+--purple:#6941C6;--pbg:#F0EBFB;--pbd:#DCCFF5;--pink:#BE185D;
+--r:14px;--rs:8px;--sh:0 1px 2px rgba(20,32,56,.05),0 4px 14px rgba(20,32,56,.08);
+--shx:0 10px 26px rgba(20,32,56,.16),0 2px 6px rgba(20,32,56,.09)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
@@ -90,6 +100,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .ccard.soon{border-left-color:var(--accent)}
 /* Pinned card */
 .ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
+/* 右邊正在看的那位 → 左邊清單這張卡「浮起來」(蓋過置頂的樣式,所以放後面) */
+.ccard{transition:box-shadow .18s,transform .18s}
+.ccard.active{box-shadow:var(--shx);outline:1px solid var(--abd);outline-offset:-1px;transform:translateY(-3px);position:relative;z-index:1}
 /* Heat-based left border (only when no remind-state border) */
 .ccard.heat-hw:not(.over):not(.today):not(.soon){border-left-color:rgba(196,106,0,.55)}
 .ccard.heat-hc:not(.over):not(.today):not(.soon){border-left-color:rgba(43,91,226,.45)}
@@ -104,10 +117,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .hc{background:var(--abg);color:var(--accent)}
 .hd{background:var(--gbg);color:var(--green)}
 .hf{background:var(--s2);color:var(--t3)}
-.hx{background:#ECEAF3;color:#6A5E8A}
+.hx{background:var(--pbg);color:var(--purple)}
 .hp{background:var(--s2);color:var(--t2)}
-.cmeta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}
-.mi{font-size:11px;color:var(--t2)}
+.cmeta{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:5px;align-items:center}
+/* 卡片資訊分三級：金額(決策用)最重 → 標記次之 → 身分證/批次/筆數退到背景 */
+.mi{font-size:11px;color:var(--t3)}
+.mi-amt{font-size:12px;font-weight:600;color:var(--text);letter-spacing:-.2px}
+.mi-amt.warn{color:var(--orange)}
+.mi-amt.danger{color:var(--red)}
 .rchip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
 .rc-over{background:var(--rbg);color:var(--red)}
 .rc-today{background:var(--gbg);color:var(--green)}
@@ -120,7 +137,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .fab{position:fixed;bottom:22px;right:20px;width:52px;height:52px;background:var(--accent);color:#fff;border:none;border-radius:50%;font-size:24px;cursor:pointer;box-shadow:0 4px 18px rgba(43,91,226,.4);display:flex;align-items:center;justify-content:center;z-index:40;font-family:inherit}
 .fab:active{transform:scale(.93)}
 /* Toast */
-.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:#1A1916;color:#fff;padding:9px 18px;border-radius:99px;font-size:12px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:9px 18px;border-radius:99px;font-size:12px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 /* Bottom sheet */
 .sbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-end}
@@ -157,7 +174,7 @@ input[type=number]{min-width:0}
 .frow.cmp{margin-bottom:8px}
 .frow.cmp label{font-size:10px;margin-bottom:3px}
 .frow.cmp input{padding:8px 10px;font-size:13px}
-.rbox{background:var(--abg);border-radius:var(--rs);padding:13px;margin-bottom:12px;border:1px solid #C5D5F8}
+.rbox{background:var(--abg);border-radius:var(--rs);padding:13px;margin-bottom:12px;border:1px solid var(--abd)}
 .rbox>label{font-size:12px;font-weight:600;color:var(--accent);display:block;margin-bottom:9px}
 /* Logs */
 /* 聯絡記錄頁：整塊貼齊底部，新記錄往上長 */
@@ -255,15 +272,19 @@ input[type=number]{min-width:0}
 /* ── Dark Mode ────────────────────────────────────────────── */
 @media(prefers-color-scheme:dark){
   :root{
-    --bg:#181A1E;--surface:#212429;--s2:#292D33;--border:#373B43;
-    --text:#E7E9ED;--t2:#9AA0AB;--t3:#686E78;
-    --accent:#7FA0D4;--abg:#222D40;
-    --red:#CB8480;--rbg:#382422;--green:#74A98E;--gbg:#1E2E27;--orange:#C29B6B;--obg:#322A1D;
-    --sh:0 2px 12px rgba(0,0,0,.3)
+    --bg:#12151B;--surface:#1B1F27;--s2:#242932;--border:#333944;
+    --text:#E9ECF2;--t2:#A2AAB8;--t3:#858E9D;
+    --accent:#7BA5F5;--abg:#1B2740;--abd:#2E4166;
+    --red:#F0736B;--rbg:#3A1F1F;--rbd:#5C2E2E;
+    --green:#4FC08D;--gbg:#16302A;--gbd:#24503C;
+    --orange:#DFA245;--obg:#33281A;--obd:#58452A;
+    --purple:#A98BF0;--pbg:#272040;--pbd:#3A2F5C;--pink:#F0709F;
+    --sh:0 2px 14px rgba(0,0,0,.35);
+    --shx:0 10px 26px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4)
   }
-  .pw-screen{background:#1C1B18}
-  .pw-box{background:#252420}
-  .pw-input{background:#2E2C28;color:#F0EDE8}
+  .pw-screen{background:#12151B}
+  .pw-box{background:#1B1F27}
+  .pw-input{background:#242932;color:#E9ECF2;border-color:#333944}
 }
 /* ── PC Layout (≥900px) ───────────────────────────────── */
 @media(min-width:900px){
@@ -336,6 +357,8 @@ input[type=number]{min-width:0}
   .pc-container .hbadge{font-size:13px;padding:4px 12px}
   /* PC 卡片內身分證欄位較明顯 */
   .pc-container .ccard .mi{font-size:12px}
+  /* 金額要比次要資訊再大一級，PC 上才拉得開層級 */
+  .pc-container .ccard .mi-amt{font-size:13.5px}
 }
 </style>
 </head>
@@ -813,7 +836,7 @@ async function applyUrlSettings() {
 <!-- 載入鎖：取得雲端最新資料時蓋住畫面，避免在舊資料上操作 -->
 <div id="cloudLock" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(245,244,240,.97);flex-direction:column;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif">
   <div style="font-size:42px;margin-bottom:16px;animation:cloudPulse 1.1s ease-in-out infinite">☁️</div>
-  <div style="font-size:15px;font-weight:700;color:#1A1916">正在從雲端取得最新資料…</div>
+  <div style="font-size:15px;font-weight:700;color:var(--text)">正在從雲端取得最新資料…</div>
   <div style="font-size:12px;color:#8A8780;margin-top:7px">取得後就能使用，避免改到舊資料</div>
 </div>
 <style>@keyframes cloudPulse{0%,100%{opacity:.45;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}</style>
@@ -838,7 +861,7 @@ async function applyUrlSettings() {
     <div class="hbtns" id="hbtnsRow" style="flex:1">
       <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
       <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
-      <button class="hbtn" id="tenBtn" style="background:#ECEAF3;color:#6A5E8A" onclick="openTenModal()">📄 謄本匯入</button>
+      <button class="hbtn" id="tenBtn" style="background:var(--pbg);color:var(--purple)" onclick="openTenModal()">📄 謄本匯入</button>
       <button class="hbtn" id="aiBtn" style="background:var(--abg);color:var(--accent)" onclick="openAiImport()">🤖 AI 匯入</button>
       <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📥 待審<span id="inboxCount"></span></button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
@@ -870,7 +893,7 @@ async function applyUrlSettings() {
       <option value="heat">🔥 熱度</option>
       <option value="created">🕐 新增時間</option>
       <option value="addr">📍 地址縣市</option>
-      <option value="phone">📞 有電話優先</option>
+      <option value="phone">📞 有電話優先（本人→債電→無）</option>
       <option value="lastlog">💬 最後聯絡紀錄</option>
     </select>
     <div style="position:relative;flex-shrink:0">
@@ -994,8 +1017,8 @@ async function applyUrlSettings() {
     </div>
     <div class="sbody">
       <!-- 疑似重複警告 -->
-      <div id="dupPanel" style="display:none;margin:0 0 14px;border-radius:10px;background:#FFF8E1;border:1.5px solid #FFD54F;padding:10px 12px">
-        <div style="font-size:12px;font-weight:700;color:#B45309;margin-bottom:8px">⚠️ 發現 <span id="dupCount">0</span> 筆疑似重複客戶，點擊可查看</div>
+      <div id="dupPanel" style="display:none;margin:0 0 14px;border-radius:10px;background:var(--obg);border:1.5px solid var(--obd);padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:8px">⚠️ 發現 <span id="dupCount">0</span> 筆疑似重複客戶，點擊可查看</div>
         <div id="dupList" style="display:flex;flex-wrap:wrap;gap:7px"></div>
       </div>
       <div id="sp0">
@@ -1067,9 +1090,10 @@ async function applyUrlSettings() {
         </div>
         <div class="note-debt-row">
           <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…" oninput="autoGrowNote(this)" style="overflow:hidden;min-height:85px"></textarea></div>
-          <div id="debtPhoneArea" style="display:none">
+          <div id="debtPhoneArea">
             <div style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">債電（未確認）</div>
             <div id="debtPhoneList" style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);line-height:1.8"></div>
+            <button type="button" onclick="addDebtPhone()" style="width:100%;margin-top:6px;background:none;border:1px dashed var(--border);border-radius:var(--rs);padding:7px;font-size:12px;color:var(--t3);font-family:inherit;cursor:pointer">＋ 新增債電</button>
           </div>
         </div>
       </div>
@@ -1077,7 +1101,7 @@ async function applyUrlSettings() {
         <!-- 不動產切換列 -->
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
           <div id="propTabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
-          <button onclick="addProperty()" title="新增不動產" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid #b8e0ce;border-radius:var(--rs);padding:5px 11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1">＋</button>
+          <button onclick="addProperty()" title="新增不動產" style="flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid var(--gbd);border-radius:var(--rs);padding:5px 11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1">＋</button>
         </div>
         <div class="prop-grid">
           <!-- 位置與標示 -->
@@ -1171,8 +1195,8 @@ async function applyUrlSettings() {
         </div>
         <!-- 跳轉房價評估 / 貸款試算 -->
         <div class="fg2" style="margin-top:14px">
-          <button onclick="jumpToEval()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 房價評估</button>
-          <button onclick="openLoanCalc()" style="width:100%;background:#ECEAF3;color:#6A5E8A;border:1px solid #d6cfe6;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">💹 貸款試算</button>
+          <button onclick="jumpToEval()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📊 房價評估</button>
+          <button onclick="openLoanCalc()" style="width:100%;background:var(--pbg);color:var(--purple);border:1px solid var(--pbd);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">💹 貸款試算</button>
         </div>
       </div>
       <div id="sp2" style="display:none">
@@ -1196,14 +1220,14 @@ async function applyUrlSettings() {
         </div>
       </div>
       <div id="sp4" style="display:none">
-        <div id="evalPropIndicator" style="display:none;font-size:12px;font-weight:600;color:var(--accent);background:var(--abg);border:1px solid #C5D5F8;border-radius:var(--rs);padding:8px 12px;margin-bottom:10px;cursor:pointer" onclick="sSTabTo(1);document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===1))">← 返回不動產</div>
+        <div id="evalPropIndicator" style="display:none;font-size:12px;font-weight:600;color:var(--accent);background:var(--abg);border:1px solid var(--abd);border-radius:var(--rs);padding:8px 12px;margin-bottom:10px;cursor:pointer" onclick="sSTabTo(1);document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===1))">← 返回不動產</div>
         <div id="priceEvalPanel"></div>
       </div>
       <div id="sp5" style="display:none">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
           <div id="cloudPath" style="flex:1 1 0;min-width:0;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">尚未建立</div>
-          <button id="cloudUploadBtn" onclick="document.getElementById('cloudFileInput').click()" style="display:none;flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid #b8e0ce;border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">⬆️ 上傳</button>
-          <button id="cloudOpenBtn" onclick="openCloudFolder()" style="display:none;flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid #C5D5F8;border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📁 在 Drive 開啟</button>
+          <button id="cloudUploadBtn" onclick="document.getElementById('cloudFileInput').click()" style="display:none;flex-shrink:0;background:var(--gbg);color:var(--green);border:1px solid var(--gbd);border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">⬆️ 上傳</button>
+          <button id="cloudOpenBtn" onclick="openCloudFolder()" style="display:none;flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:11px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📁 在 Drive 開啟</button>
           <button onclick="renderCloudTab()" title="重新整理" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 12px;font-size:13px;cursor:pointer;font-family:inherit">🔄</button>
         </div>
         <input type="file" id="cloudFileInput" style="display:none" onchange="uploadCloudFile(this)"/>
@@ -1287,7 +1311,7 @@ async function applyUrlSettings() {
       <div style="font-size:11px;color:var(--t3);margin-bottom:10px">建議定期按「下載備份檔」存一份到手機/電腦，這是最保險的離線備份（檔名含日期）。雲端還原則是從上次自動備份救回。</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button onclick="downloadBackup()" style="width:100%;background:var(--gbg);color:var(--green);border:1.5px solid var(--green);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">💾 下載備份檔</button>
-        <button onclick="document.getElementById('restoreFileInput').click()" style="width:100%;background:var(--abg);color:var(--accent);border:1.5px solid #C5D5F8;border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">📂 從備份檔還原</button>
+        <button onclick="document.getElementById('restoreFileInput').click()" style="width:100%;background:var(--abg);color:var(--accent);border:1.5px solid var(--abd);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">📂 從備份檔還原</button>
         <button onclick="restoreBackup()" style="width:100%;background:var(--obg);color:var(--orange);border:1.5px solid var(--orange);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🔄 從雲端備份還原</button>
       </div>
       <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none" onchange="restoreFromFile(this)"/>
@@ -1333,7 +1357,7 @@ async function applyUrlSettings() {
 .cr-btns{display:flex;gap:8px}
 .cr-btn{flex:1;border:none;border-radius:var(--rs);padding:8px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;opacity:.7;transition:opacity .15s,box-shadow .15s}
 .cr-merge{background:#E8F5E9;color:#2E7D32}
-.cr-new{background:#FEECEC;color:#B71C1C}
+.cr-new{background:var(--rbg);color:var(--red)}
 .cr-btn.cr-selected{opacity:1;box-shadow:0 0 0 2px currentColor}
 </style>
 
@@ -1433,7 +1457,7 @@ async function applyUrlSettings() {
 </style>
 <div id="listToolBg" style="display:none">
   <div id="ltPanel">
-    <div style="flex-shrink:0;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--s1)">
+    <div style="flex-shrink:0;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:16px;font-weight:700;color:var(--text)">📋 名單</span>
         <button onclick="closeListTool()" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--text)">✕ 關閉</button>
@@ -1453,13 +1477,13 @@ async function applyUrlSettings() {
       </div>
     </div>
     <div id="ltList" style="flex:1;overflow-y:auto;padding:0 8px"></div>
-    <div style="flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border);background:var(--s1)">
+    <div style="flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border);background:var(--surface)">
       <div id="ltSelCount" style="font-size:12px;color:var(--t2);margin-bottom:8px;font-weight:600">已選 0 人</div>
       <div style="display:flex;gap:8px">
         <button onclick="ltTagBatch()" style="flex:1;background:var(--abg);color:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🏷️ 標批次</button>
-        <button onclick="ltExportCompany()" style="flex:1;background:#2E7D55;color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📤 公司格式</button>
+        <button onclick="ltExportCompany()" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📤 公司格式</button>
       </div>
-      <button onclick="ltExportNoticeData()" style="margin-top:8px;width:100%;background:#6A5E8A;color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📨 通知單名單（Word合併列印）</button>
+      <button onclick="ltExportNoticeData()" style="margin-top:8px;width:100%;background:var(--purple);color:#fff;border:none;border-radius:var(--rs);padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">📨 通知單名單（Word合併列印）</button>
     </div>
   </div>
 </div>
@@ -1586,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.08.11 #2';
+const APP_VERSION = '2026.09.14 #1';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2011,7 +2035,9 @@ function parseVisitLogs(text){
     const content = line;
     // 內容空白、或只剩數字/標點（沒有任何中文或字母）→ 視為雜訊，丟掉（不再出現「1」「11」「20」那種無意義紀錄）
     if(!content || !/[^\d\s:：.,，、。\-_/／()（）]/.test(content)) return;
-    logs.push({ date: date || TODAY, time, text: content });
+    const rec = { date: date || TODAY, time, text: content };
+    if(!date) rec.nd = 1;   // nd＝原文沒寫日期(日期是解析當天蓋的)，去重時只能比內容不能比日期；存檔前會拿掉
+    logs.push(rec);
   });
 
   return logs.reverse();
@@ -2286,22 +2312,22 @@ function renderDupPanel(c) {
   if (dups.length === 0) { panel.style.display = 'none'; return; }
 
   const hColor = {
-    '追很緊':'#3E5F92','覆訪':'#A87A45','已簽約':'#42816A',
-    '無效案件':'#6B7280','新鑫':'#6A5E8A','待分類':'#969CA6'
+    '追很緊':'var(--accent)','覆訪':'var(--orange)','已簽約':'var(--green)',
+    '無效案件':'var(--t3)','新鑫':'var(--purple)','待分類':'var(--t3)'
   };
 
   countEl.textContent = dups.length;
   listEl.innerHTML = dups.map(function(d) {
     const oc = d.client;
     const col = hColor[oc.heat] || '#888';
-    return '<div style="background:#fff;border:1px solid #FFD54F;border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
+    return '<div style="background:#fff;border:1px solid var(--obd);border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
       + '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer">'
       + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + calEsc(dispName(oc)) + '</div>'
       + '<div style="font-size:11px;color:#888;margin:1px 0">' + (oc.phone || '（無電話）') + '</div>'
       + '<div style="font-size:11px;color:' + col + ';font-weight:600">' + oc.heat + '</div>'
-      + '<div style="font-size:10px;color:#B45309;margin-top:2px">' + d.reasons.join('、') + '</div>'
+      + '<div style="font-size:10px;color:var(--orange);margin-top:2px">' + d.reasons.join('、') + '</div>'
       + '</div>'
-      + '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:#B45309;color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
+      + '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
       + '</div>';
   }).join('');
   panel.style.display = 'block';
@@ -2309,6 +2335,27 @@ function renderDupPanel(c) {
 
 // ── 合併重複客戶（同一人）──────────────────────────────────
 // 把 b 整筆併進 a（a 保留為主）：房產合併去重、缺的欄位用 b 補、電話/記錄/財力合併。回傳 a。
+// 債電比對用：去掉 -、空白、括號、#，只留可比對的號碼本體
+function normPhoneKey(s){ return String(s==null?'':s).replace(/[-\s()#]/g,''); }
+// 併進某位客戶的債電：先濾掉他手動刪過的號碼（deletedDebtPhones 記正規化後的號碼），再去重合併。
+// 業主刪過的債電＝永不再由總檔/匯入帶回來，跟聯絡紀錄的 deletedLogKeys 同一套規矩。
+function mergeDebtPhonesInto(client, incoming){
+  const del=new Set(client&&client.deletedDebtPhones||[]);
+  const fresh=(incoming||[]).filter(p=>p && !del.has(normPhoneKey(p)));
+  return mergeDebtPhones(client&&client.debtPhones, fresh);
+}
+// 債電合併去重：回傳新陣列（保留既有順序與寫法，只加沒看過的號碼）。
+// 同一支號碼不管重跑幾次總檔同步都只留一筆——這裡不去重就會每同步一次多長一輪。
+function mergeDebtPhones(existing, incoming){
+  const out=[], seen=new Set();
+  [...(existing||[]), ...(incoming||[])].forEach(p=>{
+    if(!p) return;
+    const k=normPhoneKey(p);
+    if(!k || seen.has(k)) return;
+    seen.add(k); out.push(p);
+  });
+  return out;
+}
 function foldClientInto(a, b){
   const isEmptyProp = p => !p.addr && !p.buildNo && !p.col4BuildNo && !p.bank && !p.legal && !p.private && !p.area;
   // 房產：兩邊都正規化成 properties，再以建號/地址核心去重合併
@@ -2334,10 +2381,9 @@ function foldClientInto(a, b){
     if(!a[k] && b[k]) a[k]=b[k];
   });
   if(!a.companyRaw && b.companyRaw) a.companyRaw=b.companyRaw;
-  // 債電合併去重
-  const pn=s=>String(s).replace(/[-\s()#]/g,'');
-  const dset=new Set((a.debtPhones||[]).map(pn));
-  (b.debtPhones||[]).forEach(p=>{ if(p&&!dset.has(pn(p))){ (a.debtPhones=a.debtPhones||[]).push(p); dset.add(pn(p)); }});
+  // 債電合併去重（兩邊刪過的名單一起帶走，b 的號碼要通過 a 的刪除名單才進得來）
+  a.deletedDebtPhones=[...new Set([...(a.deletedDebtPhones||[]),...(b.deletedDebtPhones||[])])];
+  a.debtPhones=mergeDebtPhonesInto(a, b.debtPhones);
   // 聯絡記錄合併去重
   const lkey=l=>(l.date||'')+(l.text||'').slice(0,20);
   const lset=new Set((a.logs||[]).map(lkey));
@@ -2643,7 +2689,11 @@ function parseRightsLoans(text){
       const isLegal = !isBank && /股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(creditorName);
       type = isBank ? 'bank' : (isLegal ? 'legal' : 'private');
     }
-    loans.push({n:creditorName, a:amt, t:type, s:seq, e:defaultLoanE(amt,type)});
+    // 設定(登記)日期：條列行裡的民國日期，存成 113/05/13 格式
+    const dM = line.match(/民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日/);
+    const loan = {n:creditorName, a:amt, t:type, s:seq, e:defaultLoanE(amt,type)};
+    if(dM) loan.d = `${dM[1]}/${String(+dM[2]).padStart(2,'0')}/${String(+dM[3]).padStart(2,'0')}`;
+    loans.push(loan);
   });
   if(loans.length) return loans;
   // Fallback：條列格式解析不到時，改用摘要行（銀行：/民間：/法人：）
@@ -2690,6 +2740,38 @@ function classifyCreditor(name){
   if(/銀行|農會|信合社|信用合作|漁會/.test(s)) return 'bank';
   if(/股份有限|有限公司|企業|租賃|迪和|新鑫|和勁|華財/.test(s)) return 'legal';
   return 'private';
+}
+// 總檔摘要佔位筆的系統代填名稱（parseRightsLoans fallback 產生的）
+function isPlaceholderLoanName(n){ n=String(n||'').trim(); return !n || n==='銀行貸款' || n==='法人／租賃' || n==='民間借貸'; }
+// 只補「設定日期」：把 src 債權的 d 補進 dst 對應筆——登序對得上優先；否則金額+分類唯一才補（不亂猜）。絕不覆蓋已有日期。
+// 例外：總檔摘要佔位筆（系統代填名稱＋沒登序，金額是摘要數字常對不上謄本設定額）→ 放寬成「分類兩邊都唯一」就補，並順便補登序、把佔位名稱換成真實債權人。
+function patchLoanDates(dstLoans, srcLoans){
+  if(!Array.isArray(dstLoans)||!dstLoans.length||!Array.isArray(srcLoans)) return false;
+  const src=srcLoans.filter(x=>x&&x.d);
+  if(!src.length) return false;
+  let hit=false;
+  dstLoans.forEach(l=>{
+    if(l.d) return;
+    let m=l.s ? src.find(x=>x.s===l.s) : null;
+    // 金額+分類比對要「兩邊都唯一」才補：來源唯一且自己這邊也只有一筆同金額同分類，否則不猜（避免一個日期錯套到兩筆）
+    if(!m){
+      const cand=src.filter(x=>x.a===l.a&&x.t===l.t);
+      const own=dstLoans.filter(x=>x.a===l.a&&x.t===l.t);
+      if(cand.length===1 && own.length===1) m=cand[0];
+    }
+    // 佔位筆放寬：同分類兩邊都只有一筆就認定是同一筆
+    if(!m && !l.s && isPlaceholderLoanName(l.n)){
+      const candT=src.filter(x=>x.t===l.t);
+      const ownT=dstLoans.filter(x=>x.t===l.t);
+      if(candT.length===1 && ownT.length===1){
+        m=candT[0];
+        if(m.s && !l.s) l.s=m.s;
+        if(m.n && !isPlaceholderLoanName(m.n)) l.n=m.n;
+      }
+    }
+    if(m){ l.d=m.d; hit=true; }
+  });
+  return hit;
 }
 // 把 loans[] 套用到不動產物件 p：設定 p.loans 並從中加總回寫 p.bank/legal/private
 function applyLoansToProp(p, loans){
@@ -3054,9 +3136,9 @@ function processCompanyData(raw) {
         if(name && name !== '（未知）' && !prevSameBuilding.name.includes(name)) {
           prevSameBuilding.name = prevSameBuilding.name + '／' + name;
         }
-        // 合併債電
+        // 合併債電（去重＋跳過手動刪過的：否則每跑一次總檔更新就多長一輪、刪掉的也會復活）
         if(allDebtPhones.length) {
-          prevSameBuilding.debtPhones = [...(prevSameBuilding.debtPhones||[]), ...allDebtPhones];
+          prevSameBuilding.debtPhones = mergeDebtPhonesInto(prevSameBuilding, allDebtPhones);
         }
         prevSameBuilding.updatedAt = TODAY;
         updated++;
@@ -3154,6 +3236,7 @@ function processCompanyData(raw) {
         if(dup){
           dup.companyRaw=companyRaw;
           if(!dup.loansManual) applyLoansToProp(dup, loans); // 手動編輯過債權清單→匯入不覆蓋
+          else patchLoanDates(dup.loans, loans);             // 手改過的整包不動,只補設定日期
           mergePropInto(dup, np);
         } // 同一間 → 公司資料(總檔來源)永遠刷新、其餘欄位補空格，不重複
         else { existing.properties.push(np); }   // 不同間 → 累積成新一筆房產
@@ -3172,6 +3255,7 @@ function processCompanyData(raw) {
       if(priv && !existing.private){ existing.private = priv; if(existing.privateConfirmed===undefined) existing.privateConfirmed = false; }
       if(legal && !existing.legal){ existing.legal = legal; existing.loanEstimated = true; }
       if(loans.length && !(existing.loans&&existing.loans.length) && !existing.loansManual) existing.loans = loans;
+      else if(loans.length) patchLoanDates(existing.loans, loans); // 既有債權不動,只補設定日期
       if(area && !existing.area) existing.area = area;
       if(mainArea && !existing.mainArea) existing.mainArea = mainArea;
       if(subArea && !existing.subArea) existing.subArea = subArea;
@@ -3186,17 +3270,24 @@ function processCompanyData(raw) {
                             (heat === '追很緊' && existing.heat === '覆訪');
       // heatManual＝用戶在CRM親手分過類→分類絕對不動(總檔不覆蓋手動分類)
       if(canUpdateHeat && !existing.heatManual) existing.heat = heat;
-      // 負債電話：空白才補
-      if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = allDebtPhones;
+      // 負債電話：空白才補（且手動刪過的不再帶回來——刪光後這裡會補成空的，不會整批復活）
+      if(allDebtPhones.length && !existing.debtPhones?.length) existing.debtPhones = mergeDebtPhonesInto(existing, allDebtPhones);
       // 聯絡記錄：只加入新的，不恢復已刪除的
       if(processText){
         const newLogs = parseVisitLogs(processText);
-        const existingKeys = new Set((existing.logs||[]).map(l=>(l.date||'')+(l.text||'').slice(0,20)));
+        const t20 = l=>(l.text||'').slice(0,20);
+        const existingKeys = new Set((existing.logs||[]).map(l=>(l.date||'')+t20(l)));
+        const existingTexts = new Set((existing.logs||[]).map(t20));
         const deletedKeys = new Set(existing.deletedLogKeys||[]);
+        const deletedTexts = new Set([...deletedKeys].map(k=>k.replace(/^\d{4}-\d{2}-\d{2}/,'')));
         const toAdd = newLogs.filter(l=>{
-          const key = (l.date||'')+(l.text||'').slice(0,20);
-          return !existingKeys.has(key) && !deletedKeys.has(key);
+          const t = t20(l);
+          // 原文沒寫日期(nd)的記錄只比內容：同一句話不管日期都算已存在，否則每次同步都被蓋上當天日期、重複長一筆
+          if(l.nd){ if(existingTexts.has(t) || deletedTexts.has(t)) return false; existingTexts.add(t); return true; }
+          const key = (l.date||'')+t;
+          if(existingKeys.has(key) || deletedKeys.has(key)) return false; existingKeys.add(key); return true;
         });
+        toAdd.forEach(l=>{ delete l.nd; });
         if(toAdd.length) existing.logs = [...toAdd, ...(existing.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       }
       // driveUrl、note、remind、job 等用戶欄位：完全不動
@@ -3225,6 +3316,7 @@ function processCompanyData(raw) {
         });
       } else {
         const logs = parseVisitLogs(processText);
+        logs.forEach(l=>{ delete l.nd; });
         clients.push({
           id: nextId++,
           name, phone, idno,
@@ -3296,6 +3388,7 @@ function processCompanyData(raw) {
           if(f.priv && !ex.private) ex.private = f.priv;
           if(f.legal && !ex.legal) ex.legal = f.legal;
           if(f.loans && f.loans.length && !(ex.loans&&ex.loans.length) && !ex.loansManual) ex.loans = f.loans;
+          else if(f.loans && f.loans.length) patchLoanDates(ex.loans, f.loans); // 既有債權不動,只補設定日期
           if(f.area && !ex.area) ex.area = f.area;
           if(f.mainArea && !ex.mainArea) ex.mainArea = f.mainArea;
           if(f.subArea && !ex.subArea) ex.subArea = f.subArea;
@@ -3305,11 +3398,22 @@ function processCompanyData(raw) {
           if(f.sectionName && !ex.purpose) ex.purpose = f.sectionName;
           const defaultHeats = ['追很緊',''];
           if(defaultHeats.includes(ex.heat||'') && !ex.heatManual) ex.heat = f.heat;
-          if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = f.allDebtPhones;
+          if(f.allDebtPhones?.length && !ex.debtPhones?.length) ex.debtPhones = mergeDebtPhonesInto(ex, f.allDebtPhones);
           if(f.processText){
             const newLogs = parseVisitLogs(f.processText);
-            const existingKeys = new Set((ex.logs||[]).map(l=>(l.date||'')+(l.text||'').slice(0,20)));
-            const toAdd = newLogs.filter(l=>!existingKeys.has((l.date||'')+(l.text||'').slice(0,20)));
+            const t20 = l=>(l.text||'').slice(0,20);
+            const existingKeys = new Set((ex.logs||[]).map(l=>(l.date||'')+t20(l)));
+            const existingTexts = new Set((ex.logs||[]).map(t20));
+            const deletedKeys = new Set(ex.deletedLogKeys||[]);
+            const deletedTexts = new Set([...deletedKeys].map(k=>k.replace(/^\d{4}-\d{2}-\d{2}/,'')));
+            const toAdd = newLogs.filter(l=>{
+              const t = t20(l);
+              // 同上：沒寫日期的記錄只比內容，避免每次同步重複長
+              if(l.nd){ if(existingTexts.has(t) || deletedTexts.has(t)) return false; existingTexts.add(t); return true; }
+              const key = (l.date||'')+t;
+              if(existingKeys.has(key) || deletedKeys.has(key)) return false; existingKeys.add(key); return true;
+            });
+            toAdd.forEach(l=>{ delete l.nd; });
             if(toAdd.length) ex.logs = [...toAdd,...(ex.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
           }
           ex.updatedAt = TODAY;
@@ -3317,6 +3421,7 @@ function processCompanyData(raw) {
         } else {
           // 新增
           const logs = parseVisitLogs(f.processText||'');
+          logs.forEach(l=>{ delete l.nd; });
           clients.push({
             id: nextId++,
             name: f.name, phone: f.phone, idno: f.idno,
@@ -3488,7 +3593,7 @@ function updateStats(){
 
 // ── 行事曆（客戶排程月曆）─────────────────────────────────
 let _calYear, _calMonth;
-const CAL_HEAT_COLOR = {'追很緊':'#3E5F92','覆訪':'#A87A45','已簽約':'#42816A','無效案件':'#6B7280','新鑫':'#6A5E8A','待分類':'#969CA6'};
+const CAL_HEAT_COLOR = {'追很緊':'var(--accent)','覆訪':'var(--orange)','已簽約':'var(--green)','無效案件':'var(--t3)','新鑫':'var(--purple)','待分類':'var(--t3)'};
 function calEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function calMonth(delta){
   if(_calYear===undefined){ const t=new Date(); _calYear=t.getFullYear(); _calMonth=t.getMonth(); }
@@ -3524,12 +3629,12 @@ function renderCalendar(){
     items.slice(0,4).forEach(it=>{
       if(it.type==='google'){
         const e=it.e; const t=e.allday?'':(e.start?e.start+' ':'');
-        cell+=`<div onclick="event.stopPropagation();openDayView('${ds}')" title="📆 ${calEsc(e.title)}${e.allday?'（全天）':' '+(e.start||'')+'-'+(e.end||'')}${e.cal?'　['+calEsc(e.cal)+']':''}" style="font-size:10px;line-height:1.5;background:#fff;border:1px solid #7FA0D4;color:#3E5F92;border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📆 ${t}${calEsc(e.title)}</div>`;
+        cell+=`<div onclick="event.stopPropagation();openDayView('${ds}')" title="📆 ${calEsc(e.title)}${e.allday?'（全天）':' '+(e.start||'')+'-'+(e.end||'')}${e.cal?'　['+calEsc(e.cal)+']':''}" style="font-size:10px;line-height:1.5;background:#fff;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📆 ${t}${calEsc(e.title)}</div>`;
       } else if(it.type==='memo'){
         const m=it.m; const t=m.dueTime?m.dueTime+' ':'';
         cell+=`<div onclick="event.stopPropagation();openMemoModal()" title="📝 ${calEsc(m.text)}${m.dueTime?' '+m.dueTime:''}" style="font-size:10px;line-height:1.5;background:#fff;border:1px solid var(--orange);color:var(--orange);border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📝 ${t}${calEsc(m.text)}</div>`;
       } else {
-        const c=it.c; const col=CAL_HEAT_COLOR[c.heat]||'#969CA6'; const t=c.remindTime?c.remindTime+' ':'';
+        const c=it.c; const col=CAL_HEAT_COLOR[c.heat]||'var(--t3)'; const t=c.remindTime?c.remindTime+' ':'';
         cell+=`<div onclick="event.stopPropagation();openEdit(${c.id})" title="${calEsc(c.name)}${c.remindTime?' '+c.remindTime:''}${c.remindNote?' · '+calEsc(c.remindNote):''}" style="font-size:10px;line-height:1.5;background:${col};color:#fff;border-radius:4px;padding:1px 4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}${calEsc(dispName(c))}</div>`;
       }
     });
@@ -3566,9 +3671,9 @@ function openDayView(ds){
         const e=it.e;
         const range=e.allday?'全天':((e.start||'')+(e.end?'–'+e.end:''));
         return `<div style="display:flex;gap:10px;align-items:flex-start;padding:11px 6px;border-bottom:1px solid var(--border)">
-          <div style="width:46px;flex-shrink:0;font-size:12px;font-weight:600;color:#3E5F92">${e.allday?'全天':(e.start||'—')}</div>
-          <div style="width:3px;border-radius:2px;background:#7FA0D4;flex-shrink:0;align-self:stretch"></div>
-          <div style="flex:1;min-width:0"><span style="font-size:11px;color:#3E5F92">📆 ${e.cal?calEsc(e.cal):'Google'}</span><div style="font-size:13px;color:var(--text)">${calEsc(e.title)}</div><div style="font-size:11px;color:var(--t3)">${range}</div></div>
+          <div style="width:46px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--accent)">${e.allday?'全天':(e.start||'—')}</div>
+          <div style="width:3px;border-radius:2px;background:var(--accent);flex-shrink:0;align-self:stretch"></div>
+          <div style="flex:1;min-width:0"><span style="font-size:11px;color:var(--accent)">📆 ${e.cal?calEsc(e.cal):'Google'}</span><div style="font-size:13px;color:var(--text)">${calEsc(e.title)}</div><div style="font-size:11px;color:var(--t3)">${range}</div></div>
         </div>`;
       }
       if(it.type==='memo'){
@@ -3578,7 +3683,7 @@ function openDayView(ds){
           <div style="flex:1;min-width:0"><span style="font-size:11px;color:var(--orange)">📝 備忘</span><div style="font-size:13px;color:var(--text)">${calEsc(m.text)}</div></div>
         </div>`;
       }
-      const c=it.c, col=CAL_HEAT_COLOR[c.heat]||'#969CA6';
+      const c=it.c, col=CAL_HEAT_COLOR[c.heat]||'var(--t3)';
       return `<div onclick="closeDayView();openEdit(${c.id})" style="display:flex;gap:10px;align-items:stretch;padding:11px 6px;border-bottom:1px solid var(--border);cursor:pointer">
         <div style="width:46px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--t2);padding-top:1px">${tm}</div>
         <div style="width:3px;border-radius:2px;background:${col};flex-shrink:0"></div>
@@ -3837,7 +3942,7 @@ function renderListTool(){
     <input type="checkbox" ${_ltChecked.has(c.id)?'checked':''} onchange="ltToggleCheck(${c.id},this.checked)" style="margin-top:3px;width:18px;height:18px;flex-shrink:0">
     <span style="flex:1;min-width:0">
       <span style="font-weight:600;color:var(--text);font-size:15px">${calEsc(dispName(c))}</span>
-      ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'#969CA6'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
+      ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'var(--t3)'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
       ${c.batch?`<span style="font-size:11px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.batch)}</span>`:''}
       <div style="font-size:12px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc([c.phone,c.addr].filter(Boolean).join(' · '))}</div>
     </span>
@@ -3866,7 +3971,7 @@ function ltBatchApply(){
 
 // ===== 🔗 人的關聯（親友／共同借款人）=====
 const REL_TYPES = ['共同借款人','夫妻','父母子女','兄弟姊妹','親戚','朋友','同事','其他'];
-const REL_COLOR = {'共同借款人':'#B45309','夫妻':'#BE185D'};
+const REL_COLOR = {'共同借款人':'var(--orange)','夫妻':'var(--pink)'};
 function findBySerial(s){ s=String(s||''); return s ? clients.find(c=>String(c.serial||'')===s) : null; }
 // 在 A、B 兩位客戶間建立雙向關聯（同型別不重複）
 function linkRelation(a, b, relation){
@@ -4150,6 +4255,12 @@ function render(){
     }
     return 99;
   }
+  // 電話優先排序的三段分級：0=有本人電話、1=只有債電(未確認)、2=完全沒電話
+  function phoneRank(c){
+    if(String(c.phone||'').trim()) return 0;
+    if((c.debtPhones||[]).some(p=>String(p||'').trim())) return 1;
+    return 2;
+  }
 
   list.sort((a,b)=>{
     // 置頂優先
@@ -4171,7 +4282,7 @@ function render(){
       if(ca!==cb) return ca-cb;
       return (a.addr||'').localeCompare(b.addr||'');
     } else if(sortBy==='phone'){
-      const pa=a.phone?0:1, pb=b.phone?0:1;
+      const pa=phoneRank(a), pb=phoneRank(b);   // 有電話 → 只有債電 → 完全沒電話
       if(pa!==pb) return pa-pb;
       const ra=rOrd[remSt(a.remind)]??4,rb=rOrd[remSt(b.remind)]??4;
       return ra-rb;
@@ -4195,6 +4306,7 @@ function render(){
   });
   const wrap=document.getElementById('listWrap');
   if(!list.length){wrap.innerHTML=`<div class="empty">🔍 查無資料</div>`;return;}
+  const sheetIsOpen=isSheetOpen();   // 編輯面板開著才標「正在看的那位」
   wrap.innerHTML=list.map(c=>{
     let st=remSt(c.remind);
     // 今天的提醒，但時間已過 → 視為逾期
@@ -4210,7 +4322,7 @@ function render(){
     const heatCls=hCls[c.heat]||'';
     const isSel=selectMode&&selectedIds.has(c.id);
     const cardClick=selectMode?`toggleSelect(${c.id},event)`:`openEdit(${c.id})`;
-    return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}" onclick="${cardClick}">
+    return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
         <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
@@ -4221,11 +4333,11 @@ function render(){
       </div>
       <div class="cmeta">
         ${c.remind?remChip(c.remind,c.remindTime):''}
-        ${(lt=>`${lt.bank?`<span class="mi">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi" style="color:var(--red)">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
-        ${c.serial?`<span class="mi" style="font-weight:700;color:var(--accent)">🔢${hl(c.serial,q)}</span>`:''}
+        ${(lt=>`${lt.bank?`<span class="mi-amt">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi-amt">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
+        ${c.serial?`<span class="mi">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
         ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
-        ${c.batch?`<span class="mi" style="color:var(--accent);background:var(--abg)">🏷️${hl(c.batch,q)}</span>`:''}
+        ${c.batch?`<span class="mi" style="color:var(--accent);background:var(--abg);padding:1px 6px;border-radius:99px">🏷️${hl(c.batch,q)}</span>`:''}
         ${c.logs&&c.logs.length?`<span class="mi">💬${c.logs.length}筆</span>`:''}
       </div>
       ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📌${c.remindNote}</div>`:''}
@@ -4398,8 +4510,8 @@ document.addEventListener('keydown', e=>{
     e.preventDefault();
     const btns=document.querySelectorAll('.stab');
     const keepTab=[...btns].findIndex(b=>b.classList.contains('active')); // 記住目前分頁
-    const cards=Array.from(document.querySelectorAll('.ccard'));
-    const ids=cards.map(el=>{const m=el.getAttribute('onclick')?.match(/openEdit\((\d+)\)/);return m?parseInt(m[1]):null;}).filter(Boolean);
+    const cards=Array.from(document.querySelectorAll('.ccard[data-cid]'));
+    const ids=cards.map(el=>parseInt(el.getAttribute('data-cid'),10)).filter(Boolean);
     const idx=ids.indexOf(editId);
     const next=e.key==='ArrowUp'?idx-1:idx+1;
     if(next>=0&&next<ids.length){
@@ -4485,19 +4597,43 @@ function openAdd(){
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
   document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
-  document.getElementById('debtPhoneArea').style.display='none';
+  tempDebtPhones=[]; renderDebtPhones();
   finProofs=[];renderFinProofs();
   extraLoans=[];renderExtraLoans();
   extraLands=[];renderExtraLands();
   tempLogs=[];renderLogs();sSTabTo(0);
   properties=[{...emptyProperty(0)}]; curPropIdx=0; renderPropTabs();
   ensurePropLoans(null, properties[0]); renderLoanRows(); syncLoanTotalsToForm();
-  setTimeout(()=>renderPriceEval({}), 100);
+  _evalRenderedIdx=-1;
+  setTimeout(()=>{ renderPriceEval({}); _evalRenderedIdx=0; }, 100);
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
 }
 
+function isSheetOpen(){ const el=document.getElementById('sheetBg'); return !!(el&&el.classList.contains('open')); }
+// 左邊清單標出「右邊正在看的那位」：卡片浮起來，並把它捲進可視範圍(↑↓切換客戶時清單會跟著走)
+function highlightActiveCard(doScroll){
+  const wrap=document.getElementById('listWrap'); if(!wrap) return;
+  wrap.querySelectorAll('.ccard.active').forEach(el=>el.classList.remove('active'));
+  if(selectMode || !editId || !isSheetOpen()) return;
+  const el=wrap.querySelector('.ccard[data-cid="'+editId+'"]');
+  if(!el) return;
+  el.classList.add('active');
+  if(!doScroll) return;
+  // 自己算位移，不用 scrollIntoView：它帶 behavior:'smooth' 時在某些瀏覽器/系統設定下會完全不捲(實測過)
+  let sc=el.parentElement;
+  while(sc && sc!==document.body && !(/(auto|scroll)/.test(getComputedStyle(sc).overflowY) && sc.scrollHeight>sc.clientHeight+4)) sc=sc.parentElement;
+  const isPage = (!sc || sc===document.body);
+  if(isPage) sc=document.scrollingElement||document.documentElement;
+  const er=el.getBoundingClientRect();
+  const sr=isPage ? {top:0,bottom:window.innerHeight} : sc.getBoundingClientRect();
+  const pad=14;   // 留一點邊，卡片不會剛好貼齊邊緣
+  let delta=0;
+  if(er.top < sr.top+pad) delta = er.top - sr.top - pad;                    // 跑到上面 → 往回捲
+  else if(er.bottom > sr.bottom-pad) delta = er.bottom - sr.bottom + pad;   // 跑到下面 → 往下捲
+  if(delta) sc.scrollTop += delta;   // 只有真的跑出畫面才捲,在畫面內就完全不動
+}
 function openEdit(id){
   editId=id;formDirty=false;
   const c=clients.find(x=>x.id===id);
@@ -4549,25 +4685,20 @@ function openEdit(id){
   document.getElementById('fLandNo').value=c.landNo||'';
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
-  // Debt phones
-  const debtArea = document.getElementById('debtPhoneArea');
-  const debtList = document.getElementById('debtPhoneList');
-  if(c.debtPhones && c.debtPhones.length) {
-    debtArea.style.display='block';
-    debtList.innerHTML = c.debtPhones.map(p=>`<div>${p}</div>`).join('');
-  } else {
-    debtArea.style.display='none';
-  }
+  // Debt phones（可手動編輯；刪過的記進 deletedDebtPhones，總檔更新不再帶回）
+  tempDebtPhones=[...(c.debtPhones||[])]; renderDebtPhones();
   // Company data tab
   _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
-  setTimeout(()=>{ renderPriceEval({...c,...properties[0]}); autoGrowNote(document.getElementById('fNote')); }, 100);
+  _evalRenderedIdx=-1;   // 換客戶了，舊的渲染索引作廢，避免把上一位的評估內容寫進來
+  setTimeout(()=>{ refreshPriceEval(); autoGrowNote(document.getElementById('fNote')); }, 100);
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  highlightActiveCard(true);   // 左邊清單同步標記＋捲到這位
 }
 
 function closeSheet(){
@@ -4580,6 +4711,19 @@ function closeSheet(){
   render();
 }
 
+// 房價評估頁的資料來源：不動產相關欄位「只認正在評估的那一筆」。
+// 以前用 {...客戶, ...這筆不動產} 直接合併，這筆缺的欄位會被客戶層級(＝第一筆不動產留下的舊值)補上，
+// 結果多筆案件會互相污染（例如土地持分那筆顯示出另一間的建號/地址/社區/坪數）。
+const EVAL_PROP_KEYS=['addr','district','landzone','purpose','buildNo','col4BuildNo','landNo',
+  'area','mainArea','subArea','commonArea','landArea','parkArea','parkType','parkTitle','parkVal',
+  'buildShare','buildShareNum','buildShareDen','bank','legal','private','loans','loansManual',
+  'extraLoans','extraLands','landtaxNormal','landtaxSelf','landtaxCalced',
+  'loanEstimated','privateConfirmed','companyRaw','label','driveUrl','evalData'];
+function evalCtx(c, p){
+  const base={...(c||{})};
+  EVAL_PROP_KEYS.forEach(k=>{ delete base[k]; });   // 客戶層級的不動產欄位一律不參與，缺的就是缺的
+  return {...base, ...(p||{})};
+}
 function renderPriceEval(c) {
   const panel = document.getElementById('priceEvalPanel');
   if(!panel) return;
@@ -4904,7 +5048,7 @@ ${loanLines}${rateLine}
   win.document.write(`
     <html><head><meta charset="UTF-8"><title>案件評估表 - ${c.name}</title>
     <style>
-      body{font-family:'Noto Sans TC',sans-serif;padding:30px;max-width:600px;margin:0 auto;color:#1A1916;line-height:2}
+      body{font-family:'Noto Sans TC',sans-serif;padding:30px;max-width:600px;margin:0 auto;color:var(--text);line-height:2}
       h3{margin-bottom:16px;font-size:16px}
       pre{white-space:pre-wrap;font-family:inherit;font-size:15px;line-height:2}
       .btns{display:flex;gap:10px;margin-bottom:20px}
@@ -4933,13 +5077,8 @@ function sSTab(i,el){
   el.classList.add('active');
   // 聯絡記錄頁：進入時捲到最底，讓輸入框可見
   if(i===2){const sb=document.querySelector('#sp2').closest('.sbody'); if(sb) requestAnimationFrame(()=>{sb.scrollTop=sb.scrollHeight;});}
-  // 進入「房價評估」分頁 → 用目前不動產重新渲染（跟「前往此筆房價評估」按鈕一致）
-  if(i===4){
-    const c=editId?(clients.find(x=>x.id===editId)||{}):{};
-    const p=properties[curPropIdx]||{};
-    renderPriceEval({...c,...p});
-    if(typeof updateEvalIndicator==='function') updateEvalIndicator();
-  }
+  // 進入「房價評估」分頁 → 先把面板上既有內容存回原本那筆(避免重畫時弄丟)，再用目前不動產重新渲染
+  if(i===4){ saveEvalFields(); refreshPriceEval(); }
   // 進入「☁️ 雲端」分頁 → 進去才打 GAS 讀資料夾（不要每次 render 都打）
   if(i===5) renderCloudTab();
   // 進入「公司資料」分頁 → 預設選目前不動產，並建立可切換的不動產頁籤
@@ -5036,6 +5175,33 @@ function renderLogs(){
       </div>`).join('')
     :'<p style="font-size:12px;color:var(--t3);text-align:center;padding:20px 0">尚無聯絡記錄</p>';
   const sb=el.closest('.sbody'); if(sb) sb.scrollTop = sb.scrollHeight; // 捲到最底（輸入框）
+}
+// ── 債電（可手動編輯）───────────────────────────────────────
+// 刪掉/改掉的號碼會記進該客戶的 deletedDebtPhones（正規化後的號碼），之後總檔更新永不再帶回來
+let tempDebtPhones=[];
+function markDebtPhoneDeleted(p){
+  const k=normPhoneKey(p); if(!k||!editId) return;
+  const c=clients.find(x=>x.id===editId); if(!c) return;
+  if(!c.deletedDebtPhones) c.deletedDebtPhones=[];
+  if(!c.deletedDebtPhones.includes(k)) c.deletedDebtPhones.push(k);
+}
+function renderDebtPhones(){
+  const list=document.getElementById('debtPhoneList'); if(!list) return;
+  list.innerHTML = tempDebtPhones.length ? tempDebtPhones.map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <input value="${calEsc(p)}" placeholder="債務人電話" onchange="setDebtPhone(${i},this.value)" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:6px 9px;font-size:13px;color:var(--t2);font-family:inherit;outline:none"/>
+      <button type="button" onclick="removeDebtPhone(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;line-height:1">✕</button>
+    </div>`).join('') : '<div style="font-size:12px;color:var(--t3)">尚無債電</div>';
+}
+function addDebtPhone(){ tempDebtPhones.push(''); renderDebtPhones(); formDirty=true; }
+function setDebtPhone(i,v){
+  const old=tempDebtPhones[i], val=String(v||'').trim();
+  if(old && normPhoneKey(old)!==normPhoneKey(val)) markDebtPhoneDeleted(old); // 改成別支＝舊那支也不要再回來
+  tempDebtPhones[i]=val; formDirty=true;
+}
+function removeDebtPhone(i){
+  markDebtPhoneDeleted(tempDebtPhones[i]);
+  tempDebtPhones.splice(i,1); renderDebtPhones(); formDirty=true;
 }
 function addLog(){
   const d=document.getElementById('fLogDate').value;
@@ -5158,7 +5324,7 @@ function renderLoanRows(){
         </select>
         <button onclick="removeLoanRow(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1">✕</button>
       </div>
-      ${l.a?`<div style="font-size:10px;color:var(--t3);margin:2px 0 0 58px">抵押設定 ${l.a}萬</div>`:''}
+      ${l.a?`<div style="font-size:10px;color:var(--t3);margin:2px 0 0 58px">${l.d?calEsc(l.d)+' ':''}抵押設定 ${l.a}萬</div>`:''}
     </div>`;
   }).join('');
   refreshLoanSection();
@@ -5271,6 +5437,8 @@ function migrateProperties(c){
   if(c.properties&&c.properties.length) return c.properties.map((p,i)=>{
     const np={...emptyProperty(0),...p};
     np.label = propLabel(np) || np.label || `不動產${i+1}`;
+    // 舊資料的房價評估內容存在客戶層級(一位客戶只有一份)，那份其實是第一筆不動產填的 → 接回第一筆，之後各筆各自存
+    if(i===0 && !np.evalData && c.evalData && Object.keys(c.evalData).length) np.evalData={...c.evalData};
     return np;
   });
   const p=emptyProperty(0);
@@ -5283,6 +5451,7 @@ function migrateProperties(c){
     landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
     loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed,
     companyRaw:c.companyRaw||null, col4BuildNo:c.col4BuildNo||''});
+  if(c.evalData && Object.keys(c.evalData).length) p.evalData={...c.evalData};   // 舊客戶只有一筆不動產，評估內容就是它的
   p.label = propLabel(p) || '不動產';
   return [p];
 }
@@ -5336,7 +5505,10 @@ function savePropFields(){
   const _rtS=String(document.getElementById('fLandtaxSelf')?.value??'').trim();
   p.landtaxNormal=parseFloat(_rtN)||0;
   p.landtaxSelf=parseFloat(_rtS)||0;
-  p.landtaxCalced=(_rtN!==''||_rtS!=='');   // 欄位有值(含手打0)=算過→之後0也顯示;清空=未算→空白
+  // 一般/自用「各自」記有沒有算過：只算了一般時，自用要留空白，不能顯示 0（0 代表「算過是零」，會誤導）
+  p.landtaxCalcedN=(_rtN!=='');
+  p.landtaxCalcedS=(_rtS!=='');
+  p.landtaxCalced=(_rtN!==''||_rtS!=='');   // 舊旗標保留給既有邏輯用
   p.bank=parseFloat(document.getElementById('fBank')?.value)||0;
   p.legal=parseFloat(document.getElementById('fLegal')?.value)||0;
   p.private=parseFloat(document.getElementById('fPrivate')?.value)||0;
@@ -5369,8 +5541,10 @@ function loadPropFields(idx){
   document.getElementById('fBuildShareNum').value=p.buildShareNum||'';
   document.getElementById('fBuildShareDen').value=p.buildShareDen||'';
   // 土增稅三態顯示:landtaxCalced=算過→0也要顯示(業主要能確認「算過=0」);沒標記→0=沒算過顯示空白
-  document.getElementById('fLandtaxNormal').value=p.landtaxCalced?(p.landtaxNormal||0):(p.landtaxNormal||'');
-  document.getElementById('fLandtaxSelf').value=p.landtaxCalced?(p.landtaxSelf||0):(p.landtaxSelf||'');
+  const _cN=(p.landtaxCalcedN!==undefined)?p.landtaxCalcedN:p.landtaxCalced;   // 舊資料只有一個旗標,沿用
+  const _cS=(p.landtaxCalcedS!==undefined)?p.landtaxCalcedS:p.landtaxCalced;
+  document.getElementById('fLandtaxNormal').value=_cN?(p.landtaxNormal||0):(p.landtaxNormal||'');
+  document.getElementById('fLandtaxSelf').value=_cS?(p.landtaxSelf||0):(p.landtaxSelf||'');
   document.getElementById('fDriveUrl').value=p.driveUrl||'';
   const btnO=document.getElementById('btnOpenDrive'),btnC=document.getElementById('btnDrive');
   if(p.driveUrl){btnO.style.display='';btnC.textContent='✅ 已建立';}
@@ -5517,35 +5691,73 @@ function togglePrivateConfirm(v){
 }
 
 function switchProperty(idx){
-  savePropFields(); curPropIdx=idx; loadPropFields(idx); renderPropTabs();
+  savePropFields(); saveEvalFields();     // 先把現在畫面上的內容存回原本那筆，再換
+  curPropIdx=idx; loadPropFields(idx); renderPropTabs();
+  refreshPriceEval();                      // 評估頁跟著換，不會停在上一筆
 }
 
 function addProperty(){
-  savePropFields();
+  savePropFields(); saveEvalFields();
   properties.push(emptyProperty(properties.length));
   curPropIdx=properties.length-1;
   loadPropFields(curPropIdx); renderPropTabs();
+  refreshPriceEval();
   showToast('➕ 已新增不動產');
 }
 
 function removeProperty(idx){
   if(properties.length<=1){showToast('至少需要保留一筆不動產');return;}
   if(!confirm(`確定刪除「${properties[idx].label}」？`)) return;
+  savePropFields(); saveEvalFields();
   properties.splice(idx,1);
+  _evalRenderedIdx=-1;                     // 陣列位置變了，舊索引作廢
   curPropIdx=Math.min(curPropIdx,properties.length-1);
   loadPropFields(curPropIdx); renderPropTabs();
+  refreshPriceEval();
 }
 
 function jumpToEval(){
   savePropFields();
-  const c=editId?(clients.find(x=>x.id===editId)||{}):{};
-  const p=properties[curPropIdx]||{};
   sSTabTo(4);
   document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===4));
-  renderPriceEval({...c,...p});
-  updateEvalIndicator();
+  refreshPriceEval();
 }
 
+// ── 房價評估：畫面上顯示的是「哪一筆」不動產 ────────────────────
+// _evalRenderedIdx＝評估面板目前渲染的是第幾筆。切換不動產時若不重畫，面板會停在上一筆，
+// 存檔就會把上一筆的評估內容寫進現在這筆（互相污染的根源）。
+let _evalRenderedIdx=-1;
+// 讀取評估表單目前的內容（存檔與切換前保存都用這個，只有一份定義）
+function collectEvalData(){
+  const v=(id,d)=>document.getElementById(id)?.value||(d||'');
+  return {
+    district:v('ev_district'), section:v('ev_section'), landno:v('ev_landno'), landzone:v('ev_landzone'),
+    landtaxNormal:v('ev_landtax_normal'), landtaxSelf:v('ev_landtax_self'),
+    buildno:v('ev_buildno'), addr:v('ev_addr'), community:v('ev_community'),
+    buildarea:v('ev_buildarea'), landarea:v('ev_landarea'),
+    parking:v('ev_parking','無'), parkTitle:v('ev_park_title','非獨立'), parkval:v('ev_park_val'),
+    floors:v('ev_floors'), age:v('ev_age'),
+    taxGeneral:v('ev_tax_general'), taxSelf:v('ev_tax_self'), taxCount:v('ev_tax_count'),
+    condition:v('ev_condition'), resistance:v('ev_resistance'), jinzhai:v('ev_jinzhai'),
+    unitprice:v('ev_unitprice'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
+    evalNote:v('ev_note'), aiEvalBasis:v('ev_ai_basis'),
+  };
+}
+// 把畫面上的評估內容存回「畫面正在顯示的那一筆」（不是 curPropIdx，切換途中兩者可能不同）
+function saveEvalFields(){
+  if(_evalRenderedIdx<0) return;
+  const p=properties[_evalRenderedIdx];
+  if(!p || !document.getElementById('ev_community')) return;   // 評估面板還沒渲染過就不動
+  p.evalData=collectEvalData();
+}
+// 重畫評估面板成「目前這筆」，並記住畫的是哪一筆
+function refreshPriceEval(){
+  const c=editId?(clients.find(x=>x.id===editId)||{}):{};
+  const p=properties[curPropIdx]||{};
+  renderPriceEval(evalCtx(c,p));
+  _evalRenderedIdx=curPropIdx;
+  updateEvalIndicator();
+}
 function updateEvalIndicator(){
   const p=properties[curPropIdx]||{};
   const el=document.getElementById('evalPropIndicator');
@@ -5652,10 +5864,13 @@ function parseTa(text){
   const confirmed=/已確定/.test(t);
   // 登序（登記次序號）：若謄本有標示，一併帶入
   const seq=(t.match(/登記次序\s*[：:]?\s*(\d{4,8})/)||t.match(/(?:^|[^\d])(\d{7})(?!\d)/))?.[1]||'';
+  // 設定(登記)日期：優先抓「登記日期」標籤，退而求其次抓第一個民國日期
+  const dM=t.match(/登記日期\s*[：:]?\s*(?:民國)?\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日/)||t.match(/民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日/);
+  const date=dM?`${dM[1]}/${String(+dM[2]).padStart(2,'0')}/${String(+dM[3]).padStart(2,'0')}`:'';
   if(creditor&&amt){
     const isBank=BANK_KW.some(k=>creditor.includes(k));
     const isLegal=LEGAL_KW.some(k=>creditor.includes(k));
-    r.loans.push({creditor,amt,type:isBank?'bank':isLegal?'legal':'private',reason,confirmed,seq});
+    r.loans.push({creditor,amt,type:isBank?'bank':isLegal?'legal':'private',reason,confirmed,seq,date});
   }
   return r;
 }
@@ -5778,7 +5993,7 @@ function applyTenParsed(mode){
   if(!tenParsed) return;
   const b=tenParsed.biao||{}, s=tenParsed.suo||{}, loans=tenParsed.ta||[];
   // 銀行/租賃：謄本是最高限額，單筆 e 用 ÷1.2 估實貸（與總檔、AI 匯入一致）；民間保留原值待確認
-  const newLoans = loans.map(l=>({n:cleanCreditorName(l.creditor), a:l.amt, t:l.type, s:l.seq||'', e:defaultLoanE(l.amt,l.type)}));
+  const newLoans = loans.map(l=>{ const o={n:cleanCreditorName(l.creditor), a:l.amt, t:l.type, s:l.seq||'', e:defaultLoanE(l.amt,l.type)}; if(l.date) o.d=l.date; return o; });
   const totals = loansToTotals(newLoans);
   const bankT=totals.bank, legalT=totals.legal, privT=totals.private;
   if(mode==='new'){
@@ -5886,43 +6101,17 @@ async function saveClient(silent){
     extraLoans:[...extraLoans],
     purpose:document.getElementById('fPurpose').value.trim(),
     loanPurpose:document.getElementById('ev_purpose')?.value?.trim()||'',
-    evalData:{
-      district:document.getElementById('ev_district')?.value||'',
-      section:document.getElementById('ev_section')?.value||'',
-      landno:document.getElementById('ev_landno')?.value||'',
-      landzone:document.getElementById('ev_landzone')?.value||'',
-      landtaxNormal:document.getElementById('ev_landtax_normal')?.value||'',
-      landtaxSelf:document.getElementById('ev_landtax_self')?.value||'',
-      buildno:document.getElementById('ev_buildno')?.value||'',
-      addr:document.getElementById('ev_addr')?.value||'',
-      community:document.getElementById('ev_community')?.value||'',
-      buildarea:document.getElementById('ev_buildarea')?.value||'',
-      landarea:document.getElementById('ev_landarea')?.value||'',
-      parking:document.getElementById('ev_parking')?.value||'無',
-      parkTitle:document.getElementById('ev_park_title')?.value||'非獨立',
-      parkval:document.getElementById('ev_park_val')?.value||'',
-      floors:document.getElementById('ev_floors')?.value||'',
-      age:document.getElementById('ev_age')?.value||'',
-      taxGeneral:document.getElementById('ev_tax_general')?.value||'',
-      taxSelf:document.getElementById('ev_tax_self')?.value||'',
-      taxCount:document.getElementById('ev_tax_count')?.value||'',
-      condition:document.getElementById('ev_condition')?.value||'',
-      resistance:document.getElementById('ev_resistance')?.value||'',
-      jinzhai:document.getElementById('ev_jinzhai')?.value||'',
-      unitprice:document.getElementById('ev_unitprice')?.value||'',
-      rate:document.getElementById('ev_rate')?.value||'',
-      job:document.getElementById('ev_job')?.value||'',
-      need:document.getElementById('ev_need')?.value||'',
-      evalNote:document.getElementById('ev_note')?.value||'',
-      aiEvalBasis:document.getElementById('ev_ai_basis')?.value||'',
-    },
+    evalData:collectEvalData(),
     buildNo:document.getElementById('fBuildNo').value.trim(),
     landNo:document.getElementById('fLandNo').value.trim(),
     driveUrl:document.getElementById('fDriveUrl').value.trim(),
     logs:[...tempLogs],
+    debtPhones:tempDebtPhones.map(p=>String(p||'').trim()).filter(Boolean),
     updatedAt:TODAY,
-    properties:properties.map(p=>({...p})),
   };
+  // 房價評估內容存回「評估面板正在顯示的那一筆」（不是 curPropIdx，兩者不同步時寫錯筆就會互相污染）
+  saveEvalFields();
+  data.properties=properties.map(p=>({...p}));
   // 手動分類鎖：用戶親手分了類(非待分類)→鎖住,之後匯入(總檔/新鑫)都不再覆蓋分類
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(data.heat)) data.heatManual = true;
   if(editId){
@@ -6145,7 +6334,7 @@ function renderAiPreview(){
     const isWeak=!!x.match && x.confidence==='weak';
     let tag;
     if(isStrong) tag=`<span style="background:#FEF3C7;color:#92400E;font-size:11px;padding:1px 7px;border-radius:9px">🔄 更新到「${x.match.name}」· ${x.reason}</span>`;
-    else if(isWeak) tag=`<span style="background:#FEE2E2;color:#B91C1C;font-size:11px;padding:1px 7px;border-radius:9px">⚠️ 疑似同名</span>`;
+    else if(isWeak) tag=`<span style="background:var(--rbg);color:var(--red);font-size:11px;padding:1px 7px;border-radius:9px">⚠️ 疑似同名</span>`;
     else tag=`<span style="background:#DCFCE7;color:#166534;font-size:11px;padding:1px 7px;border-radius:9px">✨ 新增</span>`;
     const sub=[r.phone,r.idno].filter(Boolean).join(' · ');
     const HEATS=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
@@ -6193,7 +6382,7 @@ function weakMatchBox(x,i){
   const info=[c.phone?'📞'+c.phone:'', c.idno?'🪪'+c.idno:'', eAddr?'🏠'+eAddr:'', eBuild?'建'+eBuild:'']
     .filter(Boolean).join('　')||'（無其他資料）';
   return `<div style="margin-left:22px;margin-top:6px;padding:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:7px">
-    <div style="font-size:11px;color:#B91C1C;margin-bottom:4px">系統已有同名客戶「${c.name}」，請判斷是否同一人：</div>
+    <div style="font-size:11px;color:var(--red);margin-bottom:4px">系統已有同名客戶「${c.name}」，請判斷是否同一人：</div>
     <div style="font-size:11px;color:var(--t2);margin-bottom:6px">${info}</div>
     <div style="display:flex;gap:6px">
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:3px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border)">
@@ -6294,7 +6483,9 @@ function recordToProps(rec){
         const a=parseFloat(l.amt!=null?l.amt:l.a)||0;
         // owed=業主口述實欠(萬):有給就直接當實貸估值(不再÷1.2),沒給才照類型算(銀/法÷1.2、民間原值)
         const owed=parseFloat(l.owed)||0;
-        return {n:cleanCreditorName(l.creditor||l.n||''), a:a, t:ty, s:String(l.seq||l.s||'').trim(), e:owed>0?owed:defaultLoanE(a,ty)};
+        const o={n:cleanCreditorName(l.creditor||l.n||''), a:a, t:ty, s:String(l.seq||l.s||'').trim(), e:owed>0?owed:defaultLoanE(a,ty)};
+        const _d=String(l.date||l.d||'').trim(); if(_d) o.d=_d;   // 設定(登記)日期，民國 113/05/13 格式
+        return o;
       }).filter(l=>l.a>0||l.n);
       let _b=0,_g=0,_p=0;
       np.loans.forEach(l=>{ if(l.t==='bank')_b+=l.e; else if(l.t==='legal')_g+=l.e; else _p+=l.e; });
@@ -6302,15 +6493,23 @@ function recordToProps(rec){
       if(np.bank>0||np.legal>0) np.loanEstimated=true;
       if(np.private>0) np.privateConfirmed=false;
     }
-    // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算；只放第一筆避免多筆重複
-    if(idx===0){
-      // 三態：欄位沒帶/空=還沒算→不寫入(空白)；帶了數字(含0)=算過→寫入並標記 landtaxCalced,0 也要顯示讓業主知道「算過=0」
-      const _hasTg=(ev.taxGeneral!==undefined&&ev.taxGeneral!==null&&ev.taxGeneral!=='');
-      const _hasTs=(ev.taxSelf!==undefined&&ev.taxSelf!==null&&ev.taxSelf!=='');
-      if(_hasTg) np.landtaxNormal=Math.round((parseFloat(ev.taxGeneral)||0)*10000);
-      if(_hasTs) np.landtaxSelf=Math.round((parseFloat(ev.taxSelf)||0)*10000);
-      if(_hasTg||_hasTs) np.landtaxCalced=true;
+    // 土增稅：進「不動產」頁 landtax(元)，房價評估會自動連動換算。
+    // 來源優先序：這筆不動產自己帶的 taxGeneral/taxSelf（多筆案件每筆各自一組）→ 沒帶才退用客戶層級的 eval（只給第一筆，避免多筆重複）
+    // 三態：欄位沒帶/空=還沒算→不寫入(空白)；帶了數字(含0)=算過→寫入並標記 landtaxCalced，0 也要顯示讓業主知道「算過=0」
+    const _has=v=>(v!==undefined&&v!==null&&v!=='');
+    const _ownTax=_has(p.taxGeneral)||_has(p.taxSelf);
+    const _tg = _ownTax ? p.taxGeneral : (idx===0 ? ev.taxGeneral : undefined);
+    const _ts = _ownTax ? p.taxSelf    : (idx===0 ? ev.taxSelf    : undefined);
+    if(_has(_tg)) np.landtaxNormal=Math.round((parseFloat(_tg)||0)*10000);
+    if(_has(_ts)) np.landtaxSelf=Math.round((parseFloat(_ts)||0)*10000);
+    if(_has(_tg)||_has(_ts)){
+      // 兩個旗標都要明確寫（含 false）：只寫有值的那個，另一格會退回舊旗標而顯示 0，看起來像「算過是零」
+      np.landtaxCalcedN=_has(_tg); np.landtaxCalcedS=_has(_ts);
+      np.landtaxCalced=true;
     }
+    // 這筆不動產自己的評估資料（社區/屋齡/樓層/單價…）：多間房各自不同，AI 可逐筆帶 "eval"
+    const _pe=mapEval(p);
+    if(_pe) np.evalData=_pe;
     np.label=propLabel(np)||'不動產';
     return np;
   });
@@ -6321,7 +6520,8 @@ function mergePropInto(dst, src){
   ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
-  ['mainArea','subArea','commonArea','area','landArea','parkArea','bank','legal','private','landtaxNormal','landtaxSelf'].forEach(k=>{
+  // 注意：土增稅不放這裡。放進來的話金額會先被複製，下面「土增稅」那段的 !dst.landtaxNormal 條件就失效，旗標永遠帶不過去
+  ['mainArea','subArea','commonArea','area','landArea','parkArea','bank','legal','private'].forEach(k=>{
     if((!dst[k]||dst[k]===0) && src[k]) dst[k]=src[k];
   });
   // 車位型式/權狀：還是預設值(無/非獨立)才補,不覆蓋使用者選過的
@@ -6329,7 +6529,21 @@ function mergePropInto(dst, src){
   if((!dst.parkTitle||dst.parkTitle==='非獨立') && src.parkTitle==='獨立') dst.parkTitle='獨立';
   if((!dst.extraLands||!dst.extraLands.length) && src.extraLands && src.extraLands.length) dst.extraLands=src.extraLands;
   if((!dst.loans||!dst.loans.length) && src.loans && src.loans.length) dst.loans=src.loans; // 逐筆債權：空的才補,不覆蓋既有(含手改)
-  if(src.landtaxCalced && !dst.landtaxCalced && !dst.landtaxNormal && !dst.landtaxSelf){ dst.landtaxCalced=true; dst.landtaxNormal=src.landtaxNormal||0; dst.landtaxSelf=src.landtaxSelf||0; } // 土增稅「算過=0」也要能補進空的
+  else if(src.loans && src.loans.length) patchLoanDates(dst.loans, src.loans); // 既有債權整包不動,只把「設定日期」補進對應筆
+  // 土增稅：金額＋「算過」旗標整組一起補（空的才補）。「算過=0」也要補得進去；
+  // 一般/自用各自的旗標一定要跟著走，否則沒算的那格會退回舊旗標而顯示 0（看起來像「算過是零」）
+  const _dstHasTax = dst.landtaxCalced||dst.landtaxCalcedN||dst.landtaxCalcedS||dst.landtaxNormal||dst.landtaxSelf;
+  const _srcHasTax = src.landtaxCalced||src.landtaxCalcedN||src.landtaxCalcedS||src.landtaxNormal||src.landtaxSelf;
+  if(!_dstHasTax && _srcHasTax){
+    dst.landtaxNormal=src.landtaxNormal||0;
+    dst.landtaxSelf=src.landtaxSelf||0;
+    dst.landtaxCalced=!!src.landtaxCalced;
+    if(src.landtaxCalcedN!==undefined) dst.landtaxCalcedN=src.landtaxCalcedN;
+    if(src.landtaxCalcedS!==undefined) dst.landtaxCalcedS=src.landtaxCalcedS;
+  }
+  // 這筆不動產自己的估價資料（社區/屋齡/樓層/單價）：空的才補。
+  // 漏掉這行的後果：客戶已存在時再匯入一次，各筆的估價資料會被整個丟掉（例如車位的社區變空白）
+  if((!dst.evalData||!Object.keys(dst.evalData).length) && src.evalData && Object.keys(src.evalData).length) dst.evalData={...src.evalData};
   // 金額提示旗標：補進金額後一併帶上
   if((dst.bank>0||dst.legal>0) && src.loanEstimated && !dst.loanEstimated) dst.loanEstimated=true;
   if(dst.private>0 && dst.privateConfirmed===undefined && src.privateConfirmed===false) dst.privateConfirmed=false;
@@ -6616,7 +6830,7 @@ function fixAddrDistrict(addr, buildInfo){
 // 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
 function isJunkLog(t){ t=String(t||'').trim(); return !t || !/[^\d\s:：.,，、。\-_/／()（）]/.test(t); }
 function applyNewRulesToExisting(dryRun){
-  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0,nName=0; const changed=new Set();
+  let nIdno=0,nCensus=0,nDist=0,nDoor=0,nLogs=0,nBatch=0,nName=0,nLoanDate=0,nDebtPhone=0,nEvalDup=0; const changed=new Set();
   const details=[]; // 會「改動非空欄位」的清單(本名、門牌區),給預覽用
   clients.forEach(c=>{
     // 新鑫批次標頭(1150522_資料(N))原本塞在備註→搬進「批次」欄(空白才補,並把標頭從備註移除)
@@ -6639,17 +6853,60 @@ function applyNewRulesToExisting(dryRun){
       if(c.addr && /號/.test(c.addr) && cr.buildInfo){ const fx=fixAddrDistrict(c.addr,cr.buildInfo); if(fx!==c.addr){ details.push('📍 門牌區：'+(c.name||'')+' '+c.addr+' → '+fx); if(!dryRun)c.addr=fx; nDist++; changed.add(c.id); } }
     }
     (c.properties||[]).forEach(p=>{ if(p.addr && p.companyRaw && p.companyRaw.buildInfo){ const fx=fixAddrDistrict(p.addr,p.companyRaw.buildInfo); if(fx!==p.addr){ if(!dryRun)p.addr=fx; nDist++; changed.add(c.id); } } });
+    // 抵押設定日期：從已存的他項權利部原文重新解析，補進沒有日期的債權(只補空白；登序對得上才補，對不上就用金額+分類且要唯一)
+    const fillLoanDates=(loansArr, rightsText)=>{
+      if(!Array.isArray(loansArr)||!loansArr.length||!rightsText) return false;
+      const parsed=parseRightsLoans(rightsText).filter(x=>x.d); if(!parsed.length) return false;
+      let hit=false;
+      loansArr.forEach(l=>{
+        if(l.d) return;
+        let m=null;
+        if(l.s) m=parsed.find(x=>x.s===l.s);
+        // 金額+分類要「兩邊都唯一」才補（同 patchLoanDates 規則），避免一個日期錯套到兩筆
+        if(!m){
+          const cand=parsed.filter(x=>x.a===l.a&&x.t===l.t);
+          const own=loansArr.filter(x=>x.a===l.a&&x.t===l.t);
+          if(cand.length===1 && own.length===1) m=cand[0];
+        }
+        if(m){ if(!dryRun) l.d=m.d; hit=true; }
+      });
+      return hit;
+    };
+    let dHit=false;
+    if(cr&&cr.rights&&fillLoanDates(c.loans,cr.rights)) dHit=true;
+    (c.properties||[]).forEach(p=>{ if(p.companyRaw&&p.companyRaw.rights&&fillLoanDates(p.loans,p.companyRaw.rights)) dHit=true; });
+    if(dHit){ nLoanDate++; changed.add(c.id); }
+    // 評估內容污染清理：第2筆以後的不動產,若評估內容跟第1筆「一字不差」→ 是舊版共用一份造成的，清掉讓它重填
+    // （不同標的的社區/屋齡/單價/評估說明不可能完全相同，所以只在完全一致時才動）
+    const _ps=c.properties||[];
+    if(_ps.length>1 && _ps[0] && _ps[0].evalData && Object.keys(_ps[0].evalData).length){
+      const first=JSON.stringify(_ps[0].evalData);
+      let hit=false;
+      for(let i=1;i<_ps.length;i++){
+        if(_ps[i] && _ps[i].evalData && JSON.stringify(_ps[i].evalData)===first){ if(!dryRun) delete _ps[i].evalData; hit=true; }
+      }
+      if(hit){ nEvalDup++; changed.add(c.id); }
+    }
+    // 債電去重：舊版總檔同步每跑一次就多加一輪同樣號碼,這裡把重複收成一筆(保留最早出現的寫法)
+    if((c.debtPhones||[]).length){
+      const dedup=mergeDebtPhones(c.debtPhones, []);
+      if(dedup.length !== c.debtPhones.length){ if(!dryRun) c.debtPhones=dedup; nDebtPhone++; changed.add(c.id); }
+    }
     // 聯絡紀錄：用新解析重洗。有原始拜訪過程→重解析(保留手動加的、尊重刪過的);沒有→至少清掉純數字雜訊
     let candidate=null;
     if(cr && cr.process){
       const fresh=parseVisitLogs(cr.process);
+      // 原文沒寫日期(nd)的記錄：沿用既有紀錄裡「同內容」的最早日期(第一次匯入那天)，不要每按一次就變成今天
+      fresh.forEach(l=>{ if(l.nd){ const ds=(c.logs||[]).filter(x=>String(x.text||'').trim()===String(l.text||'').trim()).map(x=>String(x.date||'')).filter(Boolean).sort(); if(ds.length && ds[0]<l.date) l.date=ds[0]; } });
       const proc=String(cr.process);
       const del=new Set(c.deletedLogKeys||[]);
+      const delTexts=new Set([...del].map(k=>k.replace(/^\d{4}-\d{2}-\d{2}/,'')));
       const manual=(c.logs||[]).filter(l=>{ const t=String(l.text||'').trim(); if(isJunkLog(t)) return false; return proc.indexOf(t.slice(0,12))<0; });
       const seen=new Set();
       candidate=[...fresh,...manual]
-        .filter(l=>!del.has((l.date||'')+(l.text||'').slice(0,20)))
-        .filter(l=>{ const k=(l.date||'')+'|'+(l.text||''); if(seen.has(k))return false; seen.add(k); return true; });
+        .filter(l=>{ if(del.has((l.date||'')+(l.text||'').slice(0,20))) return false; if(l.nd && delTexts.has((l.text||'').slice(0,20))) return false; return true; })
+        .filter(l=>{ const k=l.nd?('ND|'+(l.text||'')):((l.date||'')+'|'+(l.text||'')); if(seen.has(k))return false; seen.add(k); return true; })
+        .map(l=>{ if(!l.nd) return l; const o=Object.assign({},l); delete o.nd; return o; });
     } else {
       candidate=(c.logs||[]).filter(l=>!isJunkLog(l.text));
     }
@@ -6665,7 +6922,7 @@ function applyNewRulesToExisting(dryRun){
     }
     if(!dryRun && changed.has(c.id)) c.updatedAt=TODAY;
   });
-  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nClients:changed.size,details};
+  return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nLoanDate,nDebtPhone,nEvalDup,nClients:changed.size,details};
 }
 function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
@@ -6675,10 +6932,10 @@ function runApplyNewRules(){
   if(r.details && r.details.length){
     changeList='\n\n【會改動的內容（其餘都只補空白）】\n'+r.details.slice(0,25).map(d=>'　'+d).join('\n')+(r.details.length>25?`\n　…等共 ${r.details.length} 項`:'');
   }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
+  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n• 清理重複的房價評估內容 ${r.nEvalDup} 位（第2筆以後跟第1筆一模一樣＝舊版共用造成，清掉重填）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
-  showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位`);
+  showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位、設定日期+${r.nLoanDate}位、債電去重${r.nDebtPhone}位、評估清理${r.nEvalDup}位`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 
@@ -6964,7 +7221,7 @@ function renderBatchTagList(){
       <input type="checkbox" ${_batchTagChecked.has(c.id)?'checked':''} onchange="toggleBatchTagPick(${c.id},this.checked)" style="margin-top:2px">
       <span style="flex:1;min-width:0">
         <span style="font-weight:600;color:var(--text)">${calEsc(dispName(c))}</span>
-        ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'#969CA6'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
+        ${c.heat?`<span style="font-size:10px;color:#fff;background:${CAL_HEAT_COLOR[c.heat]||'var(--t3)'};border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.heat)}</span>`:''}
         ${c.batch?`<span style="font-size:11px;color:var(--accent);background:var(--abg);border-radius:8px;padding:1px 7px;margin-left:6px">${calEsc(c.batch)}</span>`:''}
         ${c.createdAt===TODAY?`<span style="font-size:10px;color:var(--green);margin-left:6px">今日新增</span>`:''}
         <div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc([c.phone,c.addr].filter(Boolean).join(' · '))}</div>
