@@ -1610,7 +1610,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t109 (修重複匯入會弄丟估價資料:同一位客戶再匯入一次時,各筆不動產自己的社區/屋齡/樓層/單價會被整個丟掉(車位社區變空白就是這樣來的),土增稅的一般/自用旗標也沒帶;現在都會補進空的欄位) 2026.08.14';
+const APP_VERSION = '🧪測試版 t110 (總檔同步三處修正:①公司戶(統編＋公司名)以前整列被跳過,現在用公司全名建檔;②他項寫「新台幣…元正」的整理表以前解析不出債權人和設定日期,現在都抓得到;③同一人多間房、門牌一個是另一個開頭(如18之1號/18之1號地下室)以前被併成同一間,現在以建號為準分開;另修債電00開頭多一個0、分機#被丟掉) 2026.09.14';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
@@ -2644,7 +2644,7 @@ function cleanCreditorName(name){
   s = s.replace(/^\s*\d+[).、]\s*/, '');       // 開頭序號「1)」「1.」「1、」
   s = s.replace(/【[銀私法]】/g, '');            // 標籤
   s = s.replace(/民國\s*\d+\s*年\s*\d+\s*月\s*\d+\s*日/g, ''); // 民國日期
-  s = s.replace(/新臺幣[\s\S]*$/, '');           // 「新臺幣」起整段尾巴(金額+元正最高限額抵押權設定)
+  s = s.replace(/新[臺台]幣[\s\S]*$/, '');       // 「新臺幣/新台幣」起整段尾巴(金額+元正最高限額抵押權設定)
   s = s.replace(/(?:最高限額)?抵押權設定[\s\S]*$/, ''); // 保險:殘留尾巴
   s = s.replace(/[A-Z][\d*＊]{8,10}/g, '');       // 個人身分證(含遮罩,如 Q120*****3)
   s = s.replace(/(\d{8})(?!\d)/g, '');            // 公司統編8碼(如 04231910)
@@ -2673,11 +2673,11 @@ function parseRightsLoans(text){
     const dashSeqM = line.match(/(\d{4}-\d{3})/);
     const inlineSeqM = dashSeqM ? null : line.match(/(?:^|[^\d])(\d{7})(?!\d)/);
     const seq = dashSeqM ? dashSeqM[1] : (inlineSeqM ? inlineSeqM[1] : (seqByLineIdx[idx] || ''));
-    const amtMatch = line.match(/新臺幣\s*([\d,]+)\s*元|（新臺幣([\d,]+)元）|（([\d,]+)）|\(([\d,]+)\)/);
+    const amtMatch = line.match(/新[臺台]幣\s*([\d,]+)\s*元|（新[臺台]幣([\d,]+)元）|（([\d,]+)）|\(([\d,]+)\)/);   // 臺/台 都認(有的整理表寫「新台幣 …元正」)
     const amt = amtMatch ? Math.round(parseInt((amtMatch[1]||amtMatch[2]||amtMatch[3]||amtMatch[4]||'0').replace(/,/g,''))/10000) : 0;
     if(!amt) return;
     const creditorMatch = line.match(/最高\s+(.+?)\s+[\dA-Z]{8,}/) ||
-                          line.match(/[\dA-Z]{8,}\s+([一-鿿（）\s]{2,20})\s+新臺幣/);
+                          line.match(/[\dA-Z]{8,}\s+([一-鿿（）\s]{2,20})\s+新[臺台]幣/);
     const creditorName = cleanCreditorName(creditorMatch ? creditorMatch[1] : line);
     let type;
     if(line.includes('【銀】')) {
@@ -2805,6 +2805,53 @@ function ensurePropLoans(c, p){
 }
 
 // ── 公司總檔匯入 ───────────────────────────────────────────
+// 這一列跟既有房產卡是不是「同一間」：兩邊都有建號就以建號為準——不同建號＝不同間，不再用門牌前綴猜
+// （以前「18之1號」和「18之1號地下室」會被猜成同一間，第二間的資料就被併掉）；同號但不同段也算不同間。
+// 只有一邊沒建號時才退用門牌核心比對（startsWith 是給「同門牌少寫樓層」的舊資料用的）。
+// 從標示部抓「這一列自己的建號」(含段名)：例「台北市中山區中山段一小段03913-000建號」→ "中山段一小段|3913"。
+// 這才是「同一間」的唯一識別；「共同擔保建號」清單是整棟/整批共用的，拿它判斷同一間會把不同戶併掉。
+function ownBuildKeyFromBuildInfo(text){
+  const line=(String(text||'').split('\n').find(l=>/建號/.test(l))||'').replace(/\s+/g,'');
+  // 先吃掉「縣市」「區鄉鎮」前綴，段名才不會把「台北市中山區」一起抓進去
+  const m=line.match(/(?:[一-鿿]{2,3}[市縣])?(?:[一-鿿]{1,4}?[區鄉鎮市])?([一-鿿]+段(?:[一-鿿]+小段)?)(\d{3,6}-\d{3})建號/);
+  return m ? m[1]+'|'+normBuildNo(m[2]) : '';
+}
+function samePropertyCard(p, incBuild, incSection, incAddrCore){
+  const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
+  if(incBuild && pBuild){
+    if(incBuild!==pBuild) return false;
+    const ps=String(p.purpose||'').replace(/\s/g,''), is=String(incSection||'').replace(/\s/g,'');
+    return !(ps && is && ps!==is);
+  }
+  return !!(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore));
+}
+// 公司戶所有權人：所有權部一行「8碼統編 公司名」(例:80661538 捷迪實業有限公司)。回傳 {taxId,name},抓不到回 null。
+// 只在「沒有任何個人身分證格式」時才用(個人＋公司共有時仍以個人為客戶,維持原行為)。
+function companyOwnerFromRaw(ownerRaw){
+  const m = String(ownerRaw||'').match(/(?:^|\n)\s*(\d{8})\s+([^\n]{2,60}?)\s*(?:\n|$)/);
+  if(!m) return null;
+  const name = m[2].replace(/\s+/g,'').replace(/[（(].*$/,'').trim();   // 去掉尾端括號備註
+  return name.length>=2 ? { taxId:m[1], name } : null;
+}
+// 債電抽取：一格多支(換行/逗號/斜線分隔);去掉「T:／F:」前綴、身分證;分機另存成 #123;
+// 「00」開頭多打的 0 修掉;沒區碼的市話(7-8碼)照原樣保留讓人看得到——不猜區碼、也不丟掉。
+function extractDebtPhones(raw){
+  const out=[], seen=new Set();
+  String(raw||'').replace(/_x000D_/g,'\n').split(/[\s,，、\/;；]+/).forEach(tok=>{   // 空白也當分隔(同一行「T:27398282 F:2738000」是兩支)
+    let t=tok.trim(); if(!t) return;
+    if(/^[A-Z]\d{9}$/i.test(t)) return;                          // 身分證,不是電話
+    t=t.replace(/^[A-Za-z\u4e00-\u9fff]{1,4}\s*[:：]\s*/,'');   // 「T:」「F:」「公司:」前綴
+    let ext=''; const em=t.match(/[#＃]\s*(\d{1,5})?\s*$/);
+    if(em){ if(em[1]) ext='#'+em[1]; t=t.slice(0,em.index); }
+    let d=t.replace(/\D/g,''); if(!d) return;
+    d=d.replace(/^00+/,'0');                                      // 00223059393 → 0223059393
+    if(d.length<7) return;                                        // 太短不是電話
+    if(seen.has(d)) return; seen.add(d);
+    out.push(d+ext);
+  });
+  return out;
+}
+
 function processCompanyData(raw) {
   if(!raw||raw.length<3){showToast('⚠️ 總檔沒有資料');return;}
 
@@ -2958,9 +3005,7 @@ function processCompanyData(raw) {
 
     // Extract debt phones from col 12 (債電), deduplicate against confirmed phones
     const debtRaw = String(row[12]||'').trim();
-    const debtMatches = debtRaw.match(/0\d[\d-]{7,}/g) || [];
-    const debtLandlines = debtRaw.match(/0[2-9]\d-?\d{4}-?\d{4}/g) || [];
-    const allDebtPhones = [...new Set([...debtMatches, ...debtLandlines])].filter(p =>
+    const allDebtPhones = extractDebtPhones(debtRaw).filter(p =>
       !allPhones.some(op => op.replace(/[-\s]/g,'') === p.replace(/[-\s]/g,''))
     );
 
@@ -2968,7 +3013,9 @@ function processCompanyData(raw) {
     const ownerRaw = String(row[6]||'');
     // Match full ID: A123456789 姓名, or masked ID: A221*****8 江＊＊ or A221*****8 江某某
     const ownerNameMatch = ownerRaw.match(/[A-Z]\d[\d*]{7,9}[\d*]\s+([\u4e00-\u9fff＊*]{2,8})/);
-    const ownerNameRaw = ownerNameMatch ? ownerNameMatch[1] : '';   // 含遮罩,如「馬＊＊」
+    // 公司戶：所有權人是「8碼統編 公司全名」(沒有個人身分證那種格式)→ 用公司名建檔,不再被跳過;公司名不受 8 字上限
+    const companyOwner = ownerNameMatch ? null : companyOwnerFromRaw(ownerRaw);
+    const ownerNameRaw = ownerNameMatch ? ownerNameMatch[1] : (companyOwner ? companyOwner.name : '');   // 含遮罩,如「馬＊＊」
     let ownerName = ownerNameRaw.replace(/[＊*]/g,'');               // 去遮罩後可能只剩單姓「馬」
     // Remove if only asterisks remain
     if(ownerName.length < 1) ownerName = '';
@@ -3010,7 +3057,7 @@ function processCompanyData(raw) {
     // 信託中：所有權部是受託人,身分證不帶(避免帶到受託人/銀行的統編)
     const idnoFull   = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d{9})/)||[])[1] || '');
     const idnoMasked = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1] || '');
-    const idno = idnoFull || idnoMasked.replace(/＊/g,'*');
+    const idno = idnoFull || idnoMasked.replace(/＊/g,'*') || (companyOwner ? companyOwner.taxId : '');   // 公司戶放統編(isFullId 只認 A+9碼,不會被拿去自動合併)
 
     // 姓名完全無法辨識的列跳過（不產生「未知」案件）
     if(!name) { skipped++; return; }
@@ -3064,7 +3111,8 @@ function processCompanyData(raw) {
 
     // 從 col 4（建物標示）直接抓建號，專用於比對身份，不影響不動產頁籤的 buildNo
     const col4BuildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
-    const col4BuildNo = col4BuildNoMatch ? col4BuildNoMatch[1] : '';
+    let col4BuildNo = col4BuildNoMatch ? col4BuildNoMatch[1] : '';
+    if(!col4BuildNo) col4BuildNo = ownBuildKeyFromBuildInfo(row[3]);   // 新式整理表沒有 A_xxx 編碼 → 用「段名|建號」當這一列的識別
 
     // 從共同擔保建號（col 11）解析建號，去重複只留編號
     const guaranteeRaw = String(row[11]||'');
@@ -3127,9 +3175,11 @@ function processCompanyData(raw) {
     if(isTrust && trustNote) noteText = [trustNote, noteText].filter(Boolean).join('｜'); // 信託案件：備註標註受託人/委託人
 
     // 如果電話欄空白且有建號，嘗試合併到上一筆相同建號的客戶
-    if(!rawCell && buildNo && clients.length > 0) {
+    // 電話欄空白＋「同一間」已建檔 → 當成同一戶的共有人併入。同一間要用這一列自己的建號比；
+    // 以前用「共同擔保建號清單」比，整棟共用同一份清單，不同戶會被併掉、第二間直接消失(t110 修)
+    if(!rawCell && col4BuildNo && clients.length > 0) {
       const prevSameBuilding = clients.find(c =>
-        c.buildNo && c.buildNo === buildNo
+        c.col4BuildNo && c.col4BuildNo === col4BuildNo
       );
       if(prevSameBuilding) {
         // 合併所有權人姓名
@@ -3195,6 +3245,8 @@ function processCompanyData(raw) {
       }
       // 2. 身分證字號比對（須完整身分證才算，遮罩版不唯一，避免把不同人誤判同一人）
       if(isFullId(idno) && idno === c.idno) return true;
+      // 2b. 公司戶用統編(8碼)比對：同一家公司的多間房要併成同一位客戶、各自一張不動產卡
+      if(/^\d{8}$/.test(idno) && idno === String(c.idno||'')) return true;
       // 3. 地址比對（持分物件跳過，因多人共有相同地址）
       if(addr && !incomingIsFen && !hasFen(c.companyRaw?.owner)) {
         const addrA = normalizeAddr(c.addr || '');
@@ -3220,13 +3272,8 @@ function processCompanyData(raw) {
         if(!existing.properties || !existing.properties.length){
           existing.properties = migrateProperties(existing);
         }
-        // 找同建號或同地址核心的既有房產
-        const dup = existing.properties.find(p=>{
-          const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
-          if(incBuild && pBuild && incBuild===pBuild) return true;
-          if(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore)) return true;
-          return false;
-        });
+        // 找既有房產裡「同一間」的那張卡（規則見 samePropertyCard）
+        const dup = existing.properties.find(p=>samePropertyCard(p, incBuild, sectionName, incAddrCore));
         const np = emptyProperty(existing.properties.length);
         np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||'';
         np.area=area||0; np.mainArea=mainArea||0; np.subArea=subArea||0; np.commonArea=commonArea||0;
