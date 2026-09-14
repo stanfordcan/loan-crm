@@ -10,13 +10,22 @@
 
 ## 改版鐵則
 1. 只改 `index-test.html`，改完 bump `APP_VERSION`（`🧪測試版 tNN (白話說明) YYYY.MM.DD`，tNN 遞增）。
-2. 驗證必跑：`node dev/check-syntax.js index-test.html`＋`node dev/test.js`（18項）。大改動用 `node dev/backup-audit.js <備份.json>` 壓測。
+2. 驗證必跑：`node dev/check-syntax.js index-test.html`＋`node dev/test.js`（21項）。大改動用 `node dev/backup-audit.js <備份.json>` 壓測。
+   **改了行為就把守它的測試加進 `dev/test.js`**（抽真函式跑，不要另寫一份邏輯）；純畫面行為用瀏覽器實跑驗證，別只看程式碼。
 3. commit 結尾：`Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`。push 後提醒業主 Ctrl+Shift+R（iPhone 用 Safari 無痕）。
 4. 業主說「上正式」才搬：整份 test 複製成 index.html，**只改版本行**成 `YYYY.MM.DD #N`（同日遞增、跨日回 #1）；版本行取代用貪婪 `/const APP_VERSION = '.*';/`（字串內有分號，非貪婪會弄壞檔案）；搬完 `diff` 確認只差那一行。
 5. 中文 regex 的行 Edit 工具常比對不到 → 改用 Python（UTF-8）替換。
 6. 匯入邏輯原則「只補空白」：電話/備註/分類(heatManual)/手改姓名永不覆蓋。serial 流水編號只補不改。
 
 ## 地雷區（動之前先讀交接報告 §5）
+**多筆不動產是最容易出錯的地方（t105～t109 連修五版）**：每筆不動產的資料一律「只認自己這筆」——
+房價評估用 `evalCtx()` 把客戶層級的不動產欄位剔除再疊，缺的就是缺的，絕不向上借；
+評估內容 `evalData` 存在各筆 property 上（`_evalRenderedIdx` 記面板正在顯示哪一筆，存檔寫回那一筆，不是 curPropIdx）；
+土增稅一般/自用各自有「算過」旗標（只算一般時自用要空白，0 的語意是「算過是零」）。
+**`mergePropInto()` 有順序陷阱**：通用數字複製若含 landtax，會讓後面「土增稅」那段的 `!dst.landtaxNormal` 條件永遠失效。
+**任何「累加進陣列」的地方都要去重**（聯絡記錄、債電都曾無限增生）；業主刪過的要記進 `deletedLogKeys`／`deletedDebtPhones`，永不由總檔帶回。
+**`scrollIntoView({behavior:'smooth'})` 不可靠**（實測有環境完全不捲），要自己算容器位移。
+
 比對順序（完整證→電話→建號→地址）、hasFen（全部1分之1不算持分）、clearlyDifferentPerson、
 信託（塗銷=原屋主；未塗銷=抓委託人、不帶受託人證號）、義務人補本名（regex 容忍空白）、
 buildShare 只乘建物坪（土地填已算持分）、共同持分人 bldKeys（建號要帶段）、金額 銀/法÷1.2 民間原值。
