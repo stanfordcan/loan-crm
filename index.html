@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>借款客戶追蹤系統</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Firebase SDK -->
@@ -41,17 +41,34 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .header h1{font-size:20px;font-weight:700;letter-spacing:1px;text-align:center}
 .hbtns{display:flex;gap:7px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-bottom:10px;padding:0 2px 2px;justify-content:flex-start}
 .hbtns::-webkit-scrollbar{display:none}
-.hbtn{border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
+/* 按鈕放得下就置中；放不下（手機）仍可橫捲，不會像 justify-content:center 那樣把最左邊切掉 */
+.hbtns>:first-child{margin-left:auto}
+.hbtns>:last-child{margin-right:auto}
+.hbtn{border:none;border-radius:9px;padding:9px 13px;min-height:36px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
 .hbtn:active{transform:scale(.95);opacity:.85}
 .hbtn-sync{background:var(--s2);color:var(--t2)}
 .hbtn-company{background:var(--gbg);color:var(--green)}
 .hbtn-xls{background:var(--abg);color:var(--accent)}
+/* 匯入下拉選單的項目 */
+.imenu-item{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap}
+.imenu-item:hover{background:var(--s2)}
+.imenu-item:disabled{opacity:.5;cursor:default}
+/* 熱度快改小選單 */
+.hbadge.hb-click{cursor:pointer}
+.hbadge.hb-click:active{filter:brightness(.92)}
+.hp-title{font-size:11px;color:var(--t3);padding:6px 10px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.hp-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;font-family:inherit;min-height:38px}
+.hp-item:hover{background:var(--s2)}
+.hp-item.cur{background:var(--abg)}
+.hp-cur{font-size:10px;color:var(--accent);font-weight:600}
 .hbtn:active{opacity:.8}
 .hbtn:disabled{opacity:.5}
 .stats-bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:4px 2px 6px;justify-content:center}
 .stats-bar::-webkit-scrollbar{display:none}
-.spill{flex-shrink:0;background:var(--s2);border-radius:12px;padding:8px 16px;text-align:center;min-width:62px;transition:transform .1s}
+.spill{flex-shrink:0;background:var(--s2);border-radius:12px;padding:8px 16px;text-align:center;min-width:62px;transition:transform .1s;cursor:pointer;user-select:none}
+.spill:active{transform:scale(.96)}
+.spill.on{outline:2px solid var(--accent);outline-offset:-2px}   /* 目前選用的時間篩選 */
 .spill b{display:block;font-size:22px;font-weight:700;color:var(--text);line-height:1.15;letter-spacing:-.5px}
 .spill span{display:block;font-size:10px;color:var(--t3);margin-top:2px;font-weight:500;letter-spacing:.3px}
 .spill.alert{background:var(--rbg)}
@@ -64,6 +81,11 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 #hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 @media(min-width:900px){ #hbtnToggle{display:none} }
 @media(max-width:899px){
+  /* 手機首屏瘦身：標題區縮小、帳號信箱收進 ⚙️ 設定 */
+  .header{padding:10px 14px 8px}
+  .header h1{font-size:18px}
+  .header-top{margin-bottom:6px}
+  #loginUserLabel{display:none}
   /* 統計卡縮成一條細的（橫向小字，省高度） */
   .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
   .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
@@ -87,7 +109,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .tab-arrow{background:none;border:none;padding:0 6px;font-size:18px;cursor:pointer;color:var(--t3);flex-shrink:0;line-height:1}
 .tab-arrow:hover{color:var(--accent)}
 .tabs::-webkit-scrollbar{display:none}
-.tbtn{flex-shrink:0;padding:9px 12px;font-size:12px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+/* 分頁鈕：手機點得到（高度≥40px），PC 再用 .pc-container 縮回 */
+.tbtn{flex-shrink:0;padding:11px 13px;min-height:40px;font-size:13px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
 .tbtn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .search-wrap{padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
 .search-input{width:100%;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
@@ -100,6 +123,11 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .ccard.soon{border-left-color:var(--accent)}
 /* Pinned card */
 .ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
+/* 置頂鈕：手機沒有 hover，所以平常就要看得到（半透明），置頂後全亮；PC 滑過才全亮 */
+.pin-btn{background:none;border:none;cursor:pointer;font-size:15px;min-width:32px;min-height:32px;padding:0 5px;line-height:1;opacity:.5;transition:opacity .15s;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-family:inherit}
+.pin-btn.on{opacity:1}
+.pin-btn.act{opacity:.8}   /* 卡片上的 📅 加行事曆、🔕 清除提醒（原本是兩顆全寬按鈕，佔一整行） */
+@media(hover:hover){.pin-btn:hover{opacity:1;background:var(--s2)}}
 /* 右邊正在看的那位 → 左邊清單這張卡「浮起來」(蓋過置頂的樣式,所以放後面) */
 .ccard{transition:box-shadow .18s,transform .18s}
 .ccard.active{box-shadow:var(--shx);outline:1px solid var(--abd);outline-offset:-1px;transform:translateY(-3px);position:relative;z-index:1}
@@ -147,17 +175,23 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .shandle:active{background:var(--t3)}
 .sheader{padding:13px 18px 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
 .stitle{font-size:16px;font-weight:600}
-.xbtn{background:var(--s2);border:none;border-radius:50%;width:28px;height:28px;font-size:15px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
+/* 自動儲存狀態（面板標題旁） */
+.save-status{font-size:11px;color:var(--t3);white-space:nowrap;flex-shrink:0;transition:color .2s}
+.save-status.saving{color:var(--orange)}
+.save-status.saved{color:var(--green)}
+.save-status.dirty{color:var(--t3)}
+.bdel:disabled{opacity:.4;cursor:default}
+.xbtn{background:var(--s2);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
 .stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stabs::-webkit-scrollbar{display:none}
-.stab{flex-shrink:0;padding:9px 14px;font-size:12px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+.stab{flex-shrink:0;padding:11px 14px;min-height:40px;font-size:13px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
 .stab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .sbody{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px}
 /* Form */
 .frow{margin-bottom:12px}
 .frow label{display:block;font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
 .frow input,.frow select,.frow textarea{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none;-webkit-appearance:none}
-.frow input:focus,.frow select:focus,.frow textarea:focus{border-color:var(--accent);background:#fff}
+.frow input:focus,.frow select:focus,.frow textarea:focus{border-color:var(--accent);background:var(--surface)}
 .frow textarea{height:85px;resize:none;line-height:1.5}
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
@@ -188,6 +222,20 @@ input[type=number]{min-width:0}
 /* Form section headers */
 .form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
 .add-log{background:var(--s2);border-radius:var(--rs);padding:13px}
+/* 快速提醒按鈕列（基本頁提醒區、聯絡記錄頁） */
+.qr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.qr-lbl{font-size:11px;font-weight:600;color:var(--t2)}
+.qr-btn{background:var(--surface);border:1px solid var(--abd);color:var(--accent);border-radius:99px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;min-height:30px}
+.qr-btn:active{background:var(--abg)}
+.qr-btn.qr-clear{border-color:var(--border);color:var(--t3)}
+/* 清單分段載入 */
+.load-more{width:100%;background:var(--surface);border:1px dashed var(--border);border-radius:var(--r);padding:12px;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit}
+/* 最近看過 */
+.recent-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 2px 2px;align-items:center}
+.recent-row::-webkit-scrollbar{display:none}
+.recent-lbl{font-size:11px;color:var(--t3);flex-shrink:0}
+.recent-chip{flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 11px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;box-shadow:var(--sh);white-space:nowrap}
+.recent-chip:active{background:var(--abg)}
 .add-log>label{font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:7px}
 .alrow{display:flex;gap:7px;margin-bottom:7px}
 .alrow input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none}
@@ -260,7 +308,12 @@ input[type=number]{min-width:0}
 @media(min-width:900px){.memo-mobile-btn{display:none}}
 
 /* ── Batch select mode ───────────────────────────────────── */
-.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 14px 16px;display:flex;align-items:center;gap:8px;z-index:85;box-shadow:0 -4px 20px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .22s cubic-bezier(.32,1,.46,1);max-width:480px;margin:0 auto}
+.bb-row{display:flex;align-items:center;gap:8px}
+.bb-actions{margin-top:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.bb-actions::-webkit-scrollbar{display:none}
+.bb-btn{flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;min-height:34px}
+.bb-btn:active{filter:brightness(.95)}
+.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 14px 14px;display:flex;flex-direction:column;z-index:85;box-shadow:0 -4px 20px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .22s cubic-bezier(.32,1,.46,1);max-width:480px;margin:0 auto}
 .batch-bar.show{transform:translateY(0)}
 .ccard.selected{background:var(--abg)!important;outline:2px solid var(--accent);outline-offset:-1px}
 .sel-chk{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s;margin-right:8px;background:var(--surface);font-size:11px;font-weight:700;color:transparent}
@@ -270,22 +323,24 @@ input[type=number]{min-width:0}
 }
 
 /* ── Dark Mode ────────────────────────────────────────────── */
-@media(prefers-color-scheme:dark){
-  :root{
-    --bg:#12151B;--surface:#1B1F27;--s2:#242932;--border:#333944;
-    --text:#E9ECF2;--t2:#A2AAB8;--t3:#858E9D;
-    --accent:#7BA5F5;--abg:#1B2740;--abd:#2E4166;
-    --red:#F0736B;--rbg:#3A1F1F;--rbd:#5C2E2E;
-    --green:#4FC08D;--gbg:#16302A;--gbd:#24503C;
-    --orange:#DFA245;--obg:#33281A;--obd:#58452A;
-    --purple:#A98BF0;--pbg:#272040;--pbd:#3A2F5C;--pink:#F0709F;
-    --sh:0 2px 14px rgba(0,0,0,.35);
-    --shx:0 10px 26px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4)
-  }
-  .pw-screen{background:#12151B}
-  .pw-box{background:#1B1F27}
-  .pw-input{background:#242932;color:#E9ECF2;border-color:#333944}
+/* 不再直接跟 prefers-color-scheme 走：由 <head> 的小腳本依「⚙️ 設定 → 外觀」(淺色/深色/跟隨系統)
+   決定 html[data-theme]，CSS 只認這個屬性。color-scheme 讓日期選擇器、下拉選單等原生元件一起變色。 */
+:root{color-scheme:light}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12151B;--surface:#1B1F27;--s2:#242932;--border:#333944;
+  --text:#E9ECF2;--t2:#A2AAB8;--t3:#858E9D;
+  --accent:#7BA5F5;--abg:#1B2740;--abd:#2E4166;
+  --red:#F0736B;--rbg:#3A1F1F;--rbd:#5C2E2E;
+  --green:#4FC08D;--gbg:#16302A;--gbd:#24503C;
+  --orange:#DFA245;--obg:#33281A;--obd:#58452A;
+  --purple:#A98BF0;--pbg:#272040;--pbd:#3A2F5C;--pink:#F0709F;
+  --sh:0 2px 14px rgba(0,0,0,.35);
+  --shx:0 10px 26px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4)
 }
+:root[data-theme="dark"] .pw-screen{background:#12151B}
+:root[data-theme="dark"] .pw-box{background:#1B1F27}
+:root[data-theme="dark"] .pw-input{background:#242932;color:#E9ECF2;border-color:#333944}
 /* ── PC Layout (≥900px) ───────────────────────────────── */
 @media(min-width:900px){
   html,body{height:100%;overflow:hidden}
@@ -307,10 +362,18 @@ input[type=number]{min-width:0}
   .pc-container .stats-bar{flex-wrap:wrap;gap:5px;padding:4px 0}
   .pc-container .spill{font-size:12px;padding:5px 12px}
 
-  /* 卡片間距與內距加大 */
-  .pc-container .list-wrap{padding:14px 18px 30px;gap:10px}
-  .pc-container .ccard{padding:16px 18px;border-radius:12px}
-  .pc-container .cname{font-size:16px}
+  /* PC 整體縮一級：字級以手機為主設計，筆電 125~150% 縮放下會顯得過大 */
+  .pc-container .header{padding:12px 16px 8px}
+  .pc-container .header h1{font-size:18px}
+  .pc-container .header-top{margin-bottom:6px}
+  .pc-container .spill b{font-size:18px}
+  .pc-container .spill span{font-size:10px}
+  .pc-container .tbtn,.pc-container .stab{padding:9px 12px;min-height:34px;font-size:12px}
+  .pc-container .hbtn{min-height:32px}
+  .pc-container .search-input,.pc-container #sortSelect,.pc-container #cityFilterBtn{font-size:13px}
+  .pc-container .list-wrap{padding:12px 16px 30px;gap:9px}
+  .pc-container .ccard{padding:13px 15px;border-radius:12px}
+  .pc-container .cname{font-size:15px}
 
   /* 右側面板：編輯表單 */
   .pc-container .sbg{
@@ -361,6 +424,25 @@ input[type=number]{min-width:0}
   .pc-container .ccard .mi-amt{font-size:13.5px}
 }
 </style>
+<script>
+// ── 外觀主題：'light' | 'dark' | 'auto'（跟隨系統）。存在本機，各裝置各自設定 ──
+// 放在 <head> 內、CSS 之後立刻執行，避免先畫淺色再閃成深色。
+const THEME_KEY='crm_theme';
+function getThemeSetting(){ try{ return localStorage.getItem(THEME_KEY)||'auto'; }catch(e){ return 'auto'; } }
+function applyTheme(){
+  const s=getThemeSetting();
+  const sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const dark = s==='dark' || (s==='auto' && sysDark);
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+}
+function setTheme(s){
+  try{ localStorage.setItem(THEME_KEY,s); }catch(e){}
+  applyTheme();
+  if(typeof renderThemePicker==='function') renderThemePicker();
+}
+applyTheme();
+try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(getThemeSetting()==='auto') applyTheme(); }); }catch(e){}
+</script>
 </head>
 <body>
 <!-- Login Screen -->
@@ -417,7 +499,7 @@ async function claimSession(uid) {
           // 已有其他裝置在線 → 詢問使用者
           // 例外：網址帶 ?claim=1（自動化用，如 Cowork 匯入資料）→ 直接接管不彈窗；一般網址行為不變
           const autoClaim = new URLSearchParams(location.search).get('claim') === '1';
-          const proceed = autoClaim || confirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
+          const proceed = autoClaim || await uiConfirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
           if (!proceed) {
             // 使用者取消 → 清掉剛產生的 token 並登出
             sessionStorage.removeItem('crm_session_token');
@@ -569,8 +651,8 @@ async function doLogin() {
 })();
 
 // 登出
-function doLogout() {
-  if (!confirm('確定要登出嗎？')) return;
+async function doLogout() {
+  if(!(await uiConfirm('確定要登出嗎？'))) return;
   auth.signOut();
 }
 
@@ -656,7 +738,7 @@ async function restoreBackup() {
     const backupAt = raw.backupAt
       ? new Date(raw.backupAt).toLocaleString('zh-TW')
       : '未知時間';
-    if (!confirm(`還原備份？\n\n備份時間：${backupAt}\n共 ${d.clients.length} 筆資料\n\n目前資料將被覆蓋，確定還原？`)) return;
+    if(!(await uiConfirm(`還原備份？\n\n備份時間：${backupAt}\n共 ${d.clients.length} 筆資料\n\n目前資料將被覆蓋，確定還原？`, {danger:true}))) return;
     clients = (d.clients || []).filter(c => c.name && c.name !== '（未知）');
     nextId  = d.nextId || 1;
     saveLocal();
@@ -697,14 +779,14 @@ function restoreFromFile(input) {
   input.value = '';
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function() {
+  reader.onload = async function() {
     let d;
     try { d = JSON.parse(reader.result); }
     catch(e) { showToast('⚠️ 檔案格式錯誤，不是有效的備份檔'); return; }
     const arr = Array.isArray(d.clients) ? d.clients : (Array.isArray(d) ? d : null);
     if (!arr) { showToast('⚠️ 這個檔案裡找不到客戶資料'); return; }
     const when = d.exportedAt ? new Date(d.exportedAt).toLocaleString('zh-TW') : '未知時間';
-    if (!confirm(`從備份檔還原？\n\n備份時間：${when}\n共 ${arr.length} 筆客戶\n\n目前資料將被覆蓋，確定還原？`)) return;
+    if(!(await uiConfirm(`從備份檔還原？\n\n備份時間：${when}\n共 ${arr.length} 筆客戶\n\n目前資料將被覆蓋，確定還原？`, {danger:true}))) return;
     clients = arr.filter(c => c && c.name && c.name !== '（未知）');
     nextId  = d.nextId || (clients.length ? Math.max(...clients.map(c => c.id || 0)) + 1 : 1);
     if (Array.isArray(d.memos) && typeof memos !== 'undefined') {
@@ -818,7 +900,23 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
+  renderThemePicker();
+  // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
+  const info=document.getElementById('settingsAccountInfo');
+  if(info){
+    const email=(currentUser&&currentUser.email)||'';
+    const ver=(typeof APP_VERSION!=='undefined')?APP_VERSION:'';
+    info.innerHTML=(email?`<div>已登入：<b style="color:var(--text);font-weight:600">${email}</div>`:'')+`<div style="margin-top:4px;line-height:1.5">版本：${ver}</div>`;
+  }
   document.getElementById('urlSettingsBg').style.display = 'flex';
+}
+// 外觀三選一（淺色／深色／跟隨系統）
+function renderThemePicker(){
+  const el=document.getElementById('themePicker'); if(!el) return;
+  const cur=getThemeSetting();
+  el.innerHTML=[['light','☀️ 淺色'],['dark','🌙 深色'],['auto','🔄 跟隨系統']].map(([k,l])=>
+    `<button onclick="setTheme('${k}')" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===k?'var(--accent)':'var(--border)'};background:${cur===k?'var(--abg)':'var(--s2)'};color:${cur===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
 }
 function closeUrlSettings() {
   document.getElementById('urlSettingsBg').style.display = 'none';
@@ -834,10 +932,10 @@ async function applyUrlSettings() {
 </script>
 <div class="pc-container">
 <!-- 載入鎖：取得雲端最新資料時蓋住畫面，避免在舊資料上操作 -->
-<div id="cloudLock" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(245,244,240,.97);flex-direction:column;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif">
+<div id="cloudLock" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;font-family:'Noto Sans TC',sans-serif">
   <div style="font-size:42px;margin-bottom:16px;animation:cloudPulse 1.1s ease-in-out infinite">☁️</div>
   <div style="font-size:15px;font-weight:700;color:var(--text)">正在從雲端取得最新資料…</div>
-  <div style="font-size:12px;color:#8A8780;margin-top:7px">取得後就能使用，避免改到舊資料</div>
+  <div style="font-size:12px;color:var(--t3);margin-top:7px">取得後就能使用，避免改到舊資料</div>
 </div>
 <style>@keyframes cloudPulse{0%,100%{opacity:.45;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}</style>
 
@@ -859,19 +957,22 @@ async function applyUrlSettings() {
     <div class="hbtnsBar" id="hbtnsBar">
     <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
     <div class="hbtns" id="hbtnsRow" style="flex:1">
-      <button class="hbtn hbtn-company" id="companyBtn" onclick="syncFromCompany()">🏢 從總檔更新</button>
-      <button class="hbtn hbtn-xls" id="xlsBtn" onclick="openImport()">📥 XLS 匯入</button>
-      <button class="hbtn" id="tenBtn" style="background:var(--pbg);color:var(--purple)" onclick="openTenModal()">📄 謄本匯入</button>
-      <button class="hbtn" id="aiBtn" style="background:var(--abg);color:var(--accent)" onclick="openAiImport()">🤖 AI 匯入</button>
-      <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📥 待審<span id="inboxCount"></span></button>
+      <button class="hbtn hbtn-company" id="importMenuBtn" onclick="toggleImportMenu(event)" title="總檔更新／XLS／謄本／AI 匯入">📥 匯入 ▾</button>
+      <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📨 待審<span id="inboxCount"></span></button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
-      <button class="hbtn" id="selectModeBtn" onclick="toggleSelectMode()" style="background:var(--s2);color:var(--t2)">☑ 選取</button>
-      <button class="hbtn" id="clearBtn" style="background:var(--rbg);color:var(--red)" onclick="clearAllData()">🗑️ 清除</button>
-      <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="試算表設定">⚙️ 設定</button>
-      <button class="hbtn hbtn-sync" id="logoutBtn" onclick="doLogout()" title="登出">🚪 登出</button>
-      <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">⚙️</button>
+      <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="設定／備份／登出">⚙️ 設定</button>
+      <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列顯示設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">👁</button>
     </div>
     <button class="tab-arrow" onclick="scrollHbtns(150)">&#8250;</button>
+    </div>
+    <!-- 卡片熱度快改小選單 -->
+    <div id="heatPick" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:180px;flex-direction:column;gap:2px"></div>
+    <!-- 匯入下拉選單（四種匯入收在一起，工具列才不會一排十幾顆） -->
+    <div id="importMenu" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:176px;flex-direction:column;gap:2px">
+      <button class="imenu-item" id="companyBtn" onclick="closeImportMenu();syncFromCompany()">🏢 從總檔更新</button>
+      <button class="imenu-item" id="xlsBtn" onclick="closeImportMenu();openImport()">📥 XLS 匯入</button>
+      <button class="imenu-item" id="tenBtn" onclick="closeImportMenu();openTenModal()">📄 謄本匯入</button>
+      <button class="imenu-item" id="aiBtn" onclick="closeImportMenu();openAiImport()">🤖 AI 匯入</button>
     </div>
     <!-- 工具列顯示設定面板 -->
     <div id="hbtnSettingsPanel" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:190px">
@@ -886,15 +987,18 @@ async function applyUrlSettings() {
     <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
   </div>
   <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
-    <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="render()" style="flex:1;min-width:120px"/>
-    <select id="sortSelect" onchange="render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
+    <div style="position:relative;flex:1;min-width:120px;display:flex">
+      <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){this.blur();}else if(event.key==='Escape'){clearSearch();}" style="flex:1;min-width:0;padding-right:34px"/>
+      <button id="searchClear" type="button" onclick="clearSearch()" title="清空搜尋" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;border-radius:50%;background:var(--border);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;line-height:1">✕</button>
+    </div>
+    <select id="sortSelect" onchange="saveViewState();render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
       <option value="remind">📅 提醒日期</option>
       <option value="deadline">⏰ 到期最近</option>
       <option value="heat">🔥 熱度</option>
       <option value="created">🕐 新增時間</option>
-      <option value="addr">📍 地址縣市</option>
-      <option value="phone">📞 有電話優先（本人→債電→無）</option>
-      <option value="lastlog">💬 最後聯絡紀錄</option>
+      <option value="addr">📍 縣市</option>
+      <option value="phone" title="本人電話→只有債電→完全沒電話">📞 有電話優先</option>
+      <option value="lastlog">💬 最後聯絡</option>
     </select>
     <div style="position:relative;flex-shrink:0">
       <button id="cityFilterBtn" onclick="toggleCityFilter()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap">🗺️ 篩選 <span id="cityFilterCount"></span></button>
@@ -912,10 +1016,11 @@ async function applyUrlSettings() {
           <button onclick="clearBatchFilter()" style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit">清除</button>
         </div>
         <div id="batchCheckboxes" style="display:flex;flex-direction:column;gap:4px"></div>
-        <div style="margin-top:10px;font-size:11px;color:var(--t3)">標記批次請用工具列「📋 名單」</div>
+        <div style="margin-top:10px;font-size:11px;color:var(--t3)">要標記批次：按「☑ 選取」勾人，底部列點「🏷️ 標批次」</div>
       </div>
     </div>
-    <button onclick="openListTool()" title="勾選客戶→標批次/地圖名單/匯出公司格式" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 <span class="listtool-txt">名單</span></button>
+    <!-- 選取模式入口（原本「📋 名單」另一套勾選已併進來：勾人後底部列有改分類／標批次／匯出／通知單／地圖） -->
+    <button id="selectModeBtn" onclick="toggleSelectMode()" title="勾選客戶→改分類／標批次／匯出公司格式／通知單／地圖名單" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">☑ <span class="listtool-txt">選取</span></button>
   </div>
   </div><!-- /sticky-top -->
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
@@ -924,20 +1029,30 @@ async function applyUrlSettings() {
 <div class="toast" id="toast"></div>
 
 <!-- Batch action bar -->
+<!-- 選取模式底部列：勾人之後所有批次動作都在這裡（改分類／標批次／匯出／通知單），取代原本另一套「📋 名單」勾選 -->
 <div class="batch-bar" id="batchBar">
-  <button id="batchSelAllBtn" onclick="batchSelectAll()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--t2);white-space:nowrap;flex-shrink:0">全選</button>
-  <span id="batchCount" style="flex:1;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">已選 0 筆</span>
-  <select id="batchHeat" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;flex-shrink:0;-webkit-appearance:none">
-    <option value="">移動到…</option>
-    <option value="覆訪">🟡 覆訪</option>
-    <option value="追很緊">🔵 追很緊</option>
-    <option value="新鑫">🟣 新鑫</option>
-    <option value="待分類">🟤 待分類</option>
-    <option value="已簽約">🟢 已簽約</option>
-    <option value="無效案件">⚫ 無效案件</option>
-  </select>
-  <button onclick="applyBatchCategory()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">套用</button>
-  <button onclick="exitSelectMode()" style="background:var(--s2);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button>
+  <div class="bb-row">
+    <button id="batchSelAllBtn" onclick="batchSelectAll()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:8px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--t2);white-space:nowrap;flex-shrink:0">全選</button>
+    <span id="batchCount" style="flex:1;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">已選 0 筆</span>
+    <select id="batchHeat" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;flex-shrink:0;-webkit-appearance:none;max-width:120px">
+      <option value="">改分類…</option>
+      <option value="覆訪">🟡 覆訪</option>
+      <option value="追很緊">🔵 追很緊</option>
+      <option value="新鑫">🟣 新鑫</option>
+      <option value="待分類">🟤 待分類</option>
+      <option value="已簽約">🟢 已簽約</option>
+      <option value="無效案件">⚫ 無效案件</option>
+    </select>
+    <button onclick="applyBatchCategory()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">套用</button>
+    <button onclick="exitSelectMode()" title="離開選取" style="background:var(--s2);border:none;border-radius:50%;width:32px;height:32px;font-size:14px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button>
+  </div>
+  <div class="bb-row bb-actions">
+    <button class="bb-btn" onclick="withSel(ltTagBatch)" title="為勾選的客戶設定來源批次">🏷️ 標批次</button>
+    <button class="bb-btn" onclick="withSel(ltExportCompany)" title="匯出公司格式（25欄）CSV">📤 公司格式</button>
+    <button class="bb-btn" onclick="withSel(ltExportNoticeData)" title="匯出通知單資料">📬 通知單</button>
+    <button class="bb-btn" onclick="withSel(ltPrintNotice)" title="列印投遞通知單">🖨️ 列印</button>
+    <button class="bb-btn" onclick="withSel(mapFromSelection)" title="地圖名單 CSV（給 Google 我的地圖），只預勾目前選取的人">🗺️ 地圖</button>
+  </div>
 </div>
 
 <!-- Client Sheet -->
@@ -1004,7 +1119,10 @@ async function applyUrlSettings() {
   <div class="sheet">
     <div class="shandle"></div>
     <div class="sheader">
-      <span class="stitle" id="sheetTitle">新增客戶</span>
+      <div style="display:flex;align-items:baseline;gap:10px;min-width:0;flex:1">
+        <span class="stitle" id="sheetTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">新增客戶</span>
+        <span id="saveStatus" class="save-status"></span>
+      </div>
       <button class="xbtn" onclick="closeSheet()">✕</button>
     </div>
     <div class="stabs">
@@ -1040,8 +1158,8 @@ async function applyUrlSettings() {
           </div>
         </div>
         <div class="fg2">
-          <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678"/></div>
-          <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789"/></div>
+          <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678" oninput="liveDupCheck()"/></div>
+          <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789" oninput="liveDupCheck()"/></div>
         </div>
         <div class="frow"><label>🔗 關聯（親友／共同借款人）</label>
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
@@ -1086,6 +1204,16 @@ async function applyUrlSettings() {
               </div>
             </div>
             <div class="frow" style="margin:0"><label>說明</label><input id="fRemindNote" placeholder="再追一次"/></div>
+          </div>
+          <!-- 快速提醒：不用翻日曆 -->
+          <div class="qr-row" style="margin-top:9px">
+            <span class="qr-lbl">快速：</span>
+            <button type="button" class="qr-btn" onclick="quickRemind(1)">明天</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(3)">3天後</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(7)">1週後</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(14)">2週後</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(30)">1個月</button>
+            <button type="button" class="qr-btn qr-clear" onclick="quickRemind(0)">清除</button>
           </div>
         </div>
         <div class="note-debt-row">
@@ -1206,9 +1334,19 @@ async function applyUrlSettings() {
             <label>➕ 新增通話記錄</label>
             <div class="alrow">
               <input type="date" id="fLogDate"/>
-              <input id="fLogText" placeholder="通話內容摘要…"/>
+              <input id="fLogText" placeholder="通話內容摘要…（Enter 直接加入）" onkeydown="if(event.key==='Enter'){event.preventDefault();addLog();}"/>
             </div>
             <button class="albtn" onclick="addLog()">加入記錄</button>
+            <!-- 記完這通，順手設下次提醒，不用切回「基本」翻日曆 -->
+            <div class="qr-row" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--border)">
+              <span class="qr-lbl">下次提醒：</span>
+              <button type="button" class="qr-btn" onclick="quickRemind(1)">明天</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(3)">3天後</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(7)">1週後</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(14)">2週後</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(30)">1個月</button>
+              <span id="qrStatus" style="font-size:11px;color:var(--accent);font-weight:600;margin-left:4px"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -1236,13 +1374,26 @@ async function applyUrlSettings() {
     </div>
     <div class="sfooter">
       <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()">刪除</button>
-      <button class="bdel" id="btnBlack" style="display:none;background:#1F2937;color:#fff" onclick="blacklistClient()">🚫 加黑名單</button>
+      <button class="bdel" id="btnRevert" style="display:none;background:var(--obg);color:var(--orange)" onclick="revertClient()" title="整筆退回到剛開啟時的狀態（含已自動儲存的部分）">↩ 還原</button>
+      <button class="bdel" id="btnBlack" style="display:none;background:var(--text);color:var(--surface)" onclick="blacklistClient()">🚫 加黑名單</button>
       <button class="bdel" id="btnShare" style="display:none;background:var(--abg);color:var(--accent)" onclick="shareClient()">📤 分享</button>
       <button class="bsave" id="btnSave" onclick="saveClient()">儲存</button>
     </div>
   </div>
 </div>
 </div><!-- /pc-container -->
+
+<!-- 自訂對話框：取代原生 confirm / alert / prompt（風格一致、手機上不會卡住整頁） -->
+<div class="imbg" id="uiDlgBg" style="z-index:20000;align-items:center">
+  <div class="immodal" style="max-width:440px;max-height:85vh;display:flex;flex-direction:column">
+    <div id="uiDlgMsg" style="white-space:pre-wrap;font-size:14px;line-height:1.65;color:var(--text);overflow-y:auto;flex:1;min-height:0;word-break:break-word"></div>
+    <input id="uiDlgInput" style="display:none;margin-top:12px;width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text);outline:none"/>
+    <div class="imbtns" style="margin-top:16px">
+      <button class="imcancel" id="uiDlgCancel">取消</button>
+      <button class="imgo" id="uiDlgOk" style="background:var(--accent)">確定</button>
+    </div>
+  </div>
+</div>
 
 <!-- Memo Modal (mobile) -->
 <div class="imbg" id="memoBg">
@@ -1331,6 +1482,22 @@ async function applyUrlSettings() {
         <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
       </div>
     </div>
+    <!-- 外觀：淺色／深色／跟隨系統（只存本機） -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🌓 外觀</div>
+      <div id="themePicker" style="display:flex;gap:6px"></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
+    </div>
+    <!-- 帳號：登出、清除全部（從工具列搬來，危險動作不放在日常按鈕旁邊） -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">👤 帳號</div>
+      <div id="settingsAccountInfo" style="font-size:11px;color:var(--t3);margin-bottom:10px;word-break:break-all"></div>
+      <div style="display:flex;gap:8px">
+        <button id="logoutBtn" onclick="closeUrlSettings();doLogout()" style="flex:1;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🚪 登出</button>
+        <button id="clearBtn" onclick="closeUrlSettings();clearAllData()" style="flex:1;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🗑️ 清除所有資料</button>
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">清除會刪掉本機與雲端的全部客戶資料（備份不受影響），按之前請先「下載備份檔」。</div>
+    </div>
   </div>
 </div>
 
@@ -1356,7 +1523,7 @@ async function applyUrlSettings() {
 .cr-ai{font-size:12px;background:var(--bg);border-left:3px solid var(--accent);padding:7px 10px;border-radius:0 6px 6px 0;margin-bottom:10px;line-height:1.7}
 .cr-btns{display:flex;gap:8px}
 .cr-btn{flex:1;border:none;border-radius:var(--rs);padding:8px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;opacity:.7;transition:opacity .15s,box-shadow .15s}
-.cr-merge{background:#E8F5E9;color:#2E7D32}
+.cr-merge{background:var(--gbg);color:var(--green)}
 .cr-new{background:var(--rbg);color:var(--red)}
 .cr-btn.cr-selected{opacity:1;box-shadow:0 0 0 2px currentColor}
 </style>
@@ -1610,8 +1777,10 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.09.14 #1';
-try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
+const APP_VERSION = '2026.10.13 #1';
+// 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
+function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
+try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 const TODAY = localDateStr();
@@ -2099,9 +2268,9 @@ function jsonpFetch(url, timeoutMs) {
 
 async function createDriveFolder(){
   const name = document.getElementById('fName').value.trim();
-  if(!name){alert('請先填寫客戶姓名');return;}
+  if(!name){uiAlert('請先填寫客戶姓名');return;}
   const addr = document.getElementById('fAddr').value.trim();
-  if(!addr){alert('請先填寫門牌地址');return;}
+  if(!addr){uiAlert('請先填寫門牌地址');return;}
   if(!COMPANY_URL){showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址，資料夾會建立在你自己的 Drive');return;}
   const btn = document.getElementById('btnDrive');
   btn.textContent='⏳ 建立中…';btn.disabled=true;
@@ -2215,15 +2384,19 @@ function updateDrivePath(){
 async function syncFromCompany() {
   if(!COMPANY_URL){ showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址'); return; }
   const btn=document.getElementById('companyBtn');
-  btn.disabled=true;
+  // 「從總檔更新」現在收在匯入下拉選單裡，進度要同時顯示在工具列的「📥 匯入」主鈕上，使用者才看得到
+  const mainBtn=document.getElementById('importMenuBtn');
+  const setTxt=t=>{ btn.textContent=t; if(mainBtn) mainBtn.textContent=t; };
+  const done=()=>{ btn.textContent='🏢 從總檔更新'; btn.disabled=false; if(mainBtn){ mainBtn.textContent='📥 匯入 ▾'; mainBtn.disabled=false; } };
+  btn.disabled=true; if(mainBtn) mainBtn.disabled=true;
 
   // 倒數計時顯示（GAS 冷啟動可能需要 20~40 秒）
   let sec = 0;
   const ticker = setInterval(() => {
     sec++;
-    btn.textContent = `⏳ 連接中 ${sec}s`;
+    setTxt(`⏳ 連接中 ${sec}s`);
   }, 1000);
-  btn.textContent='⏳ 連接中 0s';
+  setTxt('⏳ 連接中 0s');
   showToast('⏳ 正在連接總檔，GAS 冷啟動最多需要 40 秒…');
 
   try {
@@ -2231,7 +2404,7 @@ async function syncFromCompany() {
     clearInterval(ticker);
     if(!raw||!Array.isArray(raw)){
       showToast('⚠️ 總檔回傳格式錯誤');
-      btn.textContent='🏢 從總檔更新'; btn.disabled=false;
+      done();
       return;
     }
     processCompanyData(raw);
@@ -2240,7 +2413,7 @@ async function syncFromCompany() {
     showToast('⚠️ 總檔連接失敗：' + e.message);
     console.error(e);
   }
-  btn.textContent='🏢 從總檔更新'; btn.disabled=false;
+  done();
 }
 
 // ── 疑似重複比對 ───────────────────────────────────────────
@@ -2303,6 +2476,18 @@ function findDupCandidates(c) {
   return results.slice(0, 6);
 }
 
+// 新增客戶時一邊打電話／身分證一邊查重（停 0.3 秒才查），從源頭擋掉重複
+let _liveDupTimer=null;
+function liveDupCheck(){
+  if(editId) return;   // 既有客戶開啟時已經顯示過重複面板，這裡只管新增
+  clearTimeout(_liveDupTimer);
+  _liveDupTimer=setTimeout(()=>{
+    const g=id=>(document.getElementById(id)||{}).value||'';
+    const temp={ id:-1, name:g('fName').trim(), phone:g('fPhone').trim(), idno:g('fIdno').trim(), addr:g('fAddr').trim() };
+    if(!temp.phone && !temp.idno){ const p=document.getElementById('dupPanel'); if(p) p.style.display='none'; return; }
+    renderDupPanel(temp);
+  },300);
+}
 function renderDupPanel(c) {
   const panel   = document.getElementById('dupPanel');
   const listEl  = document.getElementById('dupList');
@@ -2320,14 +2505,15 @@ function renderDupPanel(c) {
   listEl.innerHTML = dups.map(function(d) {
     const oc = d.client;
     const col = hColor[oc.heat] || '#888';
-    return '<div style="background:#fff;border:1px solid var(--obd);border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
+    return '<div style="background:var(--surface);border:1px solid var(--obd);border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
       + '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer">'
       + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + calEsc(dispName(oc)) + '</div>'
       + '<div style="font-size:11px;color:#888;margin:1px 0">' + (oc.phone || '（無電話）') + '</div>'
       + '<div style="font-size:11px;color:' + col + ';font-weight:600">' + oc.heat + '</div>'
       + '<div style="font-size:10px;color:var(--orange);margin-top:2px">' + d.reasons.join('、') + '</div>'
       + '</div>'
-      + '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
+      + (editId ? '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
+                : '<div style="margin-top:6px;font-size:10px;color:var(--t3)">已有這個人，建議點上方開啟既有資料</div>')
       + '</div>';
   }).join('');
   panel.style.display = 'block';
@@ -2406,11 +2592,11 @@ function clientRichness(c){
   return s;
 }
 // 手動：把「疑似重複」面板裡某筆併入目前開啟這位（自動保留資料較完整那筆）
-function mergeWithDup(otherId){
+async function mergeWithDup(otherId){
   const a=clients.find(c=>c.id===editId);
   const b=clients.find(c=>c.id===otherId);
   if(!a||!b){ showToast('⚠️ 找不到要合併的客戶'); return; }
-  if(!confirm(`確定把「${b.name||'(無名)'}」和「${a.name||'(無名)'}」合併成同一筆？\n\n房產、聯絡記錄、電話都會保留；併完會刪掉多餘那筆。建議先在 ⚙️設定「下載備份」。`)) return;
+  if(!(await uiConfirm(`確定把「${b.name||'(無名)'}」和「${a.name||'(無名)'}」合併成同一筆？\n\n房產、聯絡記錄、電話都會保留；併完會刪掉多餘那筆。建議先在 ⚙️設定「下載備份」。`, {danger:true}))) return;
   const keep = clientRichness(a)>=clientRichness(b) ? a : b;
   const drop = keep===a ? b : a;
   foldClientInto(keep, drop);
@@ -2644,7 +2830,7 @@ function cleanCreditorName(name){
   s = s.replace(/^\s*\d+[).、]\s*/, '');       // 開頭序號「1)」「1.」「1、」
   s = s.replace(/【[銀私法]】/g, '');            // 標籤
   s = s.replace(/民國\s*\d+\s*年\s*\d+\s*月\s*\d+\s*日/g, ''); // 民國日期
-  s = s.replace(/新臺幣[\s\S]*$/, '');           // 「新臺幣」起整段尾巴(金額+元正最高限額抵押權設定)
+  s = s.replace(/新[臺台]幣[\s\S]*$/, '');       // 「新臺幣/新台幣」起整段尾巴(金額+元正最高限額抵押權設定)
   s = s.replace(/(?:最高限額)?抵押權設定[\s\S]*$/, ''); // 保險:殘留尾巴
   s = s.replace(/[A-Z][\d*＊]{8,10}/g, '');       // 個人身分證(含遮罩,如 Q120*****3)
   s = s.replace(/(\d{8})(?!\d)/g, '');            // 公司統編8碼(如 04231910)
@@ -2673,11 +2859,11 @@ function parseRightsLoans(text){
     const dashSeqM = line.match(/(\d{4}-\d{3})/);
     const inlineSeqM = dashSeqM ? null : line.match(/(?:^|[^\d])(\d{7})(?!\d)/);
     const seq = dashSeqM ? dashSeqM[1] : (inlineSeqM ? inlineSeqM[1] : (seqByLineIdx[idx] || ''));
-    const amtMatch = line.match(/新臺幣\s*([\d,]+)\s*元|（新臺幣([\d,]+)元）|（([\d,]+)）|\(([\d,]+)\)/);
+    const amtMatch = line.match(/新[臺台]幣\s*([\d,]+)\s*元|（新[臺台]幣([\d,]+)元）|（([\d,]+)）|\(([\d,]+)\)/);   // 臺/台 都認(有的整理表寫「新台幣 …元正」)
     const amt = amtMatch ? Math.round(parseInt((amtMatch[1]||amtMatch[2]||amtMatch[3]||amtMatch[4]||'0').replace(/,/g,''))/10000) : 0;
     if(!amt) return;
     const creditorMatch = line.match(/最高\s+(.+?)\s+[\dA-Z]{8,}/) ||
-                          line.match(/[\dA-Z]{8,}\s+([一-鿿（）\s]{2,20})\s+新臺幣/);
+                          line.match(/[\dA-Z]{8,}\s+([一-鿿（）\s]{2,20})\s+新[臺台]幣/);
     const creditorName = cleanCreditorName(creditorMatch ? creditorMatch[1] : line);
     let type;
     if(line.includes('【銀】')) {
@@ -2805,6 +2991,53 @@ function ensurePropLoans(c, p){
 }
 
 // ── 公司總檔匯入 ───────────────────────────────────────────
+// 這一列跟既有房產卡是不是「同一間」：兩邊都有建號就以建號為準——不同建號＝不同間，不再用門牌前綴猜
+// （以前「18之1號」和「18之1號地下室」會被猜成同一間，第二間的資料就被併掉）；同號但不同段也算不同間。
+// 只有一邊沒建號時才退用門牌核心比對（startsWith 是給「同門牌少寫樓層」的舊資料用的）。
+// 從標示部抓「這一列自己的建號」(含段名)：例「台北市中山區中山段一小段03913-000建號」→ "中山段一小段|3913"。
+// 這才是「同一間」的唯一識別；「共同擔保建號」清單是整棟/整批共用的，拿它判斷同一間會把不同戶併掉。
+function ownBuildKeyFromBuildInfo(text){
+  const line=(String(text||'').split('\n').find(l=>/建號/.test(l))||'').replace(/\s+/g,'');
+  // 先吃掉「縣市」「區鄉鎮」前綴，段名才不會把「台北市中山區」一起抓進去
+  const m=line.match(/(?:[一-鿿]{2,3}[市縣])?(?:[一-鿿]{1,4}?[區鄉鎮市])?([一-鿿]+段(?:[一-鿿]+小段)?)(\d{3,6}-\d{3})建號/);
+  return m ? m[1]+'|'+normBuildNo(m[2]) : '';
+}
+function samePropertyCard(p, incBuild, incSection, incAddrCore){
+  const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
+  if(incBuild && pBuild){
+    if(incBuild!==pBuild) return false;
+    const ps=String(p.purpose||'').replace(/\s/g,''), is=String(incSection||'').replace(/\s/g,'');
+    return !(ps && is && ps!==is);
+  }
+  return !!(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore));
+}
+// 公司戶所有權人：所有權部一行「8碼統編 公司名」(例:80661538 捷迪實業有限公司)。回傳 {taxId,name},抓不到回 null。
+// 只在「沒有任何個人身分證格式」時才用(個人＋公司共有時仍以個人為客戶,維持原行為)。
+function companyOwnerFromRaw(ownerRaw){
+  const m = String(ownerRaw||'').match(/(?:^|\n)\s*(\d{8})\s+([^\n]{2,60}?)\s*(?:\n|$)/);
+  if(!m) return null;
+  const name = m[2].replace(/\s+/g,'').replace(/[（(].*$/,'').trim();   // 去掉尾端括號備註
+  return name.length>=2 ? { taxId:m[1], name } : null;
+}
+// 債電抽取：一格多支(換行/逗號/斜線分隔);去掉「T:／F:」前綴、身分證;分機另存成 #123;
+// 「00」開頭多打的 0 修掉;沒區碼的市話(7-8碼)照原樣保留讓人看得到——不猜區碼、也不丟掉。
+function extractDebtPhones(raw){
+  const out=[], seen=new Set();
+  String(raw||'').replace(/_x000D_/g,'\n').split(/[\s,，、\/;；]+/).forEach(tok=>{   // 空白也當分隔(同一行「T:27398282 F:2738000」是兩支)
+    let t=tok.trim(); if(!t) return;
+    if(/^[A-Z]\d{9}$/i.test(t)) return;                          // 身分證,不是電話
+    t=t.replace(/^[A-Za-z\u4e00-\u9fff]{1,4}\s*[:：]\s*/,'');   // 「T:」「F:」「公司:」前綴
+    let ext=''; const em=t.match(/[#＃]\s*(\d{1,5})?\s*$/);
+    if(em){ if(em[1]) ext='#'+em[1]; t=t.slice(0,em.index); }
+    let d=t.replace(/\D/g,''); if(!d) return;
+    d=d.replace(/^00+/,'0');                                      // 00223059393 → 0223059393
+    if(d.length<7) return;                                        // 太短不是電話
+    if(seen.has(d)) return; seen.add(d);
+    out.push(d+ext);
+  });
+  return out;
+}
+
 function processCompanyData(raw) {
   if(!raw||raw.length<3){showToast('⚠️ 總檔沒有資料');return;}
 
@@ -2958,9 +3191,7 @@ function processCompanyData(raw) {
 
     // Extract debt phones from col 12 (債電), deduplicate against confirmed phones
     const debtRaw = String(row[12]||'').trim();
-    const debtMatches = debtRaw.match(/0\d[\d-]{7,}/g) || [];
-    const debtLandlines = debtRaw.match(/0[2-9]\d-?\d{4}-?\d{4}/g) || [];
-    const allDebtPhones = [...new Set([...debtMatches, ...debtLandlines])].filter(p =>
+    const allDebtPhones = extractDebtPhones(debtRaw).filter(p =>
       !allPhones.some(op => op.replace(/[-\s]/g,'') === p.replace(/[-\s]/g,''))
     );
 
@@ -2968,7 +3199,9 @@ function processCompanyData(raw) {
     const ownerRaw = String(row[6]||'');
     // Match full ID: A123456789 姓名, or masked ID: A221*****8 江＊＊ or A221*****8 江某某
     const ownerNameMatch = ownerRaw.match(/[A-Z]\d[\d*]{7,9}[\d*]\s+([\u4e00-\u9fff＊*]{2,8})/);
-    const ownerNameRaw = ownerNameMatch ? ownerNameMatch[1] : '';   // 含遮罩,如「馬＊＊」
+    // 公司戶：所有權人是「8碼統編 公司全名」(沒有個人身分證那種格式)→ 用公司名建檔,不再被跳過;公司名不受 8 字上限
+    const companyOwner = ownerNameMatch ? null : companyOwnerFromRaw(ownerRaw);
+    const ownerNameRaw = ownerNameMatch ? ownerNameMatch[1] : (companyOwner ? companyOwner.name : '');   // 含遮罩,如「馬＊＊」
     let ownerName = ownerNameRaw.replace(/[＊*]/g,'');               // 去遮罩後可能只剩單姓「馬」
     // Remove if only asterisks remain
     if(ownerName.length < 1) ownerName = '';
@@ -3010,7 +3243,7 @@ function processCompanyData(raw) {
     // 信託中：所有權部是受託人,身分證不帶(避免帶到受託人/銀行的統編)
     const idnoFull   = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d{9})/)||[])[1] || '');
     const idnoMasked = isTrust ? '' : ((ownerRaw.match(/([A-Z]\d[\d*＊]{7,9}[\d*＊])\s+[一-鿿＊*]{2,8}/)||[])[1] || '');
-    const idno = idnoFull || idnoMasked.replace(/＊/g,'*');
+    const idno = idnoFull || idnoMasked.replace(/＊/g,'*') || (companyOwner ? companyOwner.taxId : '');   // 公司戶放統編(isFullId 只認 A+9碼,不會被拿去自動合併)
 
     // 姓名完全無法辨識的列跳過（不產生「未知」案件）
     if(!name) { skipped++; return; }
@@ -3064,7 +3297,8 @@ function processCompanyData(raw) {
 
     // 從 col 4（建物標示）直接抓建號，專用於比對身份，不影響不動產頁籤的 buildNo
     const col4BuildNoMatch = buildInfo.match(/([A-Z]_\d+_\d+_\d+-\d+)/);
-    const col4BuildNo = col4BuildNoMatch ? col4BuildNoMatch[1] : '';
+    let col4BuildNo = col4BuildNoMatch ? col4BuildNoMatch[1] : '';
+    if(!col4BuildNo) col4BuildNo = ownBuildKeyFromBuildInfo(row[3]);   // 新式整理表沒有 A_xxx 編碼 → 用「段名|建號」當這一列的識別
 
     // 從共同擔保建號（col 11）解析建號，去重複只留編號
     const guaranteeRaw = String(row[11]||'');
@@ -3127,9 +3361,11 @@ function processCompanyData(raw) {
     if(isTrust && trustNote) noteText = [trustNote, noteText].filter(Boolean).join('｜'); // 信託案件：備註標註受託人/委託人
 
     // 如果電話欄空白且有建號，嘗試合併到上一筆相同建號的客戶
-    if(!rawCell && buildNo && clients.length > 0) {
+    // 電話欄空白＋「同一間」已建檔 → 當成同一戶的共有人併入。同一間要用這一列自己的建號比；
+    // 以前用「共同擔保建號清單」比，整棟共用同一份清單，不同戶會被併掉、第二間直接消失(t110 修)
+    if(!rawCell && col4BuildNo && clients.length > 0) {
       const prevSameBuilding = clients.find(c =>
-        c.buildNo && c.buildNo === buildNo
+        c.col4BuildNo && c.col4BuildNo === col4BuildNo
       );
       if(prevSameBuilding) {
         // 合併所有權人姓名
@@ -3195,6 +3431,8 @@ function processCompanyData(raw) {
       }
       // 2. 身分證字號比對（須完整身分證才算，遮罩版不唯一，避免把不同人誤判同一人）
       if(isFullId(idno) && idno === c.idno) return true;
+      // 2b. 公司戶用統編(8碼)比對：同一家公司的多間房要併成同一位客戶、各自一張不動產卡
+      if(/^\d{8}$/.test(idno) && idno === String(c.idno||'')) return true;
       // 3. 地址比對（持分物件跳過，因多人共有相同地址）
       if(addr && !incomingIsFen && !hasFen(c.companyRaw?.owner)) {
         const addrA = normalizeAddr(c.addr || '');
@@ -3220,13 +3458,8 @@ function processCompanyData(raw) {
         if(!existing.properties || !existing.properties.length){
           existing.properties = migrateProperties(existing);
         }
-        // 找同建號或同地址核心的既有房產
-        const dup = existing.properties.find(p=>{
-          const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
-          if(incBuild && pBuild && incBuild===pBuild) return true;
-          if(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore)) return true;
-          return false;
-        });
+        // 找既有房產裡「同一間」的那張卡（規則見 samePropertyCard）
+        const dup = existing.properties.find(p=>samePropertyCard(p, incBuild, sectionName, incAddrCore));
         const np = emptyProperty(existing.properties.length);
         np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||'';
         np.area=area||0; np.mainArea=mainArea||0; np.subArea=subArea||0; np.commonArea=commonArea||0;
@@ -3450,15 +3683,38 @@ function processCompanyData(raw) {
 
 // ── Toolbar visibility settings ───────────────────────────
 const BTN_DEFS=[
-  {id:'companyBtn',    label:'🏢 從總檔更新'},
-  {id:'xlsBtn',        label:'📥 XLS 匯入'},
-  {id:'tenBtn',        label:'📄 謄本匯入'},
+  {id:'importMenuBtn', label:'📥 匯入（下拉選單）'},
+  {id:'companyBtn',    label:'　↳ 🏢 從總檔更新'},
+  {id:'xlsBtn',        label:'　↳ 📥 XLS 匯入'},
+  {id:'tenBtn',        label:'　↳ 📄 謄本匯入'},
+  {id:'aiBtn',         label:'　↳ 🤖 AI 匯入'},
   {id:'blBtn',         label:'🚫 黑名單'},
   {id:'selectModeBtn', label:'☑ 選取'},
-  {id:'clearBtn',      label:'🗑️ 清除'},
   {id:'urlSettingsBtn',label:'⚙️ 設定'},
-  {id:'logoutBtn',     label:'🚪 登出'},
 ];
+// 「清除」「登出」已從工具列搬進 ⚙️ 設定視窗底部，不再屬於工具列顯示設定
+
+// ── 匯入下拉選單 ─────────────────────────────────────────
+let importMenuOpen=false;
+function toggleImportMenu(e){
+  if(e) e.stopPropagation();
+  importMenuOpen=!importMenuOpen;
+  const panel=document.getElementById('importMenu');
+  if(!importMenuOpen){ panel.style.display='none'; return; }
+  panel.style.display='flex';
+  const r=document.getElementById('importMenuBtn').getBoundingClientRect();
+  panel.style.top=(r.bottom+6)+'px';
+  // 貼齊按鈕左緣；太靠右會超出螢幕就往左推
+  const w=panel.offsetWidth||176;
+  panel.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+}
+function closeImportMenu(){
+  importMenuOpen=false;
+  const p=document.getElementById('importMenu'); if(p) p.style.display='none';
+}
+document.addEventListener('click',e=>{
+  if(importMenuOpen&&!document.getElementById('importMenu').contains(e.target)) closeImportMenu();
+});
 const HBTN_VIS_KEY='hbtn_vis_fb_v1';
 let hbtnVis={};
 
@@ -3509,6 +3765,53 @@ document.addEventListener('click',e=>{
     document.getElementById('hbtnSettingsPanel').style.display='none';
   }
 });
+
+// ── 自訂對話框（取代原生 confirm/alert/prompt）────────────────
+// 用法：if(!(await uiConfirm('確定？'))) return;   await uiAlert('提示');   const v=await uiPrompt('姓名：','預設');
+// 回傳：uiConfirm → true/false；uiAlert → true；uiPrompt → 字串（按確定，可為空字串）或 null（取消），跟原生一樣。
+let _uiDlgResolve=null;
+function uiDialog(o){
+  return new Promise(res=>{
+    const bg=document.getElementById('uiDlgBg'), msg=document.getElementById('uiDlgMsg'), inp=document.getElementById('uiDlgInput'),
+          ok=document.getElementById('uiDlgOk'), cancel=document.getElementById('uiDlgCancel');
+    if(!bg||!msg||!inp||!ok||!cancel){   // 保險：元件不在就退回原生
+      if(o.input) return res(window.prompt(o.msg,o.value||''));
+      if(o.cancel===null){ window.alert(o.msg); return res(true); }
+      return res(window.confirm(o.msg));
+    }
+    if(_uiDlgResolve){ const r=_uiDlgResolve; _uiDlgResolve=null; r(o.input?null:false); }   // 前一個還開著就當它取消
+    _uiDlgResolve=res;
+    msg.textContent=o.msg||'';
+    inp.style.display=o.input?'':'none'; inp.value=o.input?(o.value||''):'';
+    ok.textContent=o.ok||'確定';
+    ok.style.background=o.danger?'var(--red)':'var(--accent)';
+    cancel.style.display=(o.cancel===null)?'none':''; cancel.textContent=o.cancel||'取消';
+    bg.classList.add('open');
+    setTimeout(()=>{ try{ if(o.input){ inp.focus(); inp.select(); } else ok.focus(); }catch(e){} },30);
+  });
+}
+function _uiDlgClose(val){
+  const bg=document.getElementById('uiDlgBg'); if(bg) bg.classList.remove('open');
+  const r=_uiDlgResolve; _uiDlgResolve=null; if(r) r(val);
+}
+function uiConfirm(msg,o){ o=o||{}; return uiDialog({msg:msg,ok:o.ok,cancel:o.cancel,danger:o.danger}); }
+function uiAlert(msg){ return uiDialog({msg:msg,ok:'知道了',cancel:null}); }
+function uiPrompt(msg,value){ return uiDialog({msg:msg,input:true,value:value||''}); }
+document.addEventListener('DOMContentLoaded',()=>{
+  const bg=document.getElementById('uiDlgBg'); if(!bg) return;
+  const inp=document.getElementById('uiDlgInput');
+  const isPrompt=()=>inp.style.display!=='none';
+  document.getElementById('uiDlgOk').onclick=()=>_uiDlgClose(isPrompt()?inp.value:true);
+  document.getElementById('uiDlgCancel').onclick=()=>_uiDlgClose(isPrompt()?null:false);
+  bg.addEventListener('click',e=>{ if(e.target===bg) document.getElementById('uiDlgCancel').click(); });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('uiDlgOk').click(); } });
+});
+// Esc=取消、Enter=確定。用 capture 搶在其他 Esc 處理（例如關閉編輯面板）之前
+document.addEventListener('keydown',e=>{
+  if(!_uiDlgResolve) return;
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); document.getElementById('uiDlgCancel').click(); }
+  else if(e.key==='Enter' && e.target!==document.getElementById('uiDlgInput')){ e.preventDefault(); e.stopPropagation(); document.getElementById('uiDlgOk').click(); }
+},true);
 
 // ── UI helpers ────────────────────────────────────────────
 function showToast(msg){
@@ -3566,14 +3869,18 @@ function updateStats(){
   const dispN = showFullTotal ? fullTotal : activeTotal;
   const dispL = showFullTotal ? '👥 含無效' : '👥 總計';
 
+  const todayN = clients.filter(c=>c.remind===TODAY).length;
+  // 統計卡可點：點了就只看那一類（跟熱度分頁疊加），再點一次取消；「總計」＝清掉時間篩選
+  const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
-    <div class="spill ${over?'alert':''}"><b>${over}</b><span>⚠️ 逾期</span></div>
-    <div class="spill ${noRemind?'warn':''}"><b>${noRemind}</b><span>📋 未排程</span></div>
-    <div class="spill ${week?'info':''}"><b>${week}</b><span>📅 本週</span></div>
-    <div class="spill" id="totalSpill" style="cursor:pointer;user-select:none"
+    <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span>⚠️ 逾期</span></div>
+    <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span>📞 今日</span></div>
+    <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span>📅 本週</span></div>
+    <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span>📋 未排程</span></div>
+    <div class="spill" id="totalSpill" style="user-select:none" title="點一下取消時間篩選"
       onmouseenter="totalHover(this,${fullTotal})"
       onmouseleave="totalLeave(this,${activeTotal})"
-      onclick="totalClick()">
+      onclick="totalClick();if(curTime)setTimeFilter(curTime)">
       <b>${dispN}</b><span>${dispL}</span>
     </div>
   `;
@@ -3757,7 +4064,9 @@ function updateTabs(){
     '已簽約': clients.filter(c=>c.heat==='已簽約').length,
     '無效案件': clients.filter(c=>c.heat==='無效案件').length,
   };
-  const tabs=[{k:'all',l:'全部'},{k:'today',l:'今日'},{k:'over',l:'逾期'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
+  // 分頁只放「熱度」一個維度；今日／逾期等時間條件改由上方統計卡點選（可與熱度分頁疊加）
+  if(curTab==='today'||curTab==='over') curTab='all';
+  const tabs=[{k:'all',l:'全部'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
   document.getElementById('tabsWrap').innerHTML=tabs.map(t=>{
     const n=cnt[t.k];
     return`<button class="tbtn ${curTab===t.k?'active':''}" onclick="setTab('${t.k}')">${t.l}${n?`<span style="font-size:10px;opacity:.65;margin-left:2px">(${n})</span>`:''}</button>`;
@@ -3779,9 +4088,91 @@ function toggleHbtns(){
   if(btn) btn.textContent = open ? '⚙️ 功能選單 ▴' : '⚙️ 功能選單 ▾';
 }
 
+// ── 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程 ──
+// 跟熱度分頁疊加（例如「追很緊」＋「逾期」）。再點一次同一張卡＝取消。
+let curTime='';
+function weekEndStr(){ const d=new Date(); d.setDate(d.getDate()+7); return localDateStr(d); }
+function applyListFilters(list){
+  if(curTab!=='all' && curTab!=='today' && curTab!=='over') list=list.filter(c=>c.heat===curTab);
+  const inactive=['已簽約','無效案件'];
+  if(curTime==='today') list=list.filter(c=>c.remind===TODAY);
+  else if(curTime==='over') list=list.filter(c=>c.remind&&c.remind<TODAY&&!inactive.includes(c.heat));
+  else if(curTime==='week'){ const we=weekEndStr(); list=list.filter(c=>c.remind&&c.remind>=TODAY&&c.remind<=we); }
+  else if(curTime==='noremind') list=list.filter(c=>!c.remind&&!inactive.includes(c.heat));
+  return list;
+}
+// ── 記住檢視狀態（分類分頁、時間篩選、排序）：重新整理後不會又回到「全部＋提醒日期」 ──
+const VIEW_KEY='crm_view_v1';
+function saveViewState(){
+  try{ localStorage.setItem(VIEW_KEY, JSON.stringify({tab:curTab, time:curTime, sort:(document.getElementById('sortSelect')||{}).value||''})); }catch(e){}
+}
+function loadViewState(){
+  try{
+    const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(!v) return;
+    const okTabs=['all','覆訪','追很緊','新鑫','待分類','已簽約','無效案件'];
+    if(okTabs.includes(v.tab)) curTab=v.tab;
+    if(['','over','today','week','noremind'].includes(v.time||'')) curTime=v.time||'';
+    const s=document.getElementById('sortSelect');
+    if(s && v.sort && [...s.options].some(o=>o.value===v.sort)) s.value=v.sort;
+  }catch(e){}
+}
+// ── 搜尋：停頓 0.15 秒才重畫（打字不頓）、✕ 清空 ──
+let _searchTimer=null;
+function onSearchInput(){
+  clearTimeout(_searchTimer);
+  _searchTimer=setTimeout(render,150);
+  updateSearchClear();
+}
+function clearSearch(){
+  const i=document.getElementById('searchInput'); if(!i) return;
+  i.value=''; updateSearchClear(); render(); i.focus();
+}
+function updateSearchClear(){
+  const b=document.getElementById('searchClear'), i=document.getElementById('searchInput');
+  if(b&&i) b.style.display=i.value?'':'none';
+}
+// ── 最近看過（本機記 5 位）──
+const RECENT_KEY='crm_recent_v1';
+let _recent=[];
+try{ _recent=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); if(!Array.isArray(_recent)) _recent=[]; }catch(e){ _recent=[]; }
+function pushRecent(id){
+  _recent=[id, ..._recent.filter(x=>x!==id)].slice(0,5);
+  try{ localStorage.setItem(RECENT_KEY, JSON.stringify(_recent)); }catch(e){}
+  // 立刻更新清單上方那排，不等下一次整頁重畫
+  const wrap=document.getElementById('listWrap'); if(!wrap) return;
+  const q=(document.getElementById('searchInput')||{}).value||'';
+  const html=recentRowHtml(q.toLowerCase());
+  const old=wrap.querySelector('.recent-row');
+  if(old){ if(html) old.outerHTML=html; else old.remove(); }
+  else if(html) wrap.insertAdjacentHTML('afterbegin', html);
+}
+function recentRowHtml(q){
+  if(q) return '';   // 搜尋中不顯示，讓位給結果
+  const items=_recent.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+  if(!items.length) return '';
+  return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="openEdit(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
+}
+// ── 清單分段載入：先畫 60 張，捲到底再補，開頁與切分頁才不會卡 ──
+const LIST_PAGE=60;
+let _listLimit=LIST_PAGE, _listKey='';
+function loadMoreCards(){ _listLimit+=LIST_PAGE; render(); }
+let _loadMoreIO=null;
+function watchLoadMore(){
+  const btn=document.getElementById('loadMoreBtn');
+  if(_loadMoreIO){ _loadMoreIO.disconnect(); _loadMoreIO=null; }
+  if(!btn || typeof IntersectionObserver==='undefined') return;
+  _loadMoreIO=new IntersectionObserver(es=>{ if(es.some(x=>x.isIntersecting)) loadMoreCards(); },{rootMargin:'200px'});
+  _loadMoreIO.observe(btn);
+}
+function setTimeFilter(t){
+  curTime=(curTime===t)?'':t;
+  saveViewState();
+  render();
+  if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
+}
 function setTab(t){
   const same=(t===curTab);
-  curTab=t;render();
+  curTab=t;saveViewState();render();
   if(same){
     // 點同一分類 → 回到最上方（mobile: window；PC: .app overflow scroll）
     document.getElementById('mainApp').scrollTo({top:0,behavior:'smooth'});
@@ -3847,7 +4238,7 @@ function buildMapRows(){
       const cr=p.companyRaw||(pi===0?c.companyRaw:null)||{};
       const bNo=p.buildNo||(pi===0?(c.buildNo||''):'');
       const lNo=p.landNo||(pi===0?(c.landNo||''):'');
-      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
+      _mapRows.push({cid:c.id,name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
         bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',
         buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',
         checked:true});
@@ -4094,7 +4485,7 @@ function ltMapCsv(){
       const addr=String(p.addr||'').trim(); if(!addr) return;
       const cr=p.companyRaw||(pi===0?c.companyRaw:null)||{};
       const bNo=p.buildNo||(pi===0?(c.buildNo||''):''); const lNo=p.landNo||(pi===0?(c.landNo||''):'');
-      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',checked:true});
+      _mapRows.push({cid:c.id,name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',checked:true});
     });
   });
   if(!_mapRows.length){ showToast('⚠️ 勾選的客戶沒有地址'); return; }
@@ -4172,13 +4563,13 @@ function noticeSlip(c, dv){
     <div class="ln" style="text-align:right">投遞服務人員　敬啟</div>
   </div>`;
 }
-function ltPrintNotice(){
+async function ltPrintNotice(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
   if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
   // 投遞服務人員 姓名/電話：每次列印前填寫（記住上次的，下次自動帶、可改）
   let dv={}; try{ dv=JSON.parse(localStorage.getItem('notice_deliverer')||'{}'); }catch(e){}
-  const dName=prompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
-  const dPhone=prompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
+  const dName=await uiPrompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
+  const dPhone=await uiPrompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
   dv={name:dName.trim(), phone:dPhone.trim()};
   try{ localStorage.setItem('notice_deliverer', JSON.stringify(dv)); }catch(e){}
   let pages='';
@@ -4203,12 +4594,12 @@ body{ margin:0; font-family:"DFKai-SB","標楷體","BiauKai","KaiTi",serif; colo
 
 // ── 📨 匯出「通知單名單」CSV（給 Word 合併列印用）──
 // 欄位名要跟 Word 範本的合併欄位一致：流水編號/姓名/地址/區/路/段/巷/弄/號/樓/樓別/投遞姓名/投遞電話
-function ltExportNoticeData(){
+async function ltExportNoticeData(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
   if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
   let dv={}; try{ dv=JSON.parse(localStorage.getItem('notice_deliverer')||'{}'); }catch(e){}
-  const dName=prompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
-  const dPhone=prompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
+  const dName=await uiPrompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
+  const dPhone=await uiPrompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
   dv={name:(dName||'').trim(), phone:(dPhone||'').trim()};
   try{ localStorage.setItem('notice_deliverer', JSON.stringify(dv)); }catch(e){}
   const H=['流水編號','姓名','地址','區','路','段','巷','弄','號','樓','樓別','投遞姓名','投遞電話'];
@@ -4231,10 +4622,7 @@ function ltExportNoticeData(){
 function render(){
   updateStats();updateTabs();
   const q=document.getElementById('searchInput').value.toLowerCase();
-  let list=[...clients];
-  if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
-  else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
-  else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
+  let list=applyListFilters([...clients]);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   list = list.filter(batchFilterPass);
   // 縣市篩選
@@ -4305,9 +4693,14 @@ function render(){
     }
   });
   const wrap=document.getElementById('listWrap');
-  if(!list.length){wrap.innerHTML=`<div class="empty">🔍 查無資料</div>`;return;}
+  if(!list.length){wrap.innerHTML=recentRowHtml(q)+`<div class="empty">🔍 查無資料</div>`;return;}
   const sheetIsOpen=isSheetOpen();   // 編輯面板開著才標「正在看的那位」
-  wrap.innerHTML=list.map(c=>{
+  // 篩選條件變了就從頭算分段；沒變（例如存檔後重畫）維持已載入的張數
+  const listKey=[curTab,curTime,q,sortBy,[...selectedCities].join(','),(typeof selectedBatches!=='undefined'?[...selectedBatches].join(','):'')].join('|');
+  if(listKey!==_listKey){ _listKey=listKey; _listLimit=LIST_PAGE; }
+  const total=list.length;
+  if(total>_listLimit) list=list.slice(0,_listLimit);
+  wrap.innerHTML=recentRowHtml(q)+list.map(c=>{
     let st=remSt(c.remind);
     // 今天的提醒，但時間已過 → 視為逾期
     if(st==='today'&&c.remindTime){
@@ -4325,10 +4718,11 @@ function render(){
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
-        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
+        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}',${c.id})" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-          ${selectMode?'':`<button onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px;line-height:1;opacity:${c.pinned?'1':'.25'};transition:opacity .15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${c.pinned?'1':'.25'}'">📌</button>`}
-          <span class="hbadge ${heatCls}">${c.heat}</span>
+          ${(!selectMode&&c.remind)?`<button class="pin-btn act" onclick="openCalendar(${c.id});event.stopPropagation()" title="加入行事曆">📅</button>${(st==='over'||st==='today'||st==='soon')?`<button class="pin-btn act" onclick="clearRemind(event,${c.id})" title="清除提醒">🔕</button>`:''}`:''}
+          ${selectMode?'':`<button class="pin-btn${c.pinned?' on':''}" onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}">📌</button>`}
+          <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
         </div>
       </div>
       <div class="cmeta">
@@ -4340,16 +4734,43 @@ function render(){
         ${c.batch?`<span class="mi" style="color:var(--accent);background:var(--abg);padding:1px 6px;border-radius:99px">🏷️${hl(c.batch,q)}</span>`:''}
         ${c.logs&&c.logs.length?`<span class="mi">💬${c.logs.length}筆</span>`:''}
       </div>
-      ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📌${c.remindNote}</div>`:''}
+      ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">🔔${c.remindNote}</div>`:''}
       ${c.addr?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍${hl(c.addr||'',q)}</div>`:''}
       ${lastLog?`<div class="clog"><span style="color:var(--t3)">${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
-      ${c.remind?`<div style="display:flex;gap:6px;margin-top:8px">
-        <button onclick="openCalendar(${c.id});event.stopPropagation()" style="flex:1;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">📅 加入行事曆</button>
-        ${(st==='over'||st==='today'||st==='soon')?`<button onclick="clearRemind(event,${c.id})" style="flex:1;background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✕ 清除提醒</button>`:''}
-      </div>`:''}
     </div>`;
-  }).join('');
+  }).join('')+(total>list.length?`<button type="button" class="load-more" id="loadMoreBtn" onclick="loadMoreCards()">顯示更多（還有 ${total-list.length} 筆）</button>`:'');
+  watchLoadMore();
 }
+
+// ── 卡片上點熱度標籤 → 小選單直接換分類（不用進去改再儲存）──
+let _heatPickId=null;
+function openHeatPick(e, id){
+  e.stopPropagation();
+  const panel=document.getElementById('heatPick'); if(!panel) return;
+  const c=clients.find(x=>x.id===id); if(!c) return;
+  _heatPickId=id;
+  const order=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
+  panel.innerHTML=`<div class="hp-title">${dispName(c)}</div>`+order.map(h=>`<button type="button" class="hp-item${c.heat===h?' cur':''}" onclick="applyHeatPick('${h}')"><span class="hbadge ${hCls[h]}">${h}</span>${c.heat===h?'<span class="hp-cur">目前</span>':''}</button>`).join('');
+  panel.style.display='flex';
+  const r=e.currentTarget.getBoundingClientRect();
+  const w=panel.offsetWidth||180, h=panel.offsetHeight||260;
+  let top=r.bottom+6; if(top+h>window.innerHeight-8) top=Math.max(8, r.top-h-6);
+  panel.style.top=top+'px';
+  panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';
+}
+function closeHeatPick(){ _heatPickId=null; const p=document.getElementById('heatPick'); if(p) p.style.display='none'; }
+function applyHeatPick(h){
+  const c=clients.find(x=>x.id===_heatPickId); closeHeatPick();
+  if(!c || c.heat===h) return;
+  const from=c.heat;
+  c.heat=h; c.updatedAt=TODAY;
+  if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(h)) c.heatManual=true;   // 跟儲存時的手動分類鎖一致
+  if(editId===c.id){ const s=document.getElementById('fHeat'); if(s) s.value=h; }        // 右邊面板開著同一位就同步
+  saveLocal(); render();
+  showToast(`🏷️ ${dispName(c)}：${from} → ${h}`);
+  pushToSheet().catch(()=>{});
+}
+document.addEventListener('click',e=>{ const p=document.getElementById('heatPick'); if(p && p.style.display!=='none' && !p.contains(e.target)) closeHeatPick(); });
 
 function togglePin(id, e) {
   e.stopPropagation();
@@ -4368,10 +4789,7 @@ let selectedIds = new Set();
 
 function getVisibleList(){
   const q=document.getElementById('searchInput').value.toLowerCase();
-  let list=[...clients];
-  if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
-  else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
-  else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
+  let list=applyListFilters([...clients]);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   list=list.filter(batchFilterPass);
   if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
@@ -4381,19 +4799,19 @@ function getVisibleList(){
 function toggleSelectMode(){
   selectMode=!selectMode;
   selectedIds.clear();
-  const btn=document.getElementById('selectModeBtn');
-  if(selectMode){
-    btn.style.background='var(--abg)'; btn.style.color='var(--accent)'; btn.textContent='✕ 取消';
-  } else {
-    btn.style.background=''; btn.style.color=''; btn.textContent='☑ 選取';
-  }
+  setSelectBtn(selectMode);
   updateBatchBar(); render();
+}
+// 選取鈕外觀：進入選取＝實心藍「✕ 取消」；平常＝淡藍「☑ 選取」（手機只顯示圖示）
+function setSelectBtn(on){
+  const btn=document.getElementById('selectModeBtn'); if(!btn) return;
+  if(on){ btn.style.background='var(--accent)'; btn.style.color='#fff'; btn.innerHTML='✕ <span class="listtool-txt">取消</span>'; }
+  else { btn.style.background='var(--abg)'; btn.style.color='var(--accent)'; btn.innerHTML='☑ <span class="listtool-txt">選取</span>'; }
 }
 
 function exitSelectMode(){
   selectMode=false; selectedIds.clear();
-  const btn=document.getElementById('selectModeBtn');
-  if(btn){ btn.style.background=''; btn.style.color=''; btn.textContent='☑ 選取'; }
+  setSelectBtn(false);
   updateBatchBar(); render();
 }
 
@@ -4403,6 +4821,18 @@ function toggleSelect(id, e){
   updateBatchBar(); render();
 }
 
+// 名單面板那套動作（標批次／匯出／通知單／地圖）都吃 _ltChecked；這裡把主清單勾選的人灌進去再呼叫
+function withSel(fn){
+  if(!selectedIds.size){ showToast('⚠️ 請先勾選客戶'); return; }
+  _ltChecked=new Set(selectedIds);
+  return fn();
+}
+// 地圖名單：開原本的地圖匯出視窗，但只預勾目前選取的人（分類全開，免得被分類篩掉）
+function mapFromSelection(){
+  if(typeof _mapCats!=='undefined') _mapCats=new Set(['待分類','覆訪','追很緊','新鑫','已簽約','無效案件']);
+  openMapExport();
+  if(Array.isArray(_mapRows)){ _mapRows.forEach(r=>{ r.checked=selectedIds.has(r.cid); }); if(typeof renderMapList==='function') renderMapList(); }
+}
 function batchSelectAll(){
   const visible=getVisibleList();
   const allSel=visible.length>0&&visible.every(c=>selectedIds.has(c.id));
@@ -4448,19 +4878,47 @@ async function clearRemind(e, id) {
 }
 
 // ── 電話點擊 ──────────────────────────────────────────────
-function handlePhoneClick(e, phone) {
+// ── 手機撥號後回到 app → 自動開那位客戶的「聯絡記錄」頁，游標停在輸入框 ──
+let _pendingCall=null;   // {id, t}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible' || !_pendingCall) return;
+  const p=_pendingCall; _pendingCall=null;
+  if(Date.now()-p.t > 30*60*1000) return;            // 超過 30 分鐘就當沒這回事
+  if(Date.now()-p.t < 1500) return;                  // 太快回來＝沒真的撥出去（例如取消）
+  const c=clients.find(x=>x.id===p.id); if(!c) return;
+  openEdit(p.id);
+  const nb=document.querySelectorAll('.stab'); if(nb[2]) sSTab(2, nb[2]);
+  setTimeout(()=>{ const t=document.getElementById('fLogText'); if(t){ t.focus(); } }, 350);
+  showToast(`📞 剛打給「${dispName(c)}」，順手記一筆？`);
+});
+function handlePhoneClick(e, phone, cid) {
   e.stopPropagation();
   if(!phone) return;
   if(/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+    if(cid) _pendingCall={id:cid, t:Date.now()};
     window.location.href = 'tel:' + phone.replace(/[-\s]/g,'');
   } else {
     navigator.clipboard.writeText(phone).then(()=>showToast('📋 已複製電話號碼'));
   }
 }
 
+// ── 關掉瀏覽器自動填入 ───────────────────────────────────
+// Edge/Chrome 會把「身分證字號」「電話」「姓名」欄位當成個人資料，存檔時跳「要不要儲存身分證？」。
+// 編輯面板裡所有輸入欄一律標 autocomplete=off；動態新增的欄位（地號、債權列…）在取得焦點時補上。
+(function(){
+  const mark=el=>{ if(el && el.matches && el.matches('input,textarea,select') && !el.getAttribute('autocomplete')){ el.setAttribute('autocomplete','off'); el.setAttribute('aria-autocomplete','none'); } };
+  const sheet=document.getElementById('sheetBg');
+  if(sheet){
+    sheet.querySelectorAll('input,textarea,select').forEach(mark);
+    sheet.addEventListener('focusin', e=>mark(e.target));
+  }
+  // 清單上方的搜尋框、名單面板、批次標記等其他輸入框也一併關掉
+  ['searchInput','ltSearch','batchTagSearch','ltBatchNew','memoTextPC','memoTextMobile'].forEach(id=>mark(document.getElementById(id)));
+})();
+
 // ── 表單髒標記 ────────────────────────────────────────────
 let formDirty = false;
-document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; scheduleDraftSave(); });
+document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; scheduleDraftSave(); updateRevertBtn(); });
 
 // ── 瀏覽器推播通知 ────────────────────────────────────────
 function initNotifications() {
@@ -4486,6 +4944,12 @@ initNotifications();
 // ── 鍵盤快捷鍵 ───────────────────────────────────────────
 document.addEventListener('keydown', e=>{
   const sheetOpen=document.getElementById('sheetBg').classList.contains('open');
+  const inField=(()=>{ const t=(e.target&&e.target.tagName||'').toLowerCase(); return t==='input'||t==='textarea'||t==='select'||(e.target&&e.target.isContentEditable); })();
+  // 「/」跳到搜尋框、「n」新增客戶（焦點不在輸入欄、沒開面板時）
+  if(!inField && !sheetOpen && !_uiDlgResolve){
+    if(e.key==='/'){ e.preventDefault(); const s=document.getElementById('searchInput'); if(s){ s.focus(); s.select(); } return; }
+    if((e.key==='n'||e.key==='N') && !e.ctrlKey && !e.metaKey && !e.altKey){ e.preventDefault(); openAdd(); return; }
+  }
   // Esc 關閉
   if(e.key==='Escape' && selectMode){ exitSelectMode(); return; }
   if(e.key==='Escape' && sheetOpen){ closeSheet(); return; }
@@ -4515,7 +4979,8 @@ document.addEventListener('keydown', e=>{
     const idx=ids.indexOf(editId);
     const next=e.key==='ArrowUp'?idx-1:idx+1;
     if(next>=0&&next<ids.length){
-      openEdit(ids[next]);
+      _kbNavCenter=true;                       // 讓左邊清單把新卡片捲到正中間(見 highlightActiveCard)
+      try{ openEdit(ids[next]); } finally{ _kbNavCenter=false; }
       if(keepTab>0){ const nb=document.querySelectorAll('.stab'); if(nb[keepTab]) sSTab(keepTab, nb[keepTab]); } // 還原到同一分頁(基本=0不用動)
     }
   }
@@ -4575,8 +5040,13 @@ function openCalendar(id) {
 function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.max(85, el.scrollHeight)+'px'; }
 
 // ── Sheet modal ───────────────────────────────────────────
+// 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
+function saveBtnLabel(){ return !editId ? '建立客戶' : (window.innerWidth>=900 ? '儲存' : '存並關閉'); }
 function openAdd(){
   editId=null;formDirty=false;
+  _openSnapshot=null; _changedSinceOpen=false; updateRevertBtn();
+  setSaveStatus('dirty','新客戶：填完按「建立客戶」');
+  document.getElementById('btnSave').textContent=saveBtnLabel();
   document.getElementById('dupPanel').style.display='none';
   document.getElementById('sheetTitle').textContent='新增客戶';
   document.getElementById('btnDel').style.display='none';
@@ -4596,6 +5066,7 @@ function openAdd(){
   document.getElementById('fRemindMin').value='';
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
+  { const st=document.getElementById('qrStatus'); if(st) st.textContent=''; }   // 快速提醒的「✓ 日期」不要帶到下一位
   document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
   tempDebtPhones=[]; renderDebtPhones();
   finProofs=[];renderFinProofs();
@@ -4609,6 +5080,7 @@ function openAdd(){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });   // 新增客戶也從最上面開始
 }
 
 function isSheetOpen(){ const el=document.getElementById('sheetBg'); return !!(el&&el.classList.contains('open')); }
@@ -4628,16 +5100,31 @@ function highlightActiveCard(doScroll){
   if(isPage) sc=document.scrollingElement||document.documentElement;
   const er=el.getBoundingClientRect();
   const sr=isPage ? {top:0,bottom:window.innerHeight} : sc.getBoundingClientRect();
+  // 可視區上緣要扣掉固定在頂部的標題/搜尋列(.sticky-top)，否則卡片會捲到它底下被蓋住
+  const stickyEl=isPage ? document.querySelector('.sticky-top') : sc.querySelector('.sticky-top');
+  const stickyH=stickyEl ? stickyEl.getBoundingClientRect().height : 0;
+  const visTop=sr.top+stickyH, visBottom=sr.bottom;
   const pad=14;   // 留一點邊，卡片不會剛好貼齊邊緣
   let delta=0;
-  if(er.top < sr.top+pad) delta = er.top - sr.top - pad;                    // 跑到上面 → 往回捲
-  else if(er.bottom > sr.bottom-pad) delta = er.bottom - sr.bottom + pad;   // 跑到下面 → 往下捲
-  if(delta) sc.scrollTop += delta;   // 只有真的跑出畫面才捲,在畫面內就完全不動
+  if(_kbNavCenter){
+    // 鍵盤 ↑↓ 切換：卡片放在可視區正中間，前後幾張都看得到；不然往下按時每張都貼在最底邊
+    delta = (er.top+er.height/2) - (visTop+(visBottom-visTop)/2);
+  } else {
+    if(er.top < visTop+pad) delta = er.top - visTop - pad;                    // 跑到上面 → 往回捲
+    else if(er.bottom > visBottom-pad) delta = er.bottom - visBottom + pad;   // 跑到下面 → 往下捲
+  }
+  if(Math.abs(delta)>1) sc.scrollTop += delta;   // 滑鼠點的：只有真的跑出畫面才捲,在畫面內就完全不動
 }
+let _kbNavCenter=false;   // 只在鍵盤 ↑↓ 切換那一瞬間為 true
 function openEdit(id){
   editId=id;formDirty=false;
   const c=clients.find(x=>x.id===id);
   if(!c)return;
+  pushRecent(id);
+  clearTimeout(_draftSaveTimer);
+  takeSnapshot(id);
+  setSaveStatus('','');
+  document.getElementById('btnSave').textContent=saveBtnLabel();
   document.getElementById('sheetTitle').textContent=dispName(c);
   renderDupPanel(c);
   document.getElementById('btnDel').style.display='';
@@ -4685,6 +5172,7 @@ function openEdit(id){
   document.getElementById('fLandNo').value=c.landNo||'';
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
+  { const st=document.getElementById('qrStatus'); if(st) st.textContent=''; }   // 快速提醒的「✓ 日期」不要帶到下一位
   // Debt phones（可手動編輯；刪過的記進 deletedDebtPhones，總檔更新不再帶回）
   tempDebtPhones=[...(c.debtPhones||[])]; renderDebtPhones();
   // Company data tab
@@ -4698,13 +5186,18 @@ function openEdit(id){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  // 換人後編輯面板內容回到最上面（否則會停在上一位捲到的位置，例如一直在備註那段）
+  document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });
   highlightActiveCard(true);   // 左邊清單同步標記＋捲到這位
 }
 
 function closeSheet(){
   // 只有「真的編輯過」(formDirty) 才自動存；單純開來看不會重存，避免誤改既有資料
   if(editId && formDirty){ try{ saveClient(true); }catch(e){} }
-  else if(!editId && formDirty && !confirm('有未儲存的變更，確定要關閉嗎？')) return; // 新客戶仍提醒
+  else if(!editId && formDirty){   // 新客戶仍提醒（自訂對話框是非同步的，確認後再真的關）
+    uiConfirm('有未儲存的變更，確定要關閉嗎？',{ok:'不存，直接關',cancel:'留在這裡',danger:true}).then(ok=>{ if(ok){ formDirty=false; closeSheet(); } });
+    return;
+  }
   clearTimeout(_draftSaveTimer);
   formDirty=false;
   document.getElementById('sheetBg').classList.remove('open');
@@ -5206,10 +5699,26 @@ function removeDebtPhone(i){
 function addLog(){
   const d=document.getElementById('fLogDate').value;
   const t=document.getElementById('fLogText').value.trim();
-  if(!d||!t){alert('請填寫日期和記錄內容');return;}
+  if(!d||!t){uiAlert('請填寫日期和記錄內容');return;}
   tempLogs.unshift({date:d,text:t});
   document.getElementById('fLogText').value='';
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
   renderLogs();
+}
+// 快速提醒：days=1/3/7/14/30 設成幾天後（時間保留原本的）；0=清除。基本頁與聯絡記錄頁共用
+function quickRemind(days){
+  const f=document.getElementById('fRemind'); if(!f) return;
+  if(!days){
+    f.value=''; const h=document.getElementById('fRemindHour'), m=document.getElementById('fRemindMin'); if(h) h.value=''; if(m) m.value='';
+    showToast('已清除提醒');
+  } else {
+    const d=new Date(); d.setDate(d.getDate()+days);
+    f.value=localDateStr(d);
+    const label={1:'明天',3:'3天後',7:'1週後',14:'2週後',30:'1個月後'}[days]||days+'天後';
+    showToast(`🔔 下次提醒：${label}（${f.value}）`);
+    const st=document.getElementById('qrStatus'); if(st) st.textContent='✓ '+f.value;
+  }
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
 }
 function removeLog(i){
   const log = tempLogs[i];
@@ -5637,7 +6146,7 @@ function openLoanCalc(){
   // 有存過就還原，否則用不動產資料建立
   _loanCalcInit = (p.loanCalcState && p.loanCalcState.origLoans) ? p.loanCalcState : buildLoanCalcState(c, p);
   _loanCalcWin = window.open('https://stanfordcan.github.io/loan-calculator/?ts=' + Date.now(), '_blank');
-  if(!_loanCalcWin){ alert('瀏覽器擋掉了新視窗，請允許此網站的彈出視窗後再試一次。'); return; }
+  if(!_loanCalcWin){ uiAlert('瀏覽器擋掉了新視窗，請允許此網站的彈出視窗後再試一次。'); return; }
 }
 // 與試算表新視窗雙向溝通
 window.addEventListener('message', function(ev){
@@ -5705,9 +6214,9 @@ function addProperty(){
   showToast('➕ 已新增不動產');
 }
 
-function removeProperty(idx){
+async function removeProperty(idx){
   if(properties.length<=1){showToast('至少需要保留一筆不動產');return;}
-  if(!confirm(`確定刪除「${properties[idx].label}」？`)) return;
+  if(!(await uiConfirm(`確定刪除「${properties[idx].label}」？`, {danger:true}))) return;
   savePropFields(); saveEvalFields();
   properties.splice(idx,1);
   _evalRenderedIdx=-1;                     // 陣列位置變了，舊索引作廢
@@ -6064,7 +6573,7 @@ async function saveClient(silent){
   savePropFields();
   const name=document.getElementById('fName').value.trim();
   const phone=document.getElementById('fPhone').value.trim();
-  if(!name){ if(silent) return; alert('姓名為必填'); return; }
+  if(!name){ if(silent) return; uiAlert('姓名為必填'); return; }
   if(silent && !editId) return; // 自動存只更新既有客戶，不新建
   const btn=document.getElementById('btnSave');
   if(!silent){ btn.disabled=true;btn.textContent='儲存中…'; }
@@ -6114,19 +6623,40 @@ async function saveClient(silent){
   data.properties=properties.map(p=>({...p}));
   // 手動分類鎖：用戶親手分了類(非待分類)→鎖住,之後匯入(總檔/新鑫)都不再覆蓋分類
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(data.heat)) data.heatManual = true;
+  let savedId=editId;
   if(editId){
     const idx=clients.findIndex(c=>c.id===editId);
     clients[idx]={...clients[idx],...data};
   } else {
+    savedId=nextId;
     clients.push({id:nextId++,createdAt:TODAY,debtPhones:[],companyRaw:null,...data});
   }
   ensureSerials();   // 新客戶補上流水編號(客戶ID);既有的不動
   saveLocal();
   formDirty=false;
-  if(silent) return; // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步
-  btn.disabled=false;btn.textContent='儲存';
-  closeSheet();render();
-  showToast('💾 已儲存');
+  if(silent){
+    // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步；標題旁打勾、清單同步更新、開放「還原」
+    const d=new Date(), pad=n=>String(n).padStart(2,'0');
+    setSaveStatus('saved',`✓ 已自動儲存 ${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    _changedSinceOpen=true; updateRevertBtn();
+    render();
+    return;
+  }
+  btn.disabled=false;btn.textContent=saveBtnLabel();
+  _changedSinceOpen=true;
+  if(window.innerWidth>=900){
+    // 電腦版（左右兩欄）：儲存後面板留著，不打斷正在看的位置；重新載入同一位、停在同一分頁與捲動位置
+    const tabIdx=[...document.querySelectorAll('.stab')].findIndex(b=>b.classList.contains('active'));
+    const sb=document.querySelector('.sbody'); const st=sb?sb.scrollTop:0;
+    openEdit(savedId);
+    if(tabIdx>0){ const nb=document.querySelectorAll('.stab'); if(nb[tabIdx]) sSTab(tabIdx, nb[tabIdx]); }
+    if(sb) sb.scrollTop=st;
+    render();
+    showToast('💾 已儲存');
+  } else {
+    closeSheet();render();
+    showToast('💾 已儲存');
+  }
   pushToSheet()
     .then(()=>showToast('✅ 同步完成'))
     .catch(()=>{});
@@ -6135,14 +6665,49 @@ async function saveClient(silent){
 // 編輯中自動存草稿（既有客戶，打字停 1.5 秒觸發）
 let _draftSaveTimer = null;
 function scheduleDraftSave(){
-  if(!editId) return;
+  if(!editId){ setSaveStatus('dirty','尚未建立，按「建立客戶」'); return; }
   clearTimeout(_draftSaveTimer);
-  _draftSaveTimer = setTimeout(()=>{ try{ saveClient(true); }catch(e){} }, 1500);
+  setSaveStatus('saving','儲存中…');
+  _draftSaveTimer = setTimeout(()=>{ try{ saveClient(true); }catch(e){ setSaveStatus('dirty','⚠️ 儲存失敗'); } }, 500);   // 停 0.5 秒就自動存
+}
+// 面板標題旁的狀態字：saving=儲存中、saved=✓ 已自動儲存 時:分、dirty=灰字提示
+function setSaveStatus(kind, text){
+  const el=document.getElementById('saveStatus'); if(!el) return;
+  el.className='save-status '+(kind||'');
+  el.textContent=text||'';
+}
+// ── 還原：開啟客戶時先拍一份快照，誤改（含已自動存的）可整筆退回 ──
+let _openSnapshot=null, _changedSinceOpen=false;
+function takeSnapshot(id){
+  const c=clients.find(x=>x.id===id);
+  _openSnapshot = c ? JSON.parse(JSON.stringify(c)) : null;
+  _changedSinceOpen=false;
+  updateRevertBtn();
+}
+function updateRevertBtn(){
+  const b=document.getElementById('btnRevert'); if(!b) return;
+  b.style.display = (editId && _openSnapshot) ? '' : 'none';
+  b.disabled = !(_changedSinceOpen || formDirty);
+}
+async function revertClient(){
+  if(!editId || !_openSnapshot) return;
+  if(!(await uiConfirm(`把「${dispName(_openSnapshot)}」整筆退回到剛開啟時的狀態？\n\n這次開啟後的所有修改（含已自動儲存的）都會取消。`,{ok:'還原',cancel:'不要',danger:true}))) return;
+  const idx=clients.findIndex(x=>x.id===editId); if(idx<0) return;
+  clients[idx]=JSON.parse(JSON.stringify(_openSnapshot));
+  clearTimeout(_draftSaveTimer);
+  saveLocal();
+  const keepTab=[...document.querySelectorAll('.stab')].findIndex(b=>b.classList.contains('active'));
+  openEdit(editId);   // 重新載入表單（會重拍快照）
+  if(keepTab>0){ const nb=document.querySelectorAll('.stab'); if(nb[keepTab]) sSTab(keepTab, nb[keepTab]); }
+  render();
+  setSaveStatus('saved','↩ 已還原');
+  showToast('↩ 已還原到開啟時的狀態');
+  pushToSheet().catch(()=>{});
 }
 
 async function deleteClient(){
   const c=clients.find(x=>x.id===editId);
-  if(!confirm(`確定刪除「${c?.name}」？\n\n只會刪除這筆資料，不會加入黑名單，之後仍可從總檔或 AI 匯入重新建立。`))return;
+  if(!(await uiConfirm(`確定刪除「${c?.name}」？\n\n只會刪除這筆資料，不會加入黑名單，之後仍可從總檔或 AI 匯入重新建立。`, {danger:true}))) return;
   clients=clients.filter(x=>x.id!==editId);
   saveLocal();
   try{await pushToSheet();showToast('🗑️ 已刪除');}
@@ -6153,7 +6718,7 @@ async function deleteClient(){
 async function blacklistClient(){
   const c=clients.find(x=>x.id===editId);
   if(!c) return;
-  if(!confirm(`🚫 將「${c.name}」加入黑名單並刪除？\n\n加入後即使之後從總檔或 XLS／AI 匯入也不會再出現。可到「黑名單」管理移除。`))return;
+  if(!(await uiConfirm(`🚫 將「${c.name}」加入黑名單並刪除？\n\n加入後即使之後從總檔或 XLS／AI 匯入也不會再出現。可到「黑名單」管理移除。`, {danger:true}))) return;
   addToBlacklist(c);
   clients=clients.filter(x=>x.id!==editId);
   saveLocal();
@@ -6924,7 +7489,7 @@ function applyNewRulesToExisting(dryRun){
   });
   return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nLoanDate,nDebtPhone,nEvalDup,nClients:changed.size,details};
 }
-function runApplyNewRules(){
+async function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
   if(!r.nClients){ showToast('✅ 既有客戶都已是最新，沒有需要補的'); return; }
   // 會「改動非空欄位」的明細（本名、門牌區）攤開讓你先看
@@ -6932,7 +7497,7 @@ function runApplyNewRules(){
   if(r.details && r.details.length){
     changeList='\n\n【會改動的內容（其餘都只補空白）】\n'+r.details.slice(0,25).map(d=>'　'+d).join('\n')+(r.details.length>25?`\n　…等共 ${r.details.length} 項`:'');
   }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n• 清理重複的房價評估內容 ${r.nEvalDup} 位（第2筆以後跟第1筆一模一樣＝舊版共用造成，清掉重填）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
+  if(!(await uiConfirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n• 清理重複的房價評估內容 ${r.nEvalDup} 位（第2筆以後跟第1筆一模一樣＝舊版共用造成，清掉重填）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`, {danger:true}))) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
   showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位、設定日期+${r.nLoanDate}位、債電去重${r.nDebtPhone}位、評估清理${r.nEvalDup}位`);
@@ -6940,7 +7505,7 @@ function runApplyNewRules(){
 }
 
 // 🧹 清理明顯髒資料：標題列誤當客戶、地址裡的 Excel 公式殘渣、錯放成身分證的地址
-function cleanupDirtyData(){
+async function cleanupDirtyData(){
   const headerNames=new Set(['姓名','地址','電話','姓名/地址','姓名／地址','名單','客戶','姓名地址']);
   const xlsRe=/[+=][\(（]?[A-Za-z]{1,3}[0-9]{1,4}[:：][A-Za-z]{1,3}[0-9]{1,4}[\)）]?/g; // Excel 儲存格範圍/公式片段(如 +E54:P54);用[0-9]只認半形,不誤吃全形門牌數字
   const idAddrRe=/^[A-Za-z][0-9]{9}(?:\s+[0-9]{2,8})?$/;                              // 地址其實是「身分證(+數字)」
@@ -6968,7 +7533,7 @@ function cleanupDirtyData(){
   if(toFix.length) msg+=`\n🔧 修正地址 ${toFix.length} 筆：\n`+toFix.slice(0,12).map(x=>`　${x.c.name||'(無名)'}：「${x.from}」→「${x.to||'(清空)'}」${x.birth?'＋補生日'+x.birth.y+'/'+x.birth.mo+'/'+x.birth.d:''}`).join('\n')+(toFix.length>12?'\n　…等':'')+'\n';
   if(toFixNote.length) msg+=`\n🧽 清備註裡的系統時間戳 ${toFixNote.length} 筆\n`;
   msg+='\n確定執行？（建議先下載備份檔）';
-  if(!confirm(msg)) return;
+  if(!(await uiConfirm(msg))) return;
   const delIds=new Set(toDelete.map(c=>c.id));
   toFix.forEach(x=>{
     x.c.addr=x.to;
@@ -6984,7 +7549,7 @@ function cleanupDirtyData(){
 
 // 🧹 一鍵清除「無效案件＋沒有任何電話」的資料
 // 注意：不看身分證！謄本所有權部本來就帶屋主身分證號，那不是聯絡方式，看了會清不掉。
-function cleanupInvalidEmpty(){
+async function cleanupInvalidEmpty(){
   const targets=clients.filter(c=>{
     if((c.heat||'')!=='無效案件') return false;
     if(String(c.phone||'').replace(/\D/g,'')) return false;
@@ -6993,7 +7558,7 @@ function cleanupInvalidEmpty(){
   });
   if(!targets.length){ showToast('✅ 沒有符合的無效空資料'); return; }
   const names=targets.slice(0,12).map(c=>c.name||'(無名)').join('、');
-  if(!confirm(`找到 ${targets.length} 筆「無效案件＋沒有任何電話」的資料：\n\n${names}${targets.length>12?' …等':''}\n\n確定刪除這些？\n（只刪這些，其他完全不動；建議先下載備份）`)) return;
+  if(!(await uiConfirm(`找到 ${targets.length} 筆「無效案件＋沒有任何電話」的資料：\n\n${names}${targets.length>12?' …等':''}\n\n確定刪除這些？\n（只刪這些，其他完全不動；建議先下載備份）`, {danger:true}))) return;
   const ids=new Set(targets.map(c=>c.id));
   clients=clients.filter(c=>!ids.has(c.id));
   saveLocal(); render();
@@ -7002,13 +7567,13 @@ function cleanupInvalidEmpty(){
 }
 
 // 🔗 拆分舊的「名字／名字」共同借款人：拆成獨立兩筆＋雙向綁定「共同借款人」
-function splitMergedCoborrowers(){
+async function splitMergedCoborrowers(){
   ensureSerials();
   // 只挑名字含「／」的（舊新鑫合併產生的）
   const targets=clients.filter(c=>String(c.name||'').includes('／') && String(c.name||'').split('／').filter(s=>s.trim()).length>=2);
   if(!targets.length){ showToast('✅ 沒有需要拆分的「名字／名字」資料'); return; }
   const preview=targets.slice(0,12).map(c=>c.name).join('\n');
-  if(!confirm(`找到 ${targets.length} 筆合併在一起的共同借款人：\n\n${preview}${targets.length>12?'\n…等':''}\n\n會把每筆拆成獨立的人、互相綁「共同借款人」，主借款人保留原本的房屋/備註資料。\n（共同借款人那筆只帶得到姓名和電話，身分證等下次從新鑫更新會補上；建議先下載備份）\n\n確定拆分？`)) return;
+  if(!(await uiConfirm(`找到 ${targets.length} 筆合併在一起的共同借款人：\n\n${preview}${targets.length>12?'\n…等':''}\n\n會把每筆拆成獨立的人、互相綁「共同借款人」，主借款人保留原本的房屋/備註資料。\n（共同借款人那筆只帶得到姓名和電話，身分證等下次從新鑫更新會補上；建議先下載備份）\n\n確定拆分？`))) return;
   let nSplit=0, nNew=0;
   targets.forEach(c=>{
     const parts=String(c.name).split('／').map(s=>s.trim()).filter(Boolean);
@@ -7043,7 +7608,7 @@ function splitMergedCoborrowers(){
 }
 
 // 🔍 找出信託案件並修正：名字是受託人的→改成委託人(原屋主);抓不到委託人的→標記待補
-function fixTrustClients(){
+async function fixTrustClients(){
   const fixable=[], flagOnly=[];
   clients.forEach(c=>{
     const crs=[c.companyRaw, ...((c.properties||[]).map(p=>p.companyRaw))].filter(Boolean);
@@ -7061,7 +7626,7 @@ function fixTrustClients(){
   let msg='';
   if(fixable.length) msg+=`【自動修正 ${fixable.length} 筆】客戶名(受託人)→改成委託人(原屋主)：\n`+fixable.slice(0,12).map(t=>`  ${t.c.name} → ${t.settlor}`).join('\n')+(fixable.length>12?'\n  …等':'')+'\n\n';
   if(flagOnly.length) msg+=`【標記待補 ${flagOnly.length} 筆】是信託但當初沒存到委託人，只能標⚠️提醒，請對照謄本手動補：\n`+flagOnly.slice(0,12).map(c=>'  '+c.name).join('\n')+(flagOnly.length>12?'\n  …等':'')+'\n\n';
-  if(!confirm(msg+'修正會把姓名改成委託人、清掉受託人身分證、備註標註。\n（建議先下載備份）\n\n確定處理？')) return;
+  if(!(await uiConfirm(msg+'修正會把姓名改成委託人、清掉受託人身分證、備註標註。\n（建議先下載備份）\n\n確定處理？', {danger:true}))) return;
   fixable.forEach(t=>{
     const c=t.c;
     c.name=t.settlor;            // 客戶=委託人(原屋主)
@@ -7079,7 +7644,7 @@ function fixTrustClients(){
   pushToSheet().catch(()=>{});
 }
 async function clearAllData() {
-  if (!confirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`)) return;
+  if(!(await uiConfirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`, {danger:true}))) return;
   clients = [];
   nextId  = 1;
   // 清本地
@@ -7230,11 +7795,11 @@ function renderBatchTagList(){
 }
 function toggleBatchTagPick(id,on){ if(on) _batchTagChecked.add(id); else _batchTagChecked.delete(id); updateBatchTagCount(batchTagVisible().length); }
 function batchTagSelectAll(v){ const vis=batchTagVisible(); vis.forEach(c=>{ if(v) _batchTagChecked.add(c.id); else _batchTagChecked.delete(c.id); }); renderBatchTagList(); }
-function batchTagApply(){
+async function batchTagApply(){
   if(!_batchTagChecked.size){ showToast('⚠️ 請先勾選客戶'); return; }
   const label=document.getElementById('batchTagInput').value.trim();
   const n=_batchTagChecked.size;
-  if(!confirm(label?`把 ${n} 筆客戶標記為批次「${label}」？`:`清除 ${n} 筆客戶的批次標記？`)) return;
+  if(!(await uiConfirm(label?`把 ${n} 筆客戶標記為批次「${label}」？`:`清除 ${n} 筆客戶的批次標記？`))) return;
   clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ c.batch=label; c.updatedAt=TODAY; } });
   saveLocal();
   render();
@@ -7367,6 +7932,7 @@ initCityFilter();
 loadBlacklist();
 loadMemos();
 initTimeDropdowns();
+loadViewState();   // 還原上次的分類分頁／時間篩選／排序
 loadBtnVis();
 // render() 與 autoClassify() 在 auth 登入後才呼叫
 </script>
