@@ -972,10 +972,15 @@ async function renderCloudUsage(){
   const el=document.getElementById('cloudUsage'); if(!el) return;
   try{
     let b=_cloudBytes;
-    if(!b){ const packed=await packData(JSON.stringify({clients, nextId})); b={data:packed.length, memos:0, at:''}; }
-    const kb=Math.round(b.data/1024), pct=Math.round(b.data/1048576*100);
+    if(!b){
+      const packed=await packData(JSON.stringify({clients, nextId}));
+      const memosStr=JSON.stringify({memos:(typeof memos!=='undefined'?memos:[]), nextMemoId:(typeof nextMemoId!=='undefined'?nextMemoId:1)});
+      b={data:packed.length, memos:memosStr.length, at:''};
+    }
+    const total=b.data+(b.memos||0);   // 主文件＝客戶資料(壓縮)＋備忘錄(未壓縮)；其餘設定欄位很小
+    const kb=Math.round(total/1024), pct=Math.round(total/1048576*100);
     const color=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--green)';
-    el.innerHTML=`雲端主文件：<b style="color:${color}">${kb} KB</b>／上限 1,024 KB（${pct}%）　客戶 ${clients.length} 筆`
+    el.innerHTML=`雲端主文件：<b style="color:${color}">${kb} KB</b>／上限 1,024 KB（${pct}%）　客戶 ${clients.length} 筆（含備忘錄 ${Math.round((b.memos||0)/1024)} KB）`
       +`<div style="height:4px;border-radius:99px;background:var(--s2);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pct)}%;background:${color}"></div></div>`
       +(pct>=80?'<div style="color:var(--red);margin-top:4px">接近上限：請先下載備份檔，並清掉無效空資料。</div>':'');
   }catch(e){ el.textContent='雲端用量：無法計算'; }
@@ -1911,7 +1916,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t135 (自訂文件清單改成跟著帳號同步,手機加的電腦也看得到;⚙️設定「帳號」區顯示雲端主文件用量(KB/1,024KB 與百分比);手機上方統計卡縮小,四張一排放得下) 2026.10.14';
+const APP_VERSION = '🧪測試版 t136 (⚙️設定的雲端用量改成「客戶資料＋備忘錄」合計,更接近 Firestore 真正算的那份文件大小) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
