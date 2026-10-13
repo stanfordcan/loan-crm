@@ -41,6 +41,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .header h1{font-size:20px;font-weight:700;letter-spacing:1px;text-align:center}
 .hbtns{display:flex;gap:7px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-bottom:10px;padding:0 2px 2px;justify-content:flex-start}
 .hbtns::-webkit-scrollbar{display:none}
+/* 按鈕放得下就置中；放不下（手機）仍可橫捲，不會像 justify-content:center 那樣把最左邊切掉 */
+.hbtns>:first-child{margin-left:auto}
+.hbtns>:last-child{margin-right:auto}
 .hbtn{border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
 .hbtn:active{transform:scale(.95);opacity:.85}
@@ -1629,7 +1632,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t111 (畫面整理①:工具列四種匯入合併成「📥 匯入」下拉、「清除」「登出」搬進⚙️設定底部;深色模式打字框聚焦不再變白底看不到字;手機可以兩指放大;置頂📌鈕手機上看得到;標題粗體改用真正的粗體字) 2026.10.13';
+const APP_VERSION = '🧪測試版 t112 (工具列「匯入／黑名單／選取／設定」那排按鈕改成置中;手機放不下時照樣可以左右滑) 2026.10.13';
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
