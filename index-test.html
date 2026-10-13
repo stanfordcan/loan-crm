@@ -1767,7 +1767,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t118 (操作流程②:卡片上點分類標籤就能直接換分類;新增客戶打電話/身分證時立刻提示已有同一人;手機撥完電話回到系統自動開那位的聯絡記錄頁;「☑選取」和「📋名單」併成一套:勾人後底部列有改分類/標批次/公司格式/通知單/列印/地圖) 2026.10.13';
+const APP_VERSION = '🧪測試版 t119 (編輯面板的姓名/電話/身分證等所有欄位標記「不要自動填入」,減少 Edge/Chrome 存檔時跳「要不要儲存身分證」的次數;瀏覽器不一定完全聽話,保險起見 Edge 設定裡的「儲存並填入個人資訊」仍建議關閉) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4891,6 +4891,20 @@ function handlePhoneClick(e, phone, cid) {
     navigator.clipboard.writeText(phone).then(()=>showToast('📋 已複製電話號碼'));
   }
 }
+
+// ── 關掉瀏覽器自動填入 ───────────────────────────────────
+// Edge/Chrome 會把「身分證字號」「電話」「姓名」欄位當成個人資料，存檔時跳「要不要儲存身分證？」。
+// 編輯面板裡所有輸入欄一律標 autocomplete=off；動態新增的欄位（地號、債權列…）在取得焦點時補上。
+(function(){
+  const mark=el=>{ if(el && el.matches && el.matches('input,textarea,select') && !el.getAttribute('autocomplete')){ el.setAttribute('autocomplete','off'); el.setAttribute('aria-autocomplete','none'); } };
+  const sheet=document.getElementById('sheetBg');
+  if(sheet){
+    sheet.querySelectorAll('input,textarea,select').forEach(mark);
+    sheet.addEventListener('focusin', e=>mark(e.target));
+  }
+  // 清單上方的搜尋框、名單面板、批次標記等其他輸入框也一併關掉
+  ['searchInput','ltSearch','batchTagSearch','ltBatchNew','memoTextPC','memoTextMobile'].forEach(id=>mark(document.getElementById(id)));
+})();
 
 // ── 表單髒標記 ────────────────────────────────────────────
 let formDirty = false;
