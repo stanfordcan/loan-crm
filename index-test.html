@@ -1779,7 +1779,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t121 (版面精簡:頂部從5排減成2排(統計卡+☰選單、搜尋+分類下拉+調整);卡片預設只顯示姓名/電話地址/分類/提醒/債務/最後聯絡,點到的那張才展開完整;⚙️設定可切「一律完整」;最近看過只在點搜尋框時出現) 2026.10.13';
+const APP_VERSION = '🧪測試版 t122 (點「最近看過」的人,左邊清單一定會跳到他那張卡並捲到正中間:不在目前分類就自動切回「全部」,排在很後面也會載到他為止) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4160,7 +4160,7 @@ function recentRowHtml(q){
   if(q || !_searchFocus) return '';   // 搜尋中／沒在搜尋框時不顯示
   const items=_recent.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
   if(!items.length) return '';
-  return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="openEdit(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
+  return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="jumpToClient(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
 }
 // ── 卡片顯示模式：精簡（預設；點到的那張展開）／一律完整。存本機 ──
 const CARD_FULL_KEY='crm_card_full';
@@ -4183,6 +4183,28 @@ function shortAddr(a){ return String(a||'').replace(/^[一-龥]{2,3}[市縣]/,''
 const LIST_PAGE=60;
 let _listLimit=LIST_PAGE, _listKey='';
 function loadMoreCards(){ _listLimit+=LIST_PAGE; render(); }
+// 跳到某個人：左邊清單一定要看得到他那張卡（最近看過用）。
+// 不在目前篩選 → 清掉搜尋、切回「全部」、取消時間篩選；排在分段之後 → 把分段放大到他為止；最後捲到正中間。
+function jumpToClient(id){
+  const c=clients.find(x=>x.id===id); if(!c) return;
+  const si=document.getElementById('searchInput'); if(si && si.value){ si.value=''; updateSearchClear(); }
+  _searchFocus=false; clearTimeout(_searchBlurTimer);
+  if(!applyListFilters([c]).length || !batchFilterPass(c) || (selectedCities.size && !ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))))){
+    curTab='all'; curTime=''; selectedCities=new Set(); if(typeof selectedBatches!=='undefined') selectedBatches=new Set();
+    saveViewState(); if(typeof updateFilterBadge==='function') updateFilterBadge();
+    showToast('已切回「全部」才找得到這位');
+  }
+  render();
+  // 他在清單裡的位置若超過目前已載入張數，就一次載到他為止
+  const pos=[...document.querySelectorAll('.ccard[data-cid]')].findIndex(el=>+el.dataset.cid===id);
+  if(pos<0){
+    const seen=[...document.querySelectorAll('.ccard[data-cid]')].length;
+    _listLimit=Math.max(_listLimit, seen+LIST_PAGE*20);   // 保險：直接放大很多（render 只畫到實際筆數）
+    render();
+  }
+  _kbNavCenter=true;
+  try{ openEdit(id); } finally{ _kbNavCenter=false; }
+}
 let _loadMoreIO=null;
 function watchLoadMore(){
   const btn=document.getElementById('loadMoreBtn');
