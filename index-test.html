@@ -58,7 +58,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .hbtn:disabled{opacity:.5}
 .stats-bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:4px 2px 6px;justify-content:center}
 .stats-bar::-webkit-scrollbar{display:none}
-.spill{flex-shrink:0;background:var(--s2);border-radius:12px;padding:8px 16px;text-align:center;min-width:62px;transition:transform .1s}
+.spill{flex-shrink:0;background:var(--s2);border-radius:12px;padding:8px 16px;text-align:center;min-width:62px;transition:transform .1s;cursor:pointer;user-select:none}
+.spill:active{transform:scale(.96)}
+.spill.on{outline:2px solid var(--accent);outline-offset:-2px}   /* 目前選用的時間篩選 */
 .spill b{display:block;font-size:22px;font-weight:700;color:var(--text);line-height:1.15;letter-spacing:-.5px}
 .spill span{display:block;font-size:10px;color:var(--t3);margin-top:2px;font-weight:500;letter-spacing:.3px}
 .spill.alert{background:var(--rbg)}
@@ -464,7 +466,7 @@ async function claimSession(uid) {
           // 已有其他裝置在線 → 詢問使用者
           // 例外：網址帶 ?claim=1（自動化用，如 Cowork 匯入資料）→ 直接接管不彈窗；一般網址行為不變
           const autoClaim = new URLSearchParams(location.search).get('claim') === '1';
-          const proceed = autoClaim || confirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
+          const proceed = autoClaim || await uiConfirm('⚠️ 此帳號目前已在其他裝置登入。\n\n按「確定」繼續登入（對方將被登出），\n按「取消」放棄登入。');
           if (!proceed) {
             // 使用者取消 → 清掉剛產生的 token 並登出
             sessionStorage.removeItem('crm_session_token');
@@ -616,8 +618,8 @@ async function doLogin() {
 })();
 
 // 登出
-function doLogout() {
-  if (!confirm('確定要登出嗎？')) return;
+async function doLogout() {
+  if(!(await uiConfirm('確定要登出嗎？'))) return;
   auth.signOut();
 }
 
@@ -703,7 +705,7 @@ async function restoreBackup() {
     const backupAt = raw.backupAt
       ? new Date(raw.backupAt).toLocaleString('zh-TW')
       : '未知時間';
-    if (!confirm(`還原備份？\n\n備份時間：${backupAt}\n共 ${d.clients.length} 筆資料\n\n目前資料將被覆蓋，確定還原？`)) return;
+    if(!(await uiConfirm(`還原備份？\n\n備份時間：${backupAt}\n共 ${d.clients.length} 筆資料\n\n目前資料將被覆蓋，確定還原？`, {danger:true}))) return;
     clients = (d.clients || []).filter(c => c.name && c.name !== '（未知）');
     nextId  = d.nextId || 1;
     saveLocal();
@@ -744,14 +746,14 @@ function restoreFromFile(input) {
   input.value = '';
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function() {
+  reader.onload = async function() {
     let d;
     try { d = JSON.parse(reader.result); }
     catch(e) { showToast('⚠️ 檔案格式錯誤，不是有效的備份檔'); return; }
     const arr = Array.isArray(d.clients) ? d.clients : (Array.isArray(d) ? d : null);
     if (!arr) { showToast('⚠️ 這個檔案裡找不到客戶資料'); return; }
     const when = d.exportedAt ? new Date(d.exportedAt).toLocaleString('zh-TW') : '未知時間';
-    if (!confirm(`從備份檔還原？\n\n備份時間：${when}\n共 ${arr.length} 筆客戶\n\n目前資料將被覆蓋，確定還原？`)) return;
+    if(!(await uiConfirm(`從備份檔還原？\n\n備份時間：${when}\n共 ${arr.length} 筆客戶\n\n目前資料將被覆蓋，確定還原？`, {danger:true}))) return;
     clients = arr.filter(c => c && c.name && c.name !== '（未知）');
     nextId  = d.nextId || (clients.length ? Math.max(...clients.map(c => c.id || 0)) + 1 : 1);
     if (Array.isArray(d.memos) && typeof memos !== 'undefined') {
@@ -1309,6 +1311,18 @@ async function applyUrlSettings() {
 </div>
 </div><!-- /pc-container -->
 
+<!-- 自訂對話框：取代原生 confirm / alert / prompt（風格一致、手機上不會卡住整頁） -->
+<div class="imbg" id="uiDlgBg" style="z-index:20000;align-items:center">
+  <div class="immodal" style="max-width:440px;max-height:85vh;display:flex;flex-direction:column">
+    <div id="uiDlgMsg" style="white-space:pre-wrap;font-size:14px;line-height:1.65;color:var(--text);overflow-y:auto;flex:1;min-height:0;word-break:break-word"></div>
+    <input id="uiDlgInput" style="display:none;margin-top:12px;width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text);outline:none"/>
+    <div class="imbtns" style="margin-top:16px">
+      <button class="imcancel" id="uiDlgCancel">取消</button>
+      <button class="imgo" id="uiDlgOk" style="background:var(--accent)">確定</button>
+    </div>
+  </div>
+</div>
+
 <!-- Memo Modal (mobile) -->
 <div class="imbg" id="memoBg">
   <div class="immodal" style="max-width:480px;max-height:80vh;display:flex;flex-direction:column">
@@ -1691,7 +1705,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t115 (切換客戶後,右邊編輯面板的內容會回到最上面,不再停在上一位捲到的位置;鍵盤↑↓和滑鼠點卡片都一樣;聯絡記錄頁維持捲到最底的輸入框) 2026.10.13';
+const APP_VERSION = '🧪測試版 t116 (畫面整理③:上方分頁只留熱度分類,「今日/逾期/本週/未排程」改成點上方統計卡來篩選(可跟分類疊加,再點一次取消);所有「確定嗎?」「請先填…」等跳出視窗改成跟系統同風格的自訂視窗,手機上不會卡住整頁,Esc取消/Enter確定) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2182,9 +2196,9 @@ function jsonpFetch(url, timeoutMs) {
 
 async function createDriveFolder(){
   const name = document.getElementById('fName').value.trim();
-  if(!name){alert('請先填寫客戶姓名');return;}
+  if(!name){uiAlert('請先填寫客戶姓名');return;}
   const addr = document.getElementById('fAddr').value.trim();
-  if(!addr){alert('請先填寫門牌地址');return;}
+  if(!addr){uiAlert('請先填寫門牌地址');return;}
   if(!COMPANY_URL){showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址，資料夾會建立在你自己的 Drive');return;}
   const btn = document.getElementById('btnDrive');
   btn.textContent='⏳ 建立中…';btn.disabled=true;
@@ -2493,11 +2507,11 @@ function clientRichness(c){
   return s;
 }
 // 手動：把「疑似重複」面板裡某筆併入目前開啟這位（自動保留資料較完整那筆）
-function mergeWithDup(otherId){
+async function mergeWithDup(otherId){
   const a=clients.find(c=>c.id===editId);
   const b=clients.find(c=>c.id===otherId);
   if(!a||!b){ showToast('⚠️ 找不到要合併的客戶'); return; }
-  if(!confirm(`確定把「${b.name||'(無名)'}」和「${a.name||'(無名)'}」合併成同一筆？\n\n房產、聯絡記錄、電話都會保留；併完會刪掉多餘那筆。建議先在 ⚙️設定「下載備份」。`)) return;
+  if(!(await uiConfirm(`確定把「${b.name||'(無名)'}」和「${a.name||'(無名)'}」合併成同一筆？\n\n房產、聯絡記錄、電話都會保留；併完會刪掉多餘那筆。建議先在 ⚙️設定「下載備份」。`, {danger:true}))) return;
   const keep = clientRichness(a)>=clientRichness(b) ? a : b;
   const drop = keep===a ? b : a;
   foldClientInto(keep, drop);
@@ -3667,6 +3681,53 @@ document.addEventListener('click',e=>{
   }
 });
 
+// ── 自訂對話框（取代原生 confirm/alert/prompt）────────────────
+// 用法：if(!(await uiConfirm('確定？'))) return;   await uiAlert('提示');   const v=await uiPrompt('姓名：','預設');
+// 回傳：uiConfirm → true/false；uiAlert → true；uiPrompt → 字串（按確定，可為空字串）或 null（取消），跟原生一樣。
+let _uiDlgResolve=null;
+function uiDialog(o){
+  return new Promise(res=>{
+    const bg=document.getElementById('uiDlgBg'), msg=document.getElementById('uiDlgMsg'), inp=document.getElementById('uiDlgInput'),
+          ok=document.getElementById('uiDlgOk'), cancel=document.getElementById('uiDlgCancel');
+    if(!bg||!msg||!inp||!ok||!cancel){   // 保險：元件不在就退回原生
+      if(o.input) return res(window.prompt(o.msg,o.value||''));
+      if(o.cancel===null){ window.alert(o.msg); return res(true); }
+      return res(window.confirm(o.msg));
+    }
+    if(_uiDlgResolve){ const r=_uiDlgResolve; _uiDlgResolve=null; r(o.input?null:false); }   // 前一個還開著就當它取消
+    _uiDlgResolve=res;
+    msg.textContent=o.msg||'';
+    inp.style.display=o.input?'':'none'; inp.value=o.input?(o.value||''):'';
+    ok.textContent=o.ok||'確定';
+    ok.style.background=o.danger?'var(--red)':'var(--accent)';
+    cancel.style.display=(o.cancel===null)?'none':''; cancel.textContent=o.cancel||'取消';
+    bg.classList.add('open');
+    setTimeout(()=>{ try{ if(o.input){ inp.focus(); inp.select(); } else ok.focus(); }catch(e){} },30);
+  });
+}
+function _uiDlgClose(val){
+  const bg=document.getElementById('uiDlgBg'); if(bg) bg.classList.remove('open');
+  const r=_uiDlgResolve; _uiDlgResolve=null; if(r) r(val);
+}
+function uiConfirm(msg,o){ o=o||{}; return uiDialog({msg:msg,ok:o.ok,cancel:o.cancel,danger:o.danger}); }
+function uiAlert(msg){ return uiDialog({msg:msg,ok:'知道了',cancel:null}); }
+function uiPrompt(msg,value){ return uiDialog({msg:msg,input:true,value:value||''}); }
+document.addEventListener('DOMContentLoaded',()=>{
+  const bg=document.getElementById('uiDlgBg'); if(!bg) return;
+  const inp=document.getElementById('uiDlgInput');
+  const isPrompt=()=>inp.style.display!=='none';
+  document.getElementById('uiDlgOk').onclick=()=>_uiDlgClose(isPrompt()?inp.value:true);
+  document.getElementById('uiDlgCancel').onclick=()=>_uiDlgClose(isPrompt()?null:false);
+  bg.addEventListener('click',e=>{ if(e.target===bg) document.getElementById('uiDlgCancel').click(); });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('uiDlgOk').click(); } });
+});
+// Esc=取消、Enter=確定。用 capture 搶在其他 Esc 處理（例如關閉編輯面板）之前
+document.addEventListener('keydown',e=>{
+  if(!_uiDlgResolve) return;
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); document.getElementById('uiDlgCancel').click(); }
+  else if(e.key==='Enter' && e.target!==document.getElementById('uiDlgInput')){ e.preventDefault(); e.stopPropagation(); document.getElementById('uiDlgOk').click(); }
+},true);
+
 // ── UI helpers ────────────────────────────────────────────
 function showToast(msg){
   const t=document.getElementById('toast');
@@ -3723,14 +3784,18 @@ function updateStats(){
   const dispN = showFullTotal ? fullTotal : activeTotal;
   const dispL = showFullTotal ? '👥 含無效' : '👥 總計';
 
+  const todayN = clients.filter(c=>c.remind===TODAY).length;
+  // 統計卡可點：點了就只看那一類（跟熱度分頁疊加），再點一次取消；「總計」＝清掉時間篩選
+  const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
-    <div class="spill ${over?'alert':''}"><b>${over}</b><span>⚠️ 逾期</span></div>
-    <div class="spill ${noRemind?'warn':''}"><b>${noRemind}</b><span>📋 未排程</span></div>
-    <div class="spill ${week?'info':''}"><b>${week}</b><span>📅 本週</span></div>
-    <div class="spill" id="totalSpill" style="cursor:pointer;user-select:none"
+    <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span>⚠️ 逾期</span></div>
+    <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span>📞 今日</span></div>
+    <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span>📅 本週</span></div>
+    <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span>📋 未排程</span></div>
+    <div class="spill" id="totalSpill" style="user-select:none" title="點一下取消時間篩選"
       onmouseenter="totalHover(this,${fullTotal})"
       onmouseleave="totalLeave(this,${activeTotal})"
-      onclick="totalClick()">
+      onclick="totalClick();if(curTime)setTimeFilter(curTime)">
       <b>${dispN}</b><span>${dispL}</span>
     </div>
   `;
@@ -3914,7 +3979,9 @@ function updateTabs(){
     '已簽約': clients.filter(c=>c.heat==='已簽約').length,
     '無效案件': clients.filter(c=>c.heat==='無效案件').length,
   };
-  const tabs=[{k:'all',l:'全部'},{k:'today',l:'今日'},{k:'over',l:'逾期'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
+  // 分頁只放「熱度」一個維度；今日／逾期等時間條件改由上方統計卡點選（可與熱度分頁疊加）
+  if(curTab==='today'||curTab==='over') curTab='all';
+  const tabs=[{k:'all',l:'全部'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
   document.getElementById('tabsWrap').innerHTML=tabs.map(t=>{
     const n=cnt[t.k];
     return`<button class="tbtn ${curTab===t.k?'active':''}" onclick="setTab('${t.k}')">${t.l}${n?`<span style="font-size:10px;opacity:.65;margin-left:2px">(${n})</span>`:''}</button>`;
@@ -3936,6 +4003,24 @@ function toggleHbtns(){
   if(btn) btn.textContent = open ? '⚙️ 功能選單 ▴' : '⚙️ 功能選單 ▾';
 }
 
+// ── 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程 ──
+// 跟熱度分頁疊加（例如「追很緊」＋「逾期」）。再點一次同一張卡＝取消。
+let curTime='';
+function weekEndStr(){ const d=new Date(); d.setDate(d.getDate()+7); return localDateStr(d); }
+function applyListFilters(list){
+  if(curTab!=='all' && curTab!=='today' && curTab!=='over') list=list.filter(c=>c.heat===curTab);
+  const inactive=['已簽約','無效案件'];
+  if(curTime==='today') list=list.filter(c=>c.remind===TODAY);
+  else if(curTime==='over') list=list.filter(c=>c.remind&&c.remind<TODAY&&!inactive.includes(c.heat));
+  else if(curTime==='week'){ const we=weekEndStr(); list=list.filter(c=>c.remind&&c.remind>=TODAY&&c.remind<=we); }
+  else if(curTime==='noremind') list=list.filter(c=>!c.remind&&!inactive.includes(c.heat));
+  return list;
+}
+function setTimeFilter(t){
+  curTime=(curTime===t)?'':t;
+  render();
+  if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
+}
 function setTab(t){
   const same=(t===curTab);
   curTab=t;render();
@@ -4329,13 +4414,13 @@ function noticeSlip(c, dv){
     <div class="ln" style="text-align:right">投遞服務人員　敬啟</div>
   </div>`;
 }
-function ltPrintNotice(){
+async function ltPrintNotice(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
   if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
   // 投遞服務人員 姓名/電話：每次列印前填寫（記住上次的，下次自動帶、可改）
   let dv={}; try{ dv=JSON.parse(localStorage.getItem('notice_deliverer')||'{}'); }catch(e){}
-  const dName=prompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
-  const dPhone=prompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
+  const dName=await uiPrompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
+  const dPhone=await uiPrompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
   dv={name:dName.trim(), phone:dPhone.trim()};
   try{ localStorage.setItem('notice_deliverer', JSON.stringify(dv)); }catch(e){}
   let pages='';
@@ -4360,12 +4445,12 @@ body{ margin:0; font-family:"DFKai-SB","標楷體","BiauKai","KaiTi",serif; colo
 
 // ── 📨 匯出「通知單名單」CSV（給 Word 合併列印用）──
 // 欄位名要跟 Word 範本的合併欄位一致：流水編號/姓名/地址/區/路/段/巷/弄/號/樓/樓別/投遞姓名/投遞電話
-function ltExportNoticeData(){
+async function ltExportNoticeData(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
   if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
   let dv={}; try{ dv=JSON.parse(localStorage.getItem('notice_deliverer')||'{}'); }catch(e){}
-  const dName=prompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
-  const dPhone=prompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
+  const dName=await uiPrompt('投遞服務人員 姓名：', dv.name||''); if(dName===null) return;
+  const dPhone=await uiPrompt('投遞服務人員 電話：', dv.phone||''); if(dPhone===null) return;
   dv={name:(dName||'').trim(), phone:(dPhone||'').trim()};
   try{ localStorage.setItem('notice_deliverer', JSON.stringify(dv)); }catch(e){}
   const H=['流水編號','姓名','地址','區','路','段','巷','弄','號','樓','樓別','投遞姓名','投遞電話'];
@@ -4388,10 +4473,7 @@ function ltExportNoticeData(){
 function render(){
   updateStats();updateTabs();
   const q=document.getElementById('searchInput').value.toLowerCase();
-  let list=[...clients];
-  if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
-  else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
-  else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
+  let list=applyListFilters([...clients]);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   list = list.filter(batchFilterPass);
   // 縣市篩選
@@ -4522,10 +4604,7 @@ let selectedIds = new Set();
 
 function getVisibleList(){
   const q=document.getElementById('searchInput').value.toLowerCase();
-  let list=[...clients];
-  if(curTab==='today') list=list.filter(c=>c.remind===TODAY);
-  else if(curTab==='over') list=list.filter(c=>c.remind&&c.remind<TODAY);
-  else if(curTab!=='all') list=list.filter(c=>c.heat===curTab);
+  let list=applyListFilters([...clients]);
   if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   list=list.filter(batchFilterPass);
   if(selectedCities.size>0) list=list.filter(c=>ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))));
@@ -4872,7 +4951,10 @@ function openEdit(id){
 function closeSheet(){
   // 只有「真的編輯過」(formDirty) 才自動存；單純開來看不會重存，避免誤改既有資料
   if(editId && formDirty){ try{ saveClient(true); }catch(e){} }
-  else if(!editId && formDirty && !confirm('有未儲存的變更，確定要關閉嗎？')) return; // 新客戶仍提醒
+  else if(!editId && formDirty){   // 新客戶仍提醒（自訂對話框是非同步的，確認後再真的關）
+    uiConfirm('有未儲存的變更，確定要關閉嗎？',{ok:'不存，直接關',cancel:'留在這裡',danger:true}).then(ok=>{ if(ok){ formDirty=false; closeSheet(); } });
+    return;
+  }
   clearTimeout(_draftSaveTimer);
   formDirty=false;
   document.getElementById('sheetBg').classList.remove('open');
@@ -5374,7 +5456,7 @@ function removeDebtPhone(i){
 function addLog(){
   const d=document.getElementById('fLogDate').value;
   const t=document.getElementById('fLogText').value.trim();
-  if(!d||!t){alert('請填寫日期和記錄內容');return;}
+  if(!d||!t){uiAlert('請填寫日期和記錄內容');return;}
   tempLogs.unshift({date:d,text:t});
   document.getElementById('fLogText').value='';
   renderLogs();
@@ -5805,7 +5887,7 @@ function openLoanCalc(){
   // 有存過就還原，否則用不動產資料建立
   _loanCalcInit = (p.loanCalcState && p.loanCalcState.origLoans) ? p.loanCalcState : buildLoanCalcState(c, p);
   _loanCalcWin = window.open('https://stanfordcan.github.io/loan-calculator/?ts=' + Date.now(), '_blank');
-  if(!_loanCalcWin){ alert('瀏覽器擋掉了新視窗，請允許此網站的彈出視窗後再試一次。'); return; }
+  if(!_loanCalcWin){ uiAlert('瀏覽器擋掉了新視窗，請允許此網站的彈出視窗後再試一次。'); return; }
 }
 // 與試算表新視窗雙向溝通
 window.addEventListener('message', function(ev){
@@ -5873,9 +5955,9 @@ function addProperty(){
   showToast('➕ 已新增不動產');
 }
 
-function removeProperty(idx){
+async function removeProperty(idx){
   if(properties.length<=1){showToast('至少需要保留一筆不動產');return;}
-  if(!confirm(`確定刪除「${properties[idx].label}」？`)) return;
+  if(!(await uiConfirm(`確定刪除「${properties[idx].label}」？`, {danger:true}))) return;
   savePropFields(); saveEvalFields();
   properties.splice(idx,1);
   _evalRenderedIdx=-1;                     // 陣列位置變了，舊索引作廢
@@ -6232,7 +6314,7 @@ async function saveClient(silent){
   savePropFields();
   const name=document.getElementById('fName').value.trim();
   const phone=document.getElementById('fPhone').value.trim();
-  if(!name){ if(silent) return; alert('姓名為必填'); return; }
+  if(!name){ if(silent) return; uiAlert('姓名為必填'); return; }
   if(silent && !editId) return; // 自動存只更新既有客戶，不新建
   const btn=document.getElementById('btnSave');
   if(!silent){ btn.disabled=true;btn.textContent='儲存中…'; }
@@ -6310,7 +6392,7 @@ function scheduleDraftSave(){
 
 async function deleteClient(){
   const c=clients.find(x=>x.id===editId);
-  if(!confirm(`確定刪除「${c?.name}」？\n\n只會刪除這筆資料，不會加入黑名單，之後仍可從總檔或 AI 匯入重新建立。`))return;
+  if(!(await uiConfirm(`確定刪除「${c?.name}」？\n\n只會刪除這筆資料，不會加入黑名單，之後仍可從總檔或 AI 匯入重新建立。`, {danger:true}))) return;
   clients=clients.filter(x=>x.id!==editId);
   saveLocal();
   try{await pushToSheet();showToast('🗑️ 已刪除');}
@@ -6321,7 +6403,7 @@ async function deleteClient(){
 async function blacklistClient(){
   const c=clients.find(x=>x.id===editId);
   if(!c) return;
-  if(!confirm(`🚫 將「${c.name}」加入黑名單並刪除？\n\n加入後即使之後從總檔或 XLS／AI 匯入也不會再出現。可到「黑名單」管理移除。`))return;
+  if(!(await uiConfirm(`🚫 將「${c.name}」加入黑名單並刪除？\n\n加入後即使之後從總檔或 XLS／AI 匯入也不會再出現。可到「黑名單」管理移除。`, {danger:true}))) return;
   addToBlacklist(c);
   clients=clients.filter(x=>x.id!==editId);
   saveLocal();
@@ -7092,7 +7174,7 @@ function applyNewRulesToExisting(dryRun){
   });
   return {nIdno,nCensus,nDist,nDoor,nLogs,nBatch,nName,nLoanDate,nDebtPhone,nEvalDup,nClients:changed.size,details};
 }
-function runApplyNewRules(){
+async function runApplyNewRules(){
   const r=applyNewRulesToExisting(true);
   if(!r.nClients){ showToast('✅ 既有客戶都已是最新，沒有需要補的'); return; }
   // 會「改動非空欄位」的明細（本名、門牌區）攤開讓你先看
@@ -7100,7 +7182,7 @@ function runApplyNewRules(){
   if(r.details && r.details.length){
     changeList='\n\n【會改動的內容（其餘都只補空白）】\n'+r.details.slice(0,25).map(d=>'　'+d).join('\n')+(r.details.length>25?`\n　…等共 ${r.details.length} 項`:'');
   }
-  if(!confirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n• 清理重複的房價評估內容 ${r.nEvalDup} 位（第2筆以後跟第1筆一模一樣＝舊版共用造成，清掉重填）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`)) return;
+  if(!(await uiConfirm(`從既有客戶身上已存的總檔資料，補齊/修正：\n\n• 補完整本名(從預告登記義務人) ${r.nName} 筆\n• 補遮罩身分證 ${r.nIdno} 筆\n• 補戶籍地 ${r.nCensus} 筆\n• 補門牌(從標示部) ${r.nDoor} 筆\n• 修正門牌區 ${r.nDist} 筆\n• 新鑫批次標頭→批次欄 ${r.nBatch} 筆\n• 整理聯絡紀錄 ${r.nLogs} 位（清怪日期/未來日期/純數字雜訊/重複記錄）\n• 補抵押設定日期 ${r.nLoanDate} 位（從已存謄本原文）\n• 債務人電話去重 ${r.nDebtPhone} 位（同一支號碼只留一筆）\n• 清理重複的房價評估內容 ${r.nEvalDup} 位（第2筆以後跟第1筆一模一樣＝舊版共用造成，清掉重填）\n\n共影響 ${r.nClients} 位客戶。除了下面列出的「本名/門牌區」，其餘都只補空白、不會動你手改過的電話/備註/分類/姓名。${changeList}\n\n建議先「下載備份檔」。確定執行？`, {danger:true}))) return;
   applyNewRulesToExisting(false);
   saveLocal(); render(); pushToSheet().catch(()=>{});
   showToast(`✅ 已套用：本名+${r.nName}、身分證+${r.nIdno}、戶籍+${r.nCensus}、補門牌${r.nDoor}、修正區${r.nDist}、批次${r.nBatch}、整理紀錄${r.nLogs}位、設定日期+${r.nLoanDate}位、債電去重${r.nDebtPhone}位、評估清理${r.nEvalDup}位`);
@@ -7108,7 +7190,7 @@ function runApplyNewRules(){
 }
 
 // 🧹 清理明顯髒資料：標題列誤當客戶、地址裡的 Excel 公式殘渣、錯放成身分證的地址
-function cleanupDirtyData(){
+async function cleanupDirtyData(){
   const headerNames=new Set(['姓名','地址','電話','姓名/地址','姓名／地址','名單','客戶','姓名地址']);
   const xlsRe=/[+=][\(（]?[A-Za-z]{1,3}[0-9]{1,4}[:：][A-Za-z]{1,3}[0-9]{1,4}[\)）]?/g; // Excel 儲存格範圍/公式片段(如 +E54:P54);用[0-9]只認半形,不誤吃全形門牌數字
   const idAddrRe=/^[A-Za-z][0-9]{9}(?:\s+[0-9]{2,8})?$/;                              // 地址其實是「身分證(+數字)」
@@ -7136,7 +7218,7 @@ function cleanupDirtyData(){
   if(toFix.length) msg+=`\n🔧 修正地址 ${toFix.length} 筆：\n`+toFix.slice(0,12).map(x=>`　${x.c.name||'(無名)'}：「${x.from}」→「${x.to||'(清空)'}」${x.birth?'＋補生日'+x.birth.y+'/'+x.birth.mo+'/'+x.birth.d:''}`).join('\n')+(toFix.length>12?'\n　…等':'')+'\n';
   if(toFixNote.length) msg+=`\n🧽 清備註裡的系統時間戳 ${toFixNote.length} 筆\n`;
   msg+='\n確定執行？（建議先下載備份檔）';
-  if(!confirm(msg)) return;
+  if(!(await uiConfirm(msg))) return;
   const delIds=new Set(toDelete.map(c=>c.id));
   toFix.forEach(x=>{
     x.c.addr=x.to;
@@ -7152,7 +7234,7 @@ function cleanupDirtyData(){
 
 // 🧹 一鍵清除「無效案件＋沒有任何電話」的資料
 // 注意：不看身分證！謄本所有權部本來就帶屋主身分證號，那不是聯絡方式，看了會清不掉。
-function cleanupInvalidEmpty(){
+async function cleanupInvalidEmpty(){
   const targets=clients.filter(c=>{
     if((c.heat||'')!=='無效案件') return false;
     if(String(c.phone||'').replace(/\D/g,'')) return false;
@@ -7161,7 +7243,7 @@ function cleanupInvalidEmpty(){
   });
   if(!targets.length){ showToast('✅ 沒有符合的無效空資料'); return; }
   const names=targets.slice(0,12).map(c=>c.name||'(無名)').join('、');
-  if(!confirm(`找到 ${targets.length} 筆「無效案件＋沒有任何電話」的資料：\n\n${names}${targets.length>12?' …等':''}\n\n確定刪除這些？\n（只刪這些，其他完全不動；建議先下載備份）`)) return;
+  if(!(await uiConfirm(`找到 ${targets.length} 筆「無效案件＋沒有任何電話」的資料：\n\n${names}${targets.length>12?' …等':''}\n\n確定刪除這些？\n（只刪這些，其他完全不動；建議先下載備份）`, {danger:true}))) return;
   const ids=new Set(targets.map(c=>c.id));
   clients=clients.filter(c=>!ids.has(c.id));
   saveLocal(); render();
@@ -7170,13 +7252,13 @@ function cleanupInvalidEmpty(){
 }
 
 // 🔗 拆分舊的「名字／名字」共同借款人：拆成獨立兩筆＋雙向綁定「共同借款人」
-function splitMergedCoborrowers(){
+async function splitMergedCoborrowers(){
   ensureSerials();
   // 只挑名字含「／」的（舊新鑫合併產生的）
   const targets=clients.filter(c=>String(c.name||'').includes('／') && String(c.name||'').split('／').filter(s=>s.trim()).length>=2);
   if(!targets.length){ showToast('✅ 沒有需要拆分的「名字／名字」資料'); return; }
   const preview=targets.slice(0,12).map(c=>c.name).join('\n');
-  if(!confirm(`找到 ${targets.length} 筆合併在一起的共同借款人：\n\n${preview}${targets.length>12?'\n…等':''}\n\n會把每筆拆成獨立的人、互相綁「共同借款人」，主借款人保留原本的房屋/備註資料。\n（共同借款人那筆只帶得到姓名和電話，身分證等下次從新鑫更新會補上；建議先下載備份）\n\n確定拆分？`)) return;
+  if(!(await uiConfirm(`找到 ${targets.length} 筆合併在一起的共同借款人：\n\n${preview}${targets.length>12?'\n…等':''}\n\n會把每筆拆成獨立的人、互相綁「共同借款人」，主借款人保留原本的房屋/備註資料。\n（共同借款人那筆只帶得到姓名和電話，身分證等下次從新鑫更新會補上；建議先下載備份）\n\n確定拆分？`))) return;
   let nSplit=0, nNew=0;
   targets.forEach(c=>{
     const parts=String(c.name).split('／').map(s=>s.trim()).filter(Boolean);
@@ -7211,7 +7293,7 @@ function splitMergedCoborrowers(){
 }
 
 // 🔍 找出信託案件並修正：名字是受託人的→改成委託人(原屋主);抓不到委託人的→標記待補
-function fixTrustClients(){
+async function fixTrustClients(){
   const fixable=[], flagOnly=[];
   clients.forEach(c=>{
     const crs=[c.companyRaw, ...((c.properties||[]).map(p=>p.companyRaw))].filter(Boolean);
@@ -7229,7 +7311,7 @@ function fixTrustClients(){
   let msg='';
   if(fixable.length) msg+=`【自動修正 ${fixable.length} 筆】客戶名(受託人)→改成委託人(原屋主)：\n`+fixable.slice(0,12).map(t=>`  ${t.c.name} → ${t.settlor}`).join('\n')+(fixable.length>12?'\n  …等':'')+'\n\n';
   if(flagOnly.length) msg+=`【標記待補 ${flagOnly.length} 筆】是信託但當初沒存到委託人，只能標⚠️提醒，請對照謄本手動補：\n`+flagOnly.slice(0,12).map(c=>'  '+c.name).join('\n')+(flagOnly.length>12?'\n  …等':'')+'\n\n';
-  if(!confirm(msg+'修正會把姓名改成委託人、清掉受託人身分證、備註標註。\n（建議先下載備份）\n\n確定處理？')) return;
+  if(!(await uiConfirm(msg+'修正會把姓名改成委託人、清掉受託人身分證、備註標註。\n（建議先下載備份）\n\n確定處理？', {danger:true}))) return;
   fixable.forEach(t=>{
     const c=t.c;
     c.name=t.settlor;            // 客戶=委託人(原屋主)
@@ -7247,7 +7329,7 @@ function fixTrustClients(){
   pushToSheet().catch(()=>{});
 }
 async function clearAllData() {
-  if (!confirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`)) return;
+  if(!(await uiConfirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`, {danger:true}))) return;
   clients = [];
   nextId  = 1;
   // 清本地
@@ -7398,11 +7480,11 @@ function renderBatchTagList(){
 }
 function toggleBatchTagPick(id,on){ if(on) _batchTagChecked.add(id); else _batchTagChecked.delete(id); updateBatchTagCount(batchTagVisible().length); }
 function batchTagSelectAll(v){ const vis=batchTagVisible(); vis.forEach(c=>{ if(v) _batchTagChecked.add(c.id); else _batchTagChecked.delete(c.id); }); renderBatchTagList(); }
-function batchTagApply(){
+async function batchTagApply(){
   if(!_batchTagChecked.size){ showToast('⚠️ 請先勾選客戶'); return; }
   const label=document.getElementById('batchTagInput').value.trim();
   const n=_batchTagChecked.size;
-  if(!confirm(label?`把 ${n} 筆客戶標記為批次「${label}」？`:`清除 ${n} 筆客戶的批次標記？`)) return;
+  if(!(await uiConfirm(label?`把 ${n} 筆客戶標記為批次「${label}」？`:`清除 ${n} 筆客戶的批次標記？`))) return;
   clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ c.batch=label; c.updatedAt=TODAY; } });
   saveLocal();
   render();
