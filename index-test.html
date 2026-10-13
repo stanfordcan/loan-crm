@@ -195,6 +195,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .save-status.saved{color:var(--green)}
 .save-status.dirty{color:var(--t3)}
 .bdel:disabled{opacity:.4;cursor:default}
+.sfooter .bdel{white-space:nowrap}
+@media(max-width:899px){ .sfooter .ft{display:none} .sfooter .bdel{padding:11px 13px;font-size:15px} }   /* 手機底部鈕只放圖示，才擠得下 */
 .xbtn{background:var(--s2);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
 .stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stabs::-webkit-scrollbar{display:none}
@@ -235,6 +237,46 @@ input[type=number]{min-width:0}
 .ldel{float:right;background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;margin-top:-1px}
 /* Form section headers */
 .form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
+/* ── 編輯面板改版：淡底、白卡分區、白底細框輸入、區段圖示 ── */
+.sbody{background:var(--bg)}
+.fsec{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 6px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,32,56,.04)}
+.fsec-hd{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--text);margin:0 0 10px}
+.fsec-ic{width:24px;height:24px;border-radius:7px;background:var(--abg);display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.fsec-remind{border-color:var(--obd);background:var(--surface)}
+.fsec-remind .fsec-ic{background:var(--obg)}
+.fsec-remind.rbox{padding:12px 14px 12px}                       /* 蓋掉舊 rbox 的藍底 */
+.rbox{background:var(--surface);border:1px solid var(--obd)}
+/* 輸入框：白底細框，聚焦藍框＋淡藍光暈；readonly（流水編號、可貸空間）維持原本的彩色底 */
+.sbody input:not([readonly]):not([type=checkbox]):not([type=radio]),.sbody select,.sbody textarea{background:var(--surface)!important;border:1px solid var(--border)!important;transition:border-color .12s,box-shadow .12s}
+.sbody input:not([readonly]):focus,.sbody select:focus,.sbody textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px var(--abg)}
+.frow label{color:var(--t3);text-transform:none;letter-spacing:0}
+/* 追蹤熱度：下拉改色籤 */
+#fHeat{display:none}
+.heat-chips{display:flex;flex-wrap:wrap;gap:6px}
+.heat-chip{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit;min-height:32px}
+.heat-chip.on{border-color:transparent}
+/* 標題列：頭像＋副標＋完整度 */
+.sheader{align-items:center;gap:12px}
+.s-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+.s-sub{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-bar{height:3px;border-radius:99px;background:var(--s2);overflow:hidden;max-width:220px;margin-top:2px}
+.s-bar b{display:block;height:100%;background:var(--accent);transition:width .25s}
+/* 不動產／公司資料分頁：卡片樣式對齊 */
+.prop-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;box-shadow:0 1px 2px rgba(20,32,56,.04)}
+.prop-card-hd{font-size:13px;font-weight:700;color:var(--text)}
+.company-info{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.add-log{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.alrow input{background:var(--surface)}
+/* 聯絡記錄：時間軸 */
+.log-list{position:relative;padding-left:18px;gap:10px}
+.log-list::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border);border-radius:2px}
+.litem{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.litem::before{content:'';position:absolute;left:-17px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface)}
+.ldate{color:var(--accent)}
+@media(min-width:900px){
+  .pc-container #sp0>.fsec{break-inside:avoid;-webkit-column-break-inside:avoid}
+  .pc-container .fsec-wide,.pc-container .fsec-remind{column-span:all}
+}
 .add-log{background:var(--s2);border-radius:var(--rs);padding:13px}
 /* 快速提醒按鈕列（基本頁提醒區、聯絡記錄頁） */
 .qr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -1119,9 +1161,14 @@ async function applyUrlSettings() {
   <div class="sheet">
     <div class="shandle"></div>
     <div class="sheader">
-      <div style="display:flex;align-items:baseline;gap:10px;min-width:0;flex:1">
-        <span class="stitle" id="sheetTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">新增客戶</span>
-        <span id="saveStatus" class="save-status"></span>
+      <div id="sheetAvatar" class="s-avatar hp">＋</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+        <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+          <span class="stitle" id="sheetTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">新增客戶</span>
+          <span id="saveStatus" class="save-status"></span>
+        </div>
+        <div id="sheetSub" class="s-sub"></div>
+        <div class="s-bar"><b id="sheetBar" style="width:0"></b></div>
       </div>
       <button class="xbtn" onclick="closeSheet()">✕</button>
     </div>
@@ -1140,6 +1187,7 @@ async function applyUrlSettings() {
         <div id="dupList" style="display:flex;flex-wrap:wrap;gap:7px"></div>
       </div>
       <div id="sp0">
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">👤</span>基本</div>
         <div class="frow"><label>姓名 *</label><input id="fName" placeholder="客戶姓名"/></div>
         <div class="frow">
           <label>出生年月日（民國）</label>
@@ -1176,8 +1224,10 @@ async function applyUrlSettings() {
             <option value="已簽約">🟢 已簽約</option>
             <option value="無效案件">⚫ 無效案件</option>
           </select>
+          <div id="heatChips" class="heat-chips"></div>
         </div>
-        <div class="form-section-hd">👤 客戶資料</div>
+        </div>
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">💼</span>客戶資料</div>
         <div class="fg2">
           <div class="frow"><label>工作／職業</label><input id="fJob" placeholder="例：上班族" oninput="syncToEval('ev_job', this.value)"/></div>
           <div class="frow"><label>年資</label><input id="fJobYears" placeholder="例：5年"/></div>
@@ -1191,9 +1241,8 @@ async function applyUrlSettings() {
           <input id="fBatch" list="batchListOptions" placeholder="這筆來自哪批名單，例：0614-A名單"/>
           <datalist id="batchListOptions"></datalist>
         </div>
-        <div class="form-section-hd">📅 下次提醒</div>
-        <div class="rbox">
-          <label>🔔 下次聯絡提醒</label>
+        </div>
+        <div class="fsec fsec-remind rbox"><div class="fsec-hd"><span class="fsec-ic">🔔</span>下次聯絡提醒</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
             <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind"/></div>
             <div class="frow" style="margin:0"><label>時間</label>
@@ -1216,6 +1265,7 @@ async function applyUrlSettings() {
             <button type="button" class="qr-btn qr-clear" onclick="quickRemind(0)">清除</button>
           </div>
         </div>
+        <div class="fsec fsec-wide"><div class="fsec-hd"><span class="fsec-ic">📝</span>備註與債電</div>
         <div class="note-debt-row">
           <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…" oninput="autoGrowNote(this)" style="overflow:hidden;min-height:85px"></textarea></div>
           <div id="debtPhoneArea">
@@ -1223,6 +1273,7 @@ async function applyUrlSettings() {
             <div id="debtPhoneList" style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);line-height:1.8"></div>
             <button type="button" onclick="addDebtPhone()" style="width:100%;margin-top:6px;background:none;border:1px dashed var(--border);border-radius:var(--rs);padding:7px;font-size:12px;color:var(--t3);font-family:inherit;cursor:pointer">＋ 新增債電</button>
           </div>
+        </div>
         </div>
       </div>
       <div id="sp1" class="prop-tab" style="display:none">
@@ -1373,10 +1424,10 @@ async function applyUrlSettings() {
       </div>
     </div>
     <div class="sfooter">
-      <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()">刪除</button>
-      <button class="bdel" id="btnRevert" style="display:none;background:var(--obg);color:var(--orange)" onclick="revertClient()" title="整筆退回到剛開啟時的狀態（含已自動儲存的部分）">↩ 還原</button>
-      <button class="bdel" id="btnBlack" style="display:none;background:var(--text);color:var(--surface)" onclick="blacklistClient()">🚫 加黑名單</button>
-      <button class="bdel" id="btnShare" style="display:none;background:var(--abg);color:var(--accent)" onclick="shareClient()">📤 分享</button>
+      <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()" title="刪除">🗑️<span class="ft"> 刪除</span></button>
+      <button class="bdel" id="btnRevert" style="display:none;background:var(--obg);color:var(--orange)" onclick="revertClient()" title="還原：整筆退回到剛開啟時的狀態（含已自動儲存的部分）">↩<span class="ft"> 還原</span></button>
+      <button class="bdel" id="btnBlack" style="display:none;background:var(--text);color:var(--surface)" onclick="blacklistClient()" title="加黑名單">🚫<span class="ft"> 加黑名單</span></button>
+      <button class="bdel" id="btnShare" style="display:none;background:var(--abg);color:var(--accent)" onclick="shareClient()" title="分享">📤<span class="ft"> 分享</span></button>
       <button class="bsave" id="btnSave" onclick="saveClient()">儲存</button>
     </div>
   </div>
@@ -1779,7 +1830,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t122 (點「最近看過」的人,左邊清單一定會跳到他那張卡並捲到正中間:不在目前分類就自動切回「全部」,排在很後面也會載到他為止) 2026.10.14';
+const APP_VERSION = '🧪測試版 t123 (編輯面板改版:輸入框改白底細框、聚焦有藍框;每一段變成一張白卡(基本/客戶資料/下次提醒/備註與債電),各有小圖示;追蹤熱度從下拉改成一排色籤;標題列多了名字頭像(顏色跟分類)、流水編號·區、資料完整度;聯絡記錄改時間軸;不動產/公司資料分頁的卡片樣式統一) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4835,7 +4886,7 @@ function applyHeatPick(h){
   const from=c.heat;
   c.heat=h; c.updatedAt=TODAY;
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(h)) c.heatManual=true;   // 跟儲存時的手動分類鎖一致
-  if(editId===c.id){ const s=document.getElementById('fHeat'); if(s) s.value=h; }        // 右邊面板開著同一位就同步
+  if(editId===c.id){ const s=document.getElementById('fHeat'); if(s) s.value=h; renderHeatChips(); updateSheetHeader(); }   // 右邊面板開著同一位就同步
   saveLocal(); render();
   showToast(`🏷️ ${dispName(c)}：${from} → ${h}`);
   pushToSheet().catch(()=>{});
@@ -5110,6 +5161,37 @@ function openCalendar(id) {
 function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.max(85, el.scrollHeight)+'px'; }
 
 // ── Sheet modal ───────────────────────────────────────────
+// ── 追蹤熱度色籤（取代下拉；仍透過隱藏的 #fHeat 存值，其他程式不用改）──
+function renderHeatChips(){
+  const el=document.getElementById('heatChips'), sel=document.getElementById('fHeat'); if(!el||!sel) return;
+  const cur=sel.value;
+  el.innerHTML=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'].map(h=>
+    `<button type="button" class="heat-chip${cur===h?' on '+(hCls[h]||''):''}" onclick="pickHeatChip('${h}')">${h}</button>`).join('');
+}
+function pickHeatChip(h){
+  const sel=document.getElementById('fHeat'); if(!sel) return;
+  sel.value=h; sel.dispatchEvent(new Event('input',{bubbles:true}));   // 觸發 formDirty／自動存
+  renderHeatChips(); updateSheetHeader();
+}
+// ── 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度 ──
+function updateSheetHeader(){
+  const av=document.getElementById('sheetAvatar'), sub=document.getElementById('sheetSub'), bar=document.getElementById('sheetBar');
+  if(!av) return;
+  const g=id=>((document.getElementById(id)||{}).value||'').trim();
+  const name=g('fName'), heat=g('fHeat')||'待分類';
+  av.textContent=name?name.slice(0,1):'＋';
+  av.className='s-avatar '+(hCls[heat]||'hp');
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const addr=g('fAddr')||(c&&c.addr)||'';
+  const dist=(addr.match(/^[一-龥]{2,3}[市縣]([一-龥]{1,3}[區鄉鎮市])/)||[])[1]||'';
+  // 完整度：8 個關鍵欄位
+  const logsN=(typeof tempLogs!=='undefined'&&Array.isArray(tempLogs))?tempLogs.length:0;
+  const checks=[g('fPhone'), g('fIdno'), g('fBirthY'), addr, g('fJob'), g('fBatch'), g('fRemind'), logsN?'1':''];
+  const done=checks.filter(Boolean).length, pct=Math.round(done/checks.length*100);
+  if(sub) sub.textContent=[g('fSerial')||(c&&c.serial)||'', dist, editId?`資料完整度 ${pct}%`:'新客戶'].filter(Boolean).join(' · ');
+  if(bar) bar.style.width=(editId?pct:0)+'%';
+}
+document.addEventListener('DOMContentLoaded',()=>{ const sb=document.getElementById('sheetBg'); if(sb) sb.addEventListener('input',()=>{ clearTimeout(window._shTimer); window._shTimer=setTimeout(updateSheetHeader,200); }); });
 // 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
 function saveBtnLabel(){ return !editId ? '建立客戶' : (window.innerWidth>=900 ? '儲存' : '存並關閉'); }
 function openAdd(){
@@ -5131,6 +5213,7 @@ function openAdd(){
   document.getElementById('btnDrive').textContent='📁 建立';
   ['fArea','fMainArea','fSubArea','fCommonArea','fParkArea','fLandArea','fBuildShareNum','fBuildShareDen','fLandtaxNormal','fLandtaxSelf','fBank','fLegal','fPrivate'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fHeat').value='追很緊';
+  renderHeatChips();
   document.getElementById('fRemind').value='';
   document.getElementById('fRemindHour').value='';
   document.getElementById('fRemindMin').value='';
@@ -5150,6 +5233,7 @@ function openAdd(){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  updateSheetHeader();
   document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });   // 新增客戶也從最上面開始
 }
 
@@ -5208,6 +5292,7 @@ function openEdit(id){
   refreshBatchDatalist();
   document.getElementById('fBatch').value=c.batch||'';
   document.getElementById('fHeat').value=c.heat||'追很緊';
+  renderHeatChips();
   document.getElementById('fRemind').value=c.remind||'';
   const rt = c.remindTime||'';
   document.getElementById('fRemindHour').value = rt ? rt.slice(0,2) : '';
@@ -5257,6 +5342,7 @@ function openEdit(id){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  updateSheetHeader();
   // 換人後編輯面板內容回到最上面（否則會停在上一位捲到的位置，例如一直在備註那段）
   document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });
   highlightActiveCard(true);   // 左邊清單同步標記＋捲到這位
