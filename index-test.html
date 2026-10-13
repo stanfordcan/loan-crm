@@ -78,6 +78,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .spill{flex-shrink:0;background:var(--s2);border-radius:12px;padding:8px 16px;text-align:center;min-width:62px;transition:transform .1s;cursor:pointer;user-select:none}
 .spill:active{transform:scale(.96)}
 .spill.on{outline:2px solid var(--accent);outline-offset:-2px}   /* 目前選用的時間篩選 */
+.spi{font-style:normal}
 .spill b{display:block;font-size:22px;font-weight:700;color:var(--text);line-height:1.15;letter-spacing:-.5px}
 .spill span{display:block;font-size:10px;color:var(--t3);margin-top:2px;font-weight:500;letter-spacing:.3px}
 .spill.alert{background:var(--rbg)}
@@ -90,10 +91,13 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
   /* 手機：頂部只剩兩排（統計卡＋☰、搜尋列） */
   .topbar{padding:8px 10px 6px}
   /* 統計卡縮成一條細的（橫向小字，省高度） */
-  .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
-  .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
-  .spill b{display:inline;font-size:15px;line-height:1}
-  .spill span{display:inline;margin-top:0}
+  .stats-bar{gap:4px;padding:0;justify-content:flex-start}
+  .spill{display:flex;align-items:center;gap:3px;padding:5px 7px;min-width:0;border-radius:9px}
+  .spill b{display:inline;font-size:13px;line-height:1}
+  .topbar .memo-mobile-btn{font-size:18px;padding:2px 3px}
+  .topbar .icon-btn{width:34px;height:34px}
+  .spill span{display:inline;margin-top:0;font-size:11px}
+  .spill .spi{display:none}   /* 手機不放表情符號，四張才排得下 */
   /* 名單併到搜尋那行（不換行；名單只剩圖示） */
   .search-wrap{flex-wrap:nowrap!important}
   .search-input{min-width:0!important}
@@ -725,11 +729,14 @@ async function saveToFirestore(ts) {
   if (!currentUser || !db) return;
   ts = ts || new Date().toISOString();
   const packed = await packData(JSON.stringify({clients, nextId})); // 壓縮一次,data 與 backup 共用
+  const memosStr = JSON.stringify({memos: (typeof memos!=='undefined'?memos:[]), nextMemoId: (typeof nextMemoId!=='undefined'?nextMemoId:1)});
+  _cloudBytes = { data: packed.length, memos: memosStr.length, at: ts };   // 給 ⚙️ 設定顯示用量
   try {
     // merge:true — 只更新這些欄位，不整份覆蓋（保住 backup/backupAt/sessionToken，否則空資料存檔會把備份清掉）
     await db.collection('users').doc(currentUser.uid).set({
       data: packed,
-      memos: JSON.stringify({memos: (typeof memos!=='undefined'?memos:[]), nextMemoId: (typeof nextMemoId!=='undefined'?nextMemoId:1)}),
+      memos: memosStr,
+      customDocs: JSON.stringify((typeof customDocs!=='undefined'&&Array.isArray(customDocs))?customDocs:[]),
       gasUrl: GAS_URL || '',
       companyUrl: COMPANY_URL || '',
       claudeKey: CLAUDE_API_KEY || '',
@@ -754,6 +761,7 @@ async function saveToFirestore(ts) {
   }
 }
 
+let _cloudBytes=null;   // 最近一次寫雲端的大小 {data, memos, at}
 // 載入鎖：取得雲端資料時鎖住畫面
 function showCloudLock(){ const el=document.getElementById('cloudLock'); if(el) el.style.display='flex'; }
 function hideCloudLock(){ const el=document.getElementById('cloudLock'); if(el) el.style.display='none'; }
@@ -855,6 +863,7 @@ async function loadFromFirestore() {
       if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
       if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
       if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
+      applyCloudCustomDocs(raw.customDocs);
       // 載入備忘錄（雲端）
       if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
       // 載入客戶資料
@@ -891,6 +900,7 @@ async function syncFromFirestoreIfNewer() {
     if (raw.gasUrl)     GAS_URL     = raw.gasUrl;
     if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
     if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
+    applyCloudCustomDocs(raw.customDocs);
     if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
 
     // 比較時間戳（若本地 clients 是空的，不管時間戳一律從 Firestore 載入）
@@ -926,6 +936,11 @@ async function syncFromFirestoreIfNewer() {
   } catch(e) { console.error('Firestore background check:', e); return false; }
 }
 
+// 自訂文件清單：雲端有就以雲端為準（跟著帳號走，手機加了電腦也看得到）
+function applyCloudCustomDocs(str){
+  if(!str) return;
+  try{ const a=JSON.parse(str); if(Array.isArray(a) && typeof customDocs!=='undefined'){ customDocs=a; try{ localStorage.setItem(CUSTOM_DOC_KEY, JSON.stringify(customDocs)); }catch(e){} if(typeof renderDocChips==='function') renderDocChips(); } }catch(e){}
+}
 // 儲存 URL 設定到 Firestore（不動客戶資料）
 async function saveUrlSettings() {
   if (!currentUser || !db) return;
@@ -947,9 +962,23 @@ function openUrlSettings() {
   if(info){
     const email=(currentUser&&currentUser.email)||'';
     const ver=(typeof APP_VERSION!=='undefined')?APP_VERSION:'';
-    info.innerHTML=(email?`<div>已登入：<b style="color:var(--text);font-weight:600">${email}</div>`:'')+`<div style="margin-top:4px;line-height:1.5">版本：${ver}</div>`;
+    info.innerHTML=(email?`<div>已登入：<b style="color:var(--text);font-weight:600">${email}</div>`:'')+`<div style="margin-top:4px;line-height:1.5">版本：${ver}</div><div id="cloudUsage" style="margin-top:6px;line-height:1.5">雲端用量：計算中…</div>`;
+    renderCloudUsage();
   }
   document.getElementById('urlSettingsBg').style.display = 'flex';
+}
+// 雲端用量：主文件 data（gzip 後）佔 1 MB 上限的多少；沒存過就現算一次
+async function renderCloudUsage(){
+  const el=document.getElementById('cloudUsage'); if(!el) return;
+  try{
+    let b=_cloudBytes;
+    if(!b){ const packed=await packData(JSON.stringify({clients, nextId})); b={data:packed.length, memos:0, at:''}; }
+    const kb=Math.round(b.data/1024), pct=Math.round(b.data/1048576*100);
+    const color=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--green)';
+    el.innerHTML=`雲端主文件：<b style="color:${color}">${kb} KB</b>／上限 1,024 KB（${pct}%）　客戶 ${clients.length} 筆`
+      +`<div style="height:4px;border-radius:99px;background:var(--s2);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pct)}%;background:${color}"></div></div>`
+      +(pct>=80?'<div style="color:var(--red);margin-top:4px">接近上限：請先下載備份檔，並清掉無效空資料。</div>':'');
+  }catch(e){ el.textContent='雲端用量：無法計算'; }
 }
 // 外觀三選一（淺色／深色／跟隨系統）
 function renderThemePicker(){
@@ -1882,7 +1911,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t134 (信用狀況的「其他民間借款」改成「其他借款」可複選:無/小額/民間/當鋪／代書/企業貸款/汽機車貸款/不詳) 2026.10.14';
+const APP_VERSION = '🧪測試版 t135 (自訂文件清單改成跟著帳號同步,手機加的電腦也看得到;⚙️設定「帳號」區顯示雲端主文件用量(KB/1,024KB 與百分比);手機上方統計卡縮小,四張一排放得下) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3980,10 +4009,10 @@ function updateStats(){
   // 統計卡可點：點了就只看那一類（跟分類疊加），再點一次取消。總計數字改放在分類下拉的「全部 (N)」
   const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
-    <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span>⚠️ 逾期</span></div>
-    <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span>📞 今日</span></div>
-    <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span>📅 本週</span></div>
-    <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span>📋 未排程</span></div>
+    <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span><i class="spi">⚠️ </i>逾期</span></div>
+    <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span><i class="spi">📞 </i>今日</span></div>
+    <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span><i class="spi">📅 </i>本週</span></div>
+    <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span><i class="spi">📋 </i>未排程</span></div>
   `;
   // ☰ 上的紅點：待審收件匣有東西
   const dot=document.getElementById('menuDot'), ib=document.getElementById('inboxBtn');
@@ -5196,7 +5225,10 @@ function nextDocState(cur){ return cur==='got' ? 'skip' : cur==='skip' ? '' : 'g
 const CUSTOM_DOC_KEY='crm_custom_docs';
 let customDocs=[];
 try{ customDocs=JSON.parse(localStorage.getItem(CUSTOM_DOC_KEY)||'[]'); if(!Array.isArray(customDocs)) customDocs=[]; }catch(e){ customDocs=[]; }
-function saveCustomDocs(){ try{ localStorage.setItem(CUSTOM_DOC_KEY, JSON.stringify(customDocs)); }catch(e){} }
+function saveCustomDocs(){
+  try{ localStorage.setItem(CUSTOM_DOC_KEY, JSON.stringify(customDocs)); }catch(e){}
+  if(currentUser && db){ db.collection('users').doc(currentUser.uid).set({customDocs: JSON.stringify(customDocs)},{merge:true}).catch(e=>console.error('customDocs sync:',e)); }
+}
 function allDocNames(){
   const extra=Object.keys(tempDocs||{}).filter(k=>!DOC_LIST.includes(k)&&!customDocs.includes(k));
   return [...DOC_LIST, ...customDocs, ...extra];
