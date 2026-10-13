@@ -50,6 +50,23 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .hbtn-sync{background:var(--s2);color:var(--t2)}
 .hbtn-company{background:var(--gbg);color:var(--green)}
 .hbtn-xls{background:var(--abg);color:var(--accent)}
+/* ── 頂部兩排 ── */
+.topbar{display:flex;align-items:center;gap:6px;padding:10px 12px 8px;background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar .stats-bar{flex:1;justify-content:flex-start;padding:0;margin:0;min-width:0}
+.top-actions{display:flex;gap:2px;flex-shrink:0;align-items:center}
+.icon-btn{position:relative;background:var(--s2);border:none;border-radius:9px;width:38px;height:38px;font-size:18px;cursor:pointer;color:var(--t2);font-family:inherit;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.icon-btn:hover{filter:brightness(.95)}
+.menu-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--red)}
+.menu-panel{position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:210px;flex-direction:column;gap:2px}
+.menu-sep{height:1px;background:var(--border);margin:4px 6px}
+.menu-foot{display:flex;flex-direction:column;gap:2px;padding:8px 10px 4px;font-size:10px;color:var(--t3);word-break:break-all}
+.pill-select{background:var(--s2);border:none;border-radius:var(--rs);padding:9px 8px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0;max-width:150px;min-height:38px}
+/* 精簡卡片：點到的那張才展開成完整 */
+.csub{font-size:12px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csub .cphone{display:inline;margin:0}
+.cpin{font-size:12px;margin-left:4px;opacity:.8}
+.ccard.cc-compact .cmeta{margin-bottom:0}
+.ccard.cc-compact .clog{margin-top:6px}
 /* 匯入下拉選單的項目 */
 .imenu-item{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap}
 .imenu-item:hover{background:var(--s2)}
@@ -81,11 +98,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 #hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 @media(min-width:900px){ #hbtnToggle{display:none} }
 @media(max-width:899px){
-  /* 手機首屏瘦身：標題區縮小、帳號信箱收進 ⚙️ 設定 */
-  .header{padding:10px 14px 8px}
-  .header h1{font-size:18px}
-  .header-top{margin-bottom:6px}
-  #loginUserLabel{display:none}
+  /* 手機：頂部只剩兩排（統計卡＋☰、搜尋列） */
+  .topbar{padding:8px 10px 6px}
   /* 統計卡縮成一條細的（橫向小字，省高度） */
   .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
   .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
@@ -900,7 +914,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
-  renderThemePicker();
+  renderThemePicker(); renderCardModePicker();
   // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
   const info=document.getElementById('settingsAccountInfo');
   if(info){
@@ -941,57 +955,46 @@ async function applyUrlSettings() {
 
 <div class="app" id="mainApp" style="display:none">
   <div class="sticky-top">
-  <div class="header">
-    <div class="header-top">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <h1>📋 客戶追蹤系統</h1>
-        <span id="loginUserLabel" style="font-size:11px;color:var(--t3);letter-spacing:0;font-weight:400"></span>
-        <span id="appVersion" style="font-size:10px;color:var(--t3);opacity:.7;letter-spacing:0;font-weight:400"></span>
-      </div>
-      <div style="display:flex;gap:2px">
-        <button class="memo-mobile-btn" onclick="openCalModal()" title="行事曆">📅</button>
-        <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
-      </div>
+  <!-- 第一排：統計卡（可點＝時間篩選）＋ 右側 行事曆/備忘錄(手機) 與 ☰ 選單 -->
+  <div class="topbar">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="top-actions">
+      <button class="memo-mobile-btn" onclick="openCalModal()" title="行事曆">📅</button>
+      <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
+      <button class="icon-btn" id="mainMenuBtn" onclick="toggleMainMenu(event)" title="選單：匯入／待審／黑名單／設定">☰<span id="menuDot" class="menu-dot" style="display:none"></span></button>
     </div>
-    <button id="hbtnToggle" onclick="toggleHbtns()">⚙️ 功能選單 ▾</button>
-    <div class="hbtnsBar" id="hbtnsBar">
-    <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
-    <div class="hbtns" id="hbtnsRow" style="flex:1">
-      <button class="hbtn hbtn-company" id="importMenuBtn" onclick="toggleImportMenu(event)" title="總檔更新／XLS／謄本／AI 匯入">📥 匯入 ▾</button>
-      <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📨 待審<span id="inboxCount"></span></button>
-      <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
-      <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="設定／備份／登出">⚙️ 設定</button>
-      <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列顯示設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">👁</button>
-    </div>
-    <button class="tab-arrow" onclick="scrollHbtns(150)">&#8250;</button>
-    </div>
-    <!-- 卡片熱度快改小選單 -->
-    <div id="heatPick" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:180px;flex-direction:column;gap:2px"></div>
-    <!-- 匯入下拉選單（四種匯入收在一起，工具列才不會一排十幾顆） -->
-    <div id="importMenu" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:176px;flex-direction:column;gap:2px">
-      <button class="imenu-item" id="companyBtn" onclick="closeImportMenu();syncFromCompany()">🏢 從總檔更新</button>
-      <button class="imenu-item" id="xlsBtn" onclick="closeImportMenu();openImport()">📥 XLS 匯入</button>
-      <button class="imenu-item" id="tenBtn" onclick="closeImportMenu();openTenModal()">📄 謄本匯入</button>
-      <button class="imenu-item" id="aiBtn" onclick="closeImportMenu();openAiImport()">🤖 AI 匯入</button>
-    </div>
-    <!-- 工具列顯示設定面板 -->
-    <div id="hbtnSettingsPanel" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:190px">
+  </div>
+  <!-- ☰ 選單：一天用不到幾次的功能全收這裡（原本一整排工具列） -->
+  <div id="mainMenu" class="menu-panel" style="display:none">
+    <button class="imenu-item" id="companyBtn" onclick="closeMainMenu();syncFromCompany()">🏢 從總檔更新</button>
+    <button class="imenu-item" id="xlsBtn" onclick="closeMainMenu();openImport()">📥 XLS 匯入</button>
+    <button class="imenu-item" id="tenBtn" onclick="closeMainMenu();openTenModal()">📄 謄本匯入</button>
+    <button class="imenu-item" id="aiBtn" onclick="closeMainMenu();openAiImport()">🤖 AI 匯入</button>
+    <div class="menu-sep"></div>
+    <button class="imenu-item" id="inboxBtn" style="display:none;color:var(--red)" onclick="closeMainMenu();openInbox()">📨 待審<span id="inboxCount"></span></button>
+    <button class="imenu-item" id="blBtn" onclick="closeMainMenu();openBlacklist()">🚫 黑名單<span id="blCount"></span></button>
+    <div class="menu-sep"></div>
+    <button class="imenu-item" id="urlSettingsBtn" onclick="closeMainMenu();openUrlSettings()">⚙️ 設定</button>
+    <button class="imenu-item" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="選單項目顯示設定">👁 選單項目顯示</button>
+    <div class="menu-foot"><span id="loginUserLabel"></span><span id="appVersion"></span></div>
+  </div>
+  <div id="heatPick" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:180px;flex-direction:column;gap:2px"></div>
+  <div id="hbtnSettingsPanel" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:190px">
       <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:11px;letter-spacing:.3px">⚙️ 工具列顯示設定</div>
       <div id="hbtnSettingsList"></div>
     </div>
-    <div class="stats-bar" id="statsBar"></div>
-  </div>
-  <div class="tabs-wrap">
-    <button class="tab-arrow tab-arrow-left" onclick="scrollTabs(-150)">&#8249;</button>
-    <div class="tabs" id="tabsWrap"></div>
-    <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
-  </div>
-  <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
+  <!-- 第二排：搜尋 ＋ 分類下拉 ＋ 調整(排序/縣市/批次) ＋ 選取 -->
+  <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:nowrap">
     <div style="position:relative;flex:1;min-width:120px;display:flex">
-      <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){this.blur();}else if(event.key==='Escape'){clearSearch();}" style="flex:1;min-width:0;padding-right:34px"/>
+      <input class="search-input" id="searchInput" placeholder="🔍 搜尋" oninput="onSearchInput()" onfocus="onSearchFocus(true)" onblur="onSearchFocus(false)" title="搜尋流水編號、姓名、電話、身分證、地址、建號" onkeydown="if(event.key==='Enter'){this.blur();}else if(event.key==='Escape'){clearSearch();}" style="flex:1;min-width:0;padding-right:34px"/>
       <button id="searchClear" type="button" onclick="clearSearch()" title="清空搜尋" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;border-radius:50%;background:var(--border);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;line-height:1">✕</button>
     </div>
-    <select id="sortSelect" onchange="saveViewState();render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
+    <select id="tabSelect" class="pill-select" onchange="setTab(this.value)" title="分類"></select>
+    <div style="position:relative;flex-shrink:0">
+      <button id="cityFilterBtn" onclick="toggleCityFilter()" title="排序／縣市／批次" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;min-height:38px">⇅<span class="listtool-txt"> 調整</span><span id="cityFilterCount"></span></button>
+      <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:60;max-height:70vh;overflow-y:auto">
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">排序</div>
+        <select id="sortSelect" onchange="saveViewState();render()" style="width:100%;box-sizing:border-box;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
       <option value="remind">📅 提醒日期</option>
       <option value="deadline">⏰ 到期最近</option>
       <option value="heat">🔥 熱度</option>
@@ -1000,9 +1003,7 @@ async function applyUrlSettings() {
       <option value="phone" title="本人電話→只有債電→完全沒電話">📞 有電話優先</option>
       <option value="lastlog">💬 最後聯絡</option>
     </select>
-    <div style="position:relative;flex-shrink:0">
-      <button id="cityFilterBtn" onclick="toggleCityFilter()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap">🗺️ 篩選 <span id="cityFilterCount"></span></button>
-      <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:var(--sh);z-index:60;max-height:320px;overflow-y:auto">
+        <div style="height:1px;background:var(--border);margin:12px 0 10px"></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:10px">
           <span style="font-size:12px;font-weight:600;color:var(--t2)">選擇縣市</span>
           <div style="display:flex;gap:8px">
@@ -1019,7 +1020,6 @@ async function applyUrlSettings() {
         <div style="margin-top:10px;font-size:11px;color:var(--t3)">要標記批次：按「☑ 選取」勾人，底部列點「🏷️ 標批次」</div>
       </div>
     </div>
-    <!-- 選取模式入口（原本「📋 名單」另一套勾選已併進來：勾人後底部列有改分類／標批次／匯出／通知單／地圖） -->
     <button id="selectModeBtn" onclick="toggleSelectMode()" title="勾選客戶→改分類／標批次／匯出公司格式／通知單／地圖名單" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">☑ <span class="listtool-txt">選取</span></button>
   </div>
   </div><!-- /sticky-top -->
@@ -1484,6 +1484,8 @@ async function applyUrlSettings() {
     </div>
     <!-- 外觀：淺色／深色／跟隨系統（只存本機） -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🗂️ 卡片顯示</div>
+      <div id="cardModePicker" style="display:flex;gap:6px;margin-bottom:14px"></div>
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🌓 外觀</div>
       <div id="themePicker" style="display:flex;gap:6px"></div>
       <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
@@ -1777,7 +1779,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t120 (自動儲存改成停0.5秒就存;面板標題旁會顯示「儲存中…」→「✓ 已自動儲存 時:分」,點快速提醒也看得到;底部新增「↩ 還原」鈕,誤改可整筆退回剛開啟時的狀態(含已自動存的);儲存鈕依情況改字:新客戶「建立客戶」、手機「存並關閉」、電腦「儲存」) 2026.10.13';
+const APP_VERSION = '🧪測試版 t121 (版面精簡:頂部從5排減成2排(統計卡+☰選單、搜尋+分類下拉+調整);卡片預設只顯示姓名/電話地址/分類/提醒/債務/最後聯絡,點到的那張才展開完整;⚙️設定可切「一律完整」;最近看過只在點搜尋框時出現) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2385,9 +2387,9 @@ async function syncFromCompany() {
   if(!COMPANY_URL){ showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址'); return; }
   const btn=document.getElementById('companyBtn');
   // 「從總檔更新」現在收在匯入下拉選單裡，進度要同時顯示在工具列的「📥 匯入」主鈕上，使用者才看得到
-  const mainBtn=document.getElementById('importMenuBtn');
-  const setTxt=t=>{ btn.textContent=t; if(mainBtn) mainBtn.textContent=t; };
-  const done=()=>{ btn.textContent='🏢 從總檔更新'; btn.disabled=false; if(mainBtn){ mainBtn.textContent='📥 匯入 ▾'; mainBtn.disabled=false; } };
+  const mainBtn=document.getElementById('mainMenuBtn');
+  const setTxt=t=>{ btn.textContent=t; if(mainBtn){ mainBtn.textContent=t; mainBtn.style.width='auto'; mainBtn.style.fontSize='12px'; mainBtn.style.padding='0 10px'; } };
+  const done=()=>{ btn.textContent='🏢 從總檔更新'; btn.disabled=false; if(mainBtn){ mainBtn.innerHTML='☰<span id="menuDot" class="menu-dot" style="display:none"></span>'; mainBtn.style.width=''; mainBtn.style.fontSize=''; mainBtn.style.padding=''; mainBtn.disabled=false; updateStats(); } };
   btn.disabled=true; if(mainBtn) mainBtn.disabled=true;
 
   // 倒數計時顯示（GAS 冷啟動可能需要 20~40 秒）
@@ -3683,37 +3685,36 @@ function processCompanyData(raw) {
 
 // ── Toolbar visibility settings ───────────────────────────
 const BTN_DEFS=[
-  {id:'importMenuBtn', label:'📥 匯入（下拉選單）'},
-  {id:'companyBtn',    label:'　↳ 🏢 從總檔更新'},
-  {id:'xlsBtn',        label:'　↳ 📥 XLS 匯入'},
-  {id:'tenBtn',        label:'　↳ 📄 謄本匯入'},
-  {id:'aiBtn',         label:'　↳ 🤖 AI 匯入'},
+  {id:'companyBtn',    label:'🏢 從總檔更新'},
+  {id:'xlsBtn',        label:'📥 XLS 匯入'},
+  {id:'tenBtn',        label:'📄 謄本匯入'},
+  {id:'aiBtn',         label:'🤖 AI 匯入'},
   {id:'blBtn',         label:'🚫 黑名單'},
-  {id:'selectModeBtn', label:'☑ 選取'},
+  {id:'selectModeBtn', label:'☑ 選取（搜尋列）'},
   {id:'urlSettingsBtn',label:'⚙️ 設定'},
 ];
 // 「清除」「登出」已從工具列搬進 ⚙️ 設定視窗底部，不再屬於工具列顯示設定
 
-// ── 匯入下拉選單 ─────────────────────────────────────────
-let importMenuOpen=false;
-function toggleImportMenu(e){
+// ── ☰ 主選單（匯入／待審／黑名單／設定）────────────────────
+let mainMenuOpen=false;
+function toggleMainMenu(e){
   if(e) e.stopPropagation();
-  importMenuOpen=!importMenuOpen;
-  const panel=document.getElementById('importMenu');
-  if(!importMenuOpen){ panel.style.display='none'; return; }
+  mainMenuOpen=!mainMenuOpen;
+  const panel=document.getElementById('mainMenu');
+  if(!mainMenuOpen){ panel.style.display='none'; return; }
   panel.style.display='flex';
-  const r=document.getElementById('importMenuBtn').getBoundingClientRect();
+  const r=document.getElementById('mainMenuBtn').getBoundingClientRect();
   panel.style.top=(r.bottom+6)+'px';
-  // 貼齊按鈕左緣；太靠右會超出螢幕就往左推
-  const w=panel.offsetWidth||176;
-  panel.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+  const w=panel.offsetWidth||200;
+  panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';   // 靠右對齊 ☰
 }
-function closeImportMenu(){
-  importMenuOpen=false;
-  const p=document.getElementById('importMenu'); if(p) p.style.display='none';
+function closeMainMenu(){
+  mainMenuOpen=false;
+  const p=document.getElementById('mainMenu'); if(p) p.style.display='none';
 }
+function closeImportMenu(){ closeMainMenu(); }   // 相容舊呼叫
 document.addEventListener('click',e=>{
-  if(importMenuOpen&&!document.getElementById('importMenu').contains(e.target)) closeImportMenu();
+  if(mainMenuOpen&&!document.getElementById('mainMenu').contains(e.target)) closeMainMenu();
 });
 const HBTN_VIS_KEY='hbtn_vis_fb_v1';
 let hbtnVis={};
@@ -3870,20 +3871,17 @@ function updateStats(){
   const dispL = showFullTotal ? '👥 含無效' : '👥 總計';
 
   const todayN = clients.filter(c=>c.remind===TODAY).length;
-  // 統計卡可點：點了就只看那一類（跟熱度分頁疊加），再點一次取消；「總計」＝清掉時間篩選
+  // 統計卡可點：點了就只看那一類（跟分類疊加），再點一次取消。總計數字改放在分類下拉的「全部 (N)」
   const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
     <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span>⚠️ 逾期</span></div>
     <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span>📞 今日</span></div>
     <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span>📅 本週</span></div>
     <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span>📋 未排程</span></div>
-    <div class="spill" id="totalSpill" style="user-select:none" title="點一下取消時間篩選"
-      onmouseenter="totalHover(this,${fullTotal})"
-      onmouseleave="totalLeave(this,${activeTotal})"
-      onclick="totalClick();if(curTime)setTimeFilter(curTime)">
-      <b>${dispN}</b><span>${dispL}</span>
-    </div>
   `;
+  // ☰ 上的紅點：待審收件匣有東西
+  const dot=document.getElementById('menuDot'), ib=document.getElementById('inboxBtn');
+  if(dot) dot.style.display=(ib && ib.style.display!=='none')?'':'none';
   // 瀏覽器標題顯示逾期數
   document.title = over > 0 ? `(${over}) 借款追蹤系統` : '借款追蹤系統';
   // PC 空白統計
@@ -4064,13 +4062,16 @@ function updateTabs(){
     '已簽約': clients.filter(c=>c.heat==='已簽約').length,
     '無效案件': clients.filter(c=>c.heat==='無效案件').length,
   };
-  // 分頁只放「熱度」一個維度；今日／逾期等時間條件改由上方統計卡點選（可與熱度分頁疊加）
+  // 分類改成搜尋框旁的下拉（原本一整排分頁）；今日／逾期等時間條件由上方統計卡點選（可疊加）
   if(curTab==='today'||curTab==='over') curTab='all';
   const tabs=[{k:'all',l:'全部'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
-  document.getElementById('tabsWrap').innerHTML=tabs.map(t=>{
-    const n=cnt[t.k];
-    return`<button class="tbtn ${curTab===t.k?'active':''}" onclick="setTab('${t.k}')">${t.l}${n?`<span style="font-size:10px;opacity:.65;margin-left:2px">(${n})</span>`:''}</button>`;
-  }).join('');
+  const sel=document.getElementById('tabSelect');
+  if(sel){
+    sel.innerHTML=tabs.map(t=>`<option value="${t.k}">${t.l}${cnt[t.k]?` (${cnt[t.k]})`:''}</option>`).join('');
+    sel.value=curTab;
+  }
+  const tw=document.getElementById('tabsWrap');   // 舊的分頁列（已移除）；保留相容
+  if(tw) tw.innerHTML='';
 }
 function scrollTabs(dx) {
   const tabs = document.getElementById('tabsWrap');
@@ -4138,20 +4139,46 @@ try{ _recent=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); if(!Array.isArr
 function pushRecent(id){
   _recent=[id, ..._recent.filter(x=>x!==id)].slice(0,5);
   try{ localStorage.setItem(RECENT_KEY, JSON.stringify(_recent)); }catch(e){}
-  // 立刻更新清單上方那排，不等下一次整頁重畫
+  refreshRecentRow();
+}
+// 最近看過那排只在搜尋框聚焦時出現（平常不占位）
+let _searchFocus=false, _searchBlurTimer=null;
+function onSearchFocus(on){
+  clearTimeout(_searchBlurTimer);
+  if(on){ _searchFocus=true; refreshRecentRow(); }
+  else { _searchBlurTimer=setTimeout(()=>{ _searchFocus=false; refreshRecentRow(); },250); }   // 延遲，讓點 chip 來得及觸發
+}
+function refreshRecentRow(){
   const wrap=document.getElementById('listWrap'); if(!wrap) return;
-  const q=(document.getElementById('searchInput')||{}).value||'';
-  const html=recentRowHtml(q.toLowerCase());
+  const q=((document.getElementById('searchInput')||{}).value||'').toLowerCase();
+  const html=recentRowHtml(q);
   const old=wrap.querySelector('.recent-row');
   if(old){ if(html) old.outerHTML=html; else old.remove(); }
   else if(html) wrap.insertAdjacentHTML('afterbegin', html);
 }
 function recentRowHtml(q){
-  if(q) return '';   // 搜尋中不顯示，讓位給結果
+  if(q || !_searchFocus) return '';   // 搜尋中／沒在搜尋框時不顯示
   const items=_recent.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
   if(!items.length) return '';
   return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="openEdit(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
 }
+// ── 卡片顯示模式：精簡（預設；點到的那張展開）／一律完整。存本機 ──
+const CARD_FULL_KEY='crm_card_full';
+let cardFullMode=false;
+try{ cardFullMode=localStorage.getItem(CARD_FULL_KEY)==='1'; }catch(e){}
+function setCardMode(full){
+  cardFullMode=!!full;
+  try{ localStorage.setItem(CARD_FULL_KEY, cardFullMode?'1':'0'); }catch(e){}
+  renderCardModePicker(); render();
+}
+function renderCardModePicker(){
+  const el=document.getElementById('cardModePicker'); if(!el) return;
+  el.innerHTML=[[false,'🗂️ 精簡（點到才展開）'],[true,'📋 一律完整']].map(([k,l])=>
+    `<button onclick="setCardMode(${k})" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cardFullMode===k?'var(--accent)':'var(--border)'};background:${cardFullMode===k?'var(--abg)':'var(--s2)'};color:${cardFullMode===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
+}
+// 地址去掉縣市（卡片上只放區以後；完整版仍顯示全址）
+function shortAddr(a){ return String(a||'').replace(/^[一-龥]{2,3}[市縣]/,''); }
 // ── 清單分段載入：先畫 60 張，捲到底再補，開頁與切分頁才不會卡 ──
 const LIST_PAGE=60;
 let _listLimit=LIST_PAGE, _listKey='';
@@ -4715,6 +4742,27 @@ function render(){
     const heatCls=hCls[c.heat]||'';
     const isSel=selectMode&&selectedIds.has(c.id);
     const cardClick=selectMode?`toggleSelect(${c.id},event)`:`openEdit(${c.id})`;
+    const full = cardFullMode || c.id===editId;   // 精簡模式：只有點到的那張（editId）展開成完整
+    if(!full){
+      const lt=clientLoanTotals(c);
+      const tot=(lt.bank||0)+(lt.legal||0)+(lt.priv||0);
+      const fmt=n=>Math.round(n).toLocaleString('zh-TW');
+      return`<div class="ccard cc-compact ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}" data-cid="${c.id}" onclick="${cardClick}">
+      <div class="ctop">
+        ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
+        <div style="flex:1;min-width:0">
+          <div class="cname">${hl(dispName(c),q)}${c.pinned?'<span class="cpin">📌</span>':''}</div>
+          <div class="csub">${c.phone?`<span class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}">${hl(c.phone,q)}</span>`:''}${c.phone&&c.addr?' · ':''}${c.addr?hl(shortAddr(c.addr),q):''}</div>
+        </div>
+        <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
+      </div>
+      ${(c.remind||tot)?`<div class="cmeta" style="margin-top:6px">
+        ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}
+        ${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}
+      </div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+    </div>`;
+    }
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
@@ -5123,6 +5171,7 @@ function openEdit(id){
   pushRecent(id);
   clearTimeout(_draftSaveTimer);
   takeSnapshot(id);
+  if(!cardFullMode) render();   // 精簡模式：讓這張展開、上一張收回
   setSaveStatus('','');
   document.getElementById('btnSave').textContent=saveBtnLabel();
   document.getElementById('sheetTitle').textContent=dispName(c);
