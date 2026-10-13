@@ -7,6 +7,7 @@ function ext(n){const s=html.indexOf('function '+n+'(');if(s<0)throw new Error('
 // 全域/stub
 const _t=new Date(); var TODAY=`${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
 var clients=[]; var nextId=1;
+var EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','marital','spouse','loanWant','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
 function saveLocal(){} function render(){} function pushToSheet(){return Promise.resolve();} function closeUrlSettings(){} function showToast(){}
 function calEsc(s){return String(s==null?'':s);}
 
@@ -127,5 +128,14 @@ ok(lt2.bank===300&&lt2.legal===30&&lt2.priv===50,'clientLoanTotals 多筆不動�
 
 eval(ext('nextDocState'));
 ok(nextDocState('')==='got'&&nextDocState('got')==='skip'&&nextDocState('skip')==='','文件清單三態循環 未收→已收→不需要→未收');
+// t127：合併時新欄位不被洗掉
+{
+  const keep={id:1,name:'甲',phone:'0912',loanWant:'300',docs:{'身分證':'got'},properties:[],logs:[]};
+  const drop={id:2,name:'甲',phone:'',company:'永利旺',loanWant:'999',docs:{'權狀':'skip','身分證':'skip'},properties:[],logs:[]};
+  foldClientInto(keep,drop);
+  ok(keep.loanWant==='300','合併：主這邊已填的想借金額不被覆蓋');
+  ok(keep.company==='永利旺','合併：主這邊空白的公司名稱由副補上');
+  ok(keep.docs['身分證']==='got'&&keep.docs['權狀']==='skip','合併：文件清單聯集、主已標的不動');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
