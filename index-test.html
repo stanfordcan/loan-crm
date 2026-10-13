@@ -246,9 +246,19 @@ input[type=number]{min-width:0}
 .litem{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px}
 .litem::before{content:'';position:absolute;left:-17px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface)}
 .ldate{color:var(--accent)}
+/* 選中的色籤：明確給底色與文字色（.heat-chip 的白底定義在後面，單靠 .hx 等會被蓋掉） */
+.heat-chip.on{font-weight:700}
+.heat-chip.on.hp{background:var(--s2);color:var(--t2);border-color:var(--border)}
+.heat-chip.on.hw{background:var(--obg);color:var(--orange)}
+.heat-chip.on.hc{background:var(--abg);color:var(--accent)}
+.heat-chip.on.hx{background:var(--pbg);color:var(--purple)}
+.heat-chip.on.hd{background:var(--gbg);color:var(--green)}
+.heat-chip.on.hf{background:var(--s2);color:var(--t3);border-color:var(--border)}
 @media(min-width:900px){
-  .pc-container #sp0>.fsec{break-inside:avoid;-webkit-column-break-inside:avoid}
-  .pc-container .fsec-wide,.pc-container .fsec-remind{column-span:all}
+  /* 基本頁改用網格：兩張卡等高、提醒與備註卡跨整列；不用報紙式分欄（高度不齊、邊距會被吃掉） */
+  .pc-container #sp0{column-count:auto;column-gap:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}
+  .pc-container #sp0>.fsec{margin-bottom:0;break-inside:auto}
+  .pc-container .fsec-wide,.pc-container .fsec-remind{grid-column:1/-1;column-span:none}
 }
 .add-log{background:var(--s2);border-radius:var(--rs);padding:13px}
 /* 快速提醒按鈕列（基本頁提醒區、聯絡記錄頁） */
@@ -1796,7 +1806,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t124 (程式整理,畫面無變化:清掉舊標題列/工具列/分頁列的殘留程式;回歸測試從45項增加到59項,涵蓋清單篩選、地址縮短、版本短名、債務加總) 2026.10.14';
+const APP_VERSION = '🧪測試版 t125 (修排版:電腦版「基本」「客戶資料」兩張卡等高對齊、提醒卡與上方間距正常;選中的追蹤熱度色籤底色正確顯示) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
