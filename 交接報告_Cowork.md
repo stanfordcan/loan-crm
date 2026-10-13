@@ -12,7 +12,7 @@
 - **線上網址**：GitHub Pages（repo：`stanfordcan/loan-crm`）
   - 正式版：`index.html` → stanfordcan.github.io/loan-crm/
   - 測試版：`index-test.html` → 同網域 /index-test.html
-- **本機 repo**：`C:\Users\USER\OneDrive\桌面\claude\loan-crm\`
+- **本機 repo**：`C:\Users\Stanford\Desktop\環匯公司用\claude\loan-crm\`
 - **架構**：單一 HTML 檔（~5700 行，CSS/JS 全內嵌），無後端伺服器、無框架、無建置流程。
 
 ## 2. 資料流（重要，別弄壞）
@@ -46,7 +46,7 @@
 
 ## 4. 開發環境（Windows 11）
 
-- Python 3.12：`C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe`（PATH 裡的 `python` 是廢 stub，要用全路徑；openpyxl 已裝）
+- Python 3.12：`C:\Users\Stanford\AppData\Local\Programs\Python\Python312\python.exe`（PATH 裡的 `python` 是廢 stub，要用全路徑；openpyxl 已裝）
 - Node v24：可直接 `node`。PowerShell 是 5.1（無 `&&`、UTF-8 檔要 BOM 才能跑 .ps1）。
 - 驗證工具（repo 的 `dev/`）：
   - `check-syntax.js`：抽出內嵌 script 用 vm 編譯，報語法錯。

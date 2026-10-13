@@ -31,4 +31,4 @@
 buildShare 只乘建物坪（土地填已算持分）、共同持分人 bldKeys（建號要帶段）、金額 銀/法÷1.2 民間原值。
 
 ## 環境
-Python 用全路徑 `C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe`（PATH 的 python 是廢 stub）；Node 可直接用；PowerShell 5.1（無 `&&`、.ps1 要 UTF-8 BOM）。
+Python 用全路徑 `C:\Users\Stanford\AppData\Local\Programs\Python\Python312\python.exe`（PATH 的 python 是廢 stub）；Node 可直接用；PowerShell 5.1（無 `&&`、.ps1 要 UTF-8 BOM）。
