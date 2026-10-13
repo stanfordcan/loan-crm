@@ -44,7 +44,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 /* 按鈕放得下就置中；放不下（手機）仍可橫捲，不會像 justify-content:center 那樣把最左邊切掉 */
 .hbtns>:first-child{margin-left:auto}
 .hbtns>:last-child{margin-right:auto}
-.hbtn{border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
+.hbtn{border:none;border-radius:9px;padding:9px 13px;min-height:36px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
 .hbtn:active{transform:scale(.95);opacity:.85}
 .hbtn-sync{background:var(--s2);color:var(--t2)}
@@ -71,6 +71,11 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 #hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
 @media(min-width:900px){ #hbtnToggle{display:none} }
 @media(max-width:899px){
+  /* 手機首屏瘦身：標題區縮小、帳號信箱收進 ⚙️ 設定 */
+  .header{padding:10px 14px 8px}
+  .header h1{font-size:18px}
+  .header-top{margin-bottom:6px}
+  #loginUserLabel{display:none}
   /* 統計卡縮成一條細的（橫向小字，省高度） */
   .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
   .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
@@ -94,7 +99,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .tab-arrow{background:none;border:none;padding:0 6px;font-size:18px;cursor:pointer;color:var(--t3);flex-shrink:0;line-height:1}
 .tab-arrow:hover{color:var(--accent)}
 .tabs::-webkit-scrollbar{display:none}
-.tbtn{flex-shrink:0;padding:9px 12px;font-size:12px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+/* 分頁鈕：手機點得到（高度≥40px），PC 再用 .pc-container 縮回 */
+.tbtn{flex-shrink:0;padding:11px 13px;min-height:40px;font-size:13px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
 .tbtn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .search-wrap{padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
 .search-input{width:100%;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
@@ -108,8 +114,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 /* Pinned card */
 .ccard.pinned{box-shadow:0 2px 14px rgba(245,158,11,.18);outline:1px solid rgba(245,158,11,.35)}
 /* 置頂鈕：手機沒有 hover，所以平常就要看得到（半透明），置頂後全亮；PC 滑過才全亮 */
-.pin-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:4px 5px;line-height:1;opacity:.5;transition:opacity .15s;border-radius:6px}
+.pin-btn{background:none;border:none;cursor:pointer;font-size:15px;min-width:32px;min-height:32px;padding:0 5px;line-height:1;opacity:.5;transition:opacity .15s;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-family:inherit}
 .pin-btn.on{opacity:1}
+.pin-btn.act{opacity:.8}   /* 卡片上的 📅 加行事曆、🔕 清除提醒（原本是兩顆全寬按鈕，佔一整行） */
 @media(hover:hover){.pin-btn:hover{opacity:1;background:var(--s2)}}
 /* 右邊正在看的那位 → 左邊清單這張卡「浮起來」(蓋過置頂的樣式,所以放後面) */
 .ccard{transition:box-shadow .18s,transform .18s}
@@ -158,10 +165,10 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .shandle:active{background:var(--t3)}
 .sheader{padding:13px 18px 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
 .stitle{font-size:16px;font-weight:600}
-.xbtn{background:var(--s2);border:none;border-radius:50%;width:28px;height:28px;font-size:15px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
+.xbtn{background:var(--s2);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
 .stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stabs::-webkit-scrollbar{display:none}
-.stab{flex-shrink:0;padding:9px 14px;font-size:12px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
+.stab{flex-shrink:0;padding:11px 14px;min-height:40px;font-size:13px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
 .stab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .sbody{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px}
 /* Form */
@@ -281,22 +288,24 @@ input[type=number]{min-width:0}
 }
 
 /* ── Dark Mode ────────────────────────────────────────────── */
-@media(prefers-color-scheme:dark){
-  :root{
-    --bg:#12151B;--surface:#1B1F27;--s2:#242932;--border:#333944;
-    --text:#E9ECF2;--t2:#A2AAB8;--t3:#858E9D;
-    --accent:#7BA5F5;--abg:#1B2740;--abd:#2E4166;
-    --red:#F0736B;--rbg:#3A1F1F;--rbd:#5C2E2E;
-    --green:#4FC08D;--gbg:#16302A;--gbd:#24503C;
-    --orange:#DFA245;--obg:#33281A;--obd:#58452A;
-    --purple:#A98BF0;--pbg:#272040;--pbd:#3A2F5C;--pink:#F0709F;
-    --sh:0 2px 14px rgba(0,0,0,.35);
-    --shx:0 10px 26px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4)
-  }
-  .pw-screen{background:#12151B}
-  .pw-box{background:#1B1F27}
-  .pw-input{background:#242932;color:#E9ECF2;border-color:#333944}
+/* 不再直接跟 prefers-color-scheme 走：由 <head> 的小腳本依「⚙️ 設定 → 外觀」(淺色/深色/跟隨系統)
+   決定 html[data-theme]，CSS 只認這個屬性。color-scheme 讓日期選擇器、下拉選單等原生元件一起變色。 */
+:root{color-scheme:light}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12151B;--surface:#1B1F27;--s2:#242932;--border:#333944;
+  --text:#E9ECF2;--t2:#A2AAB8;--t3:#858E9D;
+  --accent:#7BA5F5;--abg:#1B2740;--abd:#2E4166;
+  --red:#F0736B;--rbg:#3A1F1F;--rbd:#5C2E2E;
+  --green:#4FC08D;--gbg:#16302A;--gbd:#24503C;
+  --orange:#DFA245;--obg:#33281A;--obd:#58452A;
+  --purple:#A98BF0;--pbg:#272040;--pbd:#3A2F5C;--pink:#F0709F;
+  --sh:0 2px 14px rgba(0,0,0,.35);
+  --shx:0 10px 26px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.4)
 }
+:root[data-theme="dark"] .pw-screen{background:#12151B}
+:root[data-theme="dark"] .pw-box{background:#1B1F27}
+:root[data-theme="dark"] .pw-input{background:#242932;color:#E9ECF2;border-color:#333944}
 /* ── PC Layout (≥900px) ───────────────────────────────── */
 @media(min-width:900px){
   html,body{height:100%;overflow:hidden}
@@ -318,10 +327,18 @@ input[type=number]{min-width:0}
   .pc-container .stats-bar{flex-wrap:wrap;gap:5px;padding:4px 0}
   .pc-container .spill{font-size:12px;padding:5px 12px}
 
-  /* 卡片間距與內距加大 */
-  .pc-container .list-wrap{padding:14px 18px 30px;gap:10px}
-  .pc-container .ccard{padding:16px 18px;border-radius:12px}
-  .pc-container .cname{font-size:16px}
+  /* PC 整體縮一級：字級以手機為主設計，筆電 125~150% 縮放下會顯得過大 */
+  .pc-container .header{padding:12px 16px 8px}
+  .pc-container .header h1{font-size:18px}
+  .pc-container .header-top{margin-bottom:6px}
+  .pc-container .spill b{font-size:18px}
+  .pc-container .spill span{font-size:10px}
+  .pc-container .tbtn,.pc-container .stab{padding:9px 12px;min-height:34px;font-size:12px}
+  .pc-container .hbtn{min-height:32px}
+  .pc-container .search-input,.pc-container #sortSelect,.pc-container #cityFilterBtn{font-size:13px}
+  .pc-container .list-wrap{padding:12px 16px 30px;gap:9px}
+  .pc-container .ccard{padding:13px 15px;border-radius:12px}
+  .pc-container .cname{font-size:15px}
 
   /* 右側面板：編輯表單 */
   .pc-container .sbg{
@@ -372,6 +389,25 @@ input[type=number]{min-width:0}
   .pc-container .ccard .mi-amt{font-size:13.5px}
 }
 </style>
+<script>
+// ── 外觀主題：'light' | 'dark' | 'auto'（跟隨系統）。存在本機，各裝置各自設定 ──
+// 放在 <head> 內、CSS 之後立刻執行，避免先畫淺色再閃成深色。
+const THEME_KEY='crm_theme';
+function getThemeSetting(){ try{ return localStorage.getItem(THEME_KEY)||'auto'; }catch(e){ return 'auto'; } }
+function applyTheme(){
+  const s=getThemeSetting();
+  const sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const dark = s==='dark' || (s==='auto' && sysDark);
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+}
+function setTheme(s){
+  try{ localStorage.setItem(THEME_KEY,s); }catch(e){}
+  applyTheme();
+  if(typeof renderThemePicker==='function') renderThemePicker();
+}
+applyTheme();
+try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(getThemeSetting()==='auto') applyTheme(); }); }catch(e){}
+</script>
 </head>
 <body>
 <!-- Login Screen -->
@@ -829,7 +865,23 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
+  renderThemePicker();
+  // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
+  const info=document.getElementById('settingsAccountInfo');
+  if(info){
+    const email=(currentUser&&currentUser.email)||'';
+    const ver=(typeof APP_VERSION!=='undefined')?APP_VERSION:'';
+    info.innerHTML=(email?`<div>已登入：<b style="color:var(--text);font-weight:600">${email}</div>`:'')+`<div style="margin-top:4px;line-height:1.5">版本：${ver}</div>`;
+  }
   document.getElementById('urlSettingsBg').style.display = 'flex';
+}
+// 外觀三選一（淺色／深色／跟隨系統）
+function renderThemePicker(){
+  const el=document.getElementById('themePicker'); if(!el) return;
+  const cur=getThemeSetting();
+  el.innerHTML=[['light','☀️ 淺色'],['dark','🌙 深色'],['auto','🔄 跟隨系統']].map(([k,l])=>
+    `<button onclick="setTheme('${k}')" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===k?'var(--accent)':'var(--border)'};background:${cur===k?'var(--abg)':'var(--s2)'};color:${cur===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
 }
 function closeUrlSettings() {
   document.getElementById('urlSettingsBg').style.display = 'none';
@@ -905,9 +957,9 @@ async function applyUrlSettings() {
       <option value="deadline">⏰ 到期最近</option>
       <option value="heat">🔥 熱度</option>
       <option value="created">🕐 新增時間</option>
-      <option value="addr">📍 地址縣市</option>
-      <option value="phone">📞 有電話優先（本人→債電→無）</option>
-      <option value="lastlog">💬 最後聯絡紀錄</option>
+      <option value="addr">📍 縣市</option>
+      <option value="phone" title="本人電話→只有債電→完全沒電話">📞 有電話優先</option>
+      <option value="lastlog">💬 最後聯絡</option>
     </select>
     <div style="position:relative;flex-shrink:0">
       <button id="cityFilterBtn" onclick="toggleCityFilter()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap">🗺️ 篩選 <span id="cityFilterCount"></span></button>
@@ -1344,9 +1396,16 @@ async function applyUrlSettings() {
         <button onclick="cleanupDirtyData()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">🧹 清理髒資料<br><span style="font-size:10px;font-weight:400;opacity:.8">標題列/公式/亂碼地址/備註時間戳</span></button>
       </div>
     </div>
+    <!-- 外觀：淺色／深色／跟隨系統（只存本機） -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🌓 外觀</div>
+      <div id="themePicker" style="display:flex;gap:6px"></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
+    </div>
     <!-- 帳號：登出、清除全部（從工具列搬來，危險動作不放在日常按鈕旁邊） -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">👤 帳號</div>
+      <div id="settingsAccountInfo" style="font-size:11px;color:var(--t3);margin-bottom:10px;word-break:break-all"></div>
       <div style="display:flex;gap:8px">
         <button id="logoutBtn" onclick="closeUrlSettings();doLogout()" style="flex:1;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🚪 登出</button>
         <button id="clearBtn" onclick="closeUrlSettings();clearAllData()" style="flex:1;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">🗑️ 清除所有資料</button>
@@ -1632,8 +1691,10 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t112 (工具列「匯入／黑名單／選取／設定」那排按鈕改成置中;手機放不下時照樣可以左右滑) 2026.10.13';
-try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v) v.textContent='版本 '+APP_VERSION; }); }catch(e){}
+const APP_VERSION = '🧪測試版 t113 (畫面整理②:⚙️設定新增「外觀」可選淺色/深色/跟隨系統;手機標題區變矮、版本只顯示tNN、信箱收進設定;卡片上的「加入行事曆」「清除提醒」改成右上角📅🔕小圖示;分頁與按鈕加高到手指好點;排序選單文字縮短;電腦版字級整體縮一級) 2026.10.13';
+// 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
+function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
+try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
 // 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 function localDateStr(d){ const x=d||new Date(); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 const TODAY = localDateStr();
@@ -4423,6 +4484,7 @@ function render(){
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
         <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          ${(!selectMode&&c.remind)?`<button class="pin-btn act" onclick="openCalendar(${c.id});event.stopPropagation()" title="加入行事曆">📅</button>${(st==='over'||st==='today'||st==='soon')?`<button class="pin-btn act" onclick="clearRemind(event,${c.id})" title="清除提醒">🔕</button>`:''}`:''}
           ${selectMode?'':`<button class="pin-btn${c.pinned?' on':''}" onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}">📌</button>`}
           <span class="hbadge ${heatCls}">${c.heat}</span>
         </div>
@@ -4439,10 +4501,6 @@ function render(){
       ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">🔔${c.remindNote}</div>`:''}
       ${c.addr?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍${hl(c.addr||'',q)}</div>`:''}
       ${lastLog?`<div class="clog"><span style="color:var(--t3)">${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
-      ${c.remind?`<div style="display:flex;gap:6px;margin-top:8px">
-        <button onclick="openCalendar(${c.id});event.stopPropagation()" style="flex:1;background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">📅 加入行事曆</button>
-        ${(st==='over'||st==='today'||st==='soon')?`<button onclick="clearRemind(event,${c.id})" style="flex:1;background:var(--s2);color:var(--t2);border:none;border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✕ 清除提醒</button>`:''}
-      </div>`:''}
     </div>`;
   }).join('');
 }
