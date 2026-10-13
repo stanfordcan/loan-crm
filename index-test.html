@@ -1279,13 +1279,12 @@ async function applyUrlSettings() {
         <div class="frow"><label>銀行往來</label>
           <select id="fCreditBank"><option value="">— 未填 —</option><option>正常</option><option>有遲繳</option><option>協商中</option><option>更生／清算</option><option>不詳</option></select>
         </div>
-        <div class="fg2">
-          <div class="frow"><label>其他民間借款</label>
-            <select id="fCreditPrivate"><option value="">— 未填 —</option><option>無</option><option>有小額</option><option>有民間</option><option>有當鋪／代書</option><option>不詳</option></select>
-          </div>
-          <div class="frow"><label>退票</label>
-            <select id="fCreditBounce"><option value="">— 未填 —</option><option>無</option><option>有退票</option><option>不詳</option></select>
-          </div>
+        <div class="frow"><label>其他借款（可複選）</label>
+          <input type="hidden" id="fCreditPrivate"/>
+          <div id="creditChips" class="heat-chips"></div>
+        </div>
+        <div class="frow"><label>退票</label>
+          <select id="fCreditBounce"><option value="">— 未填 —</option><option>無</option><option>有退票</option><option>不詳</option></select>
         </div>
         </div>
         <div class="fsec fsec-wide"><div class="fsec-hd"><span class="fsec-ic">📎</span>文件清單 <span style="font-size:11px;font-weight:400;color:var(--t3);margin-left:4px">點一下：未收 → 已收 → 不需要</span></div>
@@ -1883,7 +1882,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t133 (「主要收入來源」拿掉,改成「薪資型態」(薪轉/現金/混合)＋「報稅」(有/無/不詳)兩個並排;婚姻與配偶並排;舊的薪轉/現金值自動對應;薪轉或有報稅時,收入佐證的建議類型會把存摺/所得清單排前面) 2026.10.14';
+const APP_VERSION = '🧪測試版 t134 (信用狀況的「其他民間借款」改成「其他借款」可複選:無/小額/民間/當鋪／代書/企業貸款/汽機車貸款/不詳) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -5246,6 +5245,9 @@ function fillExtraFields(c){
   renderDocChips();
   updateCloseReasonRow();
   updateSpouseRow();
+  // 舊值「有小額／有民間／有當鋪／代書」去掉「有」再畫色籤
+  { const cp=document.getElementById('fCreditPrivate'); if(cp){ cp.value=String(cp.value||'').split('、').map(x=>x.trim().replace(/^有(?=小額|民間|當鋪)/,'')).filter(Boolean).join('、'); } }
+  renderCreditChips();
 }
 // 配偶欄只在「已婚」時出現；改成非已婚就把配偶值清掉
 function updateSpouseRow(){
@@ -5259,6 +5261,24 @@ function updateSpouseRow(){
 function updateCloseReasonRow(){
   const row=document.getElementById('closeReasonRow'), sel=document.getElementById('fHeat');
   if(row&&sel) row.style.display=(sel.value==='無效案件')?'':'none';
+}
+// ── 其他借款：可複選色籤，值以「、」串接存在隱藏的 #fCreditPrivate（欄位名 creditPrivate 不變）──
+const CREDIT_OPTS=['無','小額','民間','當鋪／代書','企業貸款','汽機車貸款','不詳'];
+function creditSet(){ const v=(document.getElementById('fCreditPrivate')||{}).value||''; return new Set(v.split('、').map(x=>x.trim()).filter(Boolean)); }
+function renderCreditChips(){
+  const el=document.getElementById('creditChips'); if(!el) return;
+  const on=creditSet();
+  el.innerHTML=CREDIT_OPTS.map(o=>`<button type="button" class="heat-chip${on.has(o)?' on hw':''}" onclick="toggleCredit('${o}')">${o}</button>`).join('');
+}
+function toggleCredit(o){
+  const inp=document.getElementById('fCreditPrivate'); if(!inp) return;
+  let on=creditSet();
+  if(on.has(o)) on.delete(o);
+  else if(o==='無'||o==='不詳') on=new Set([o]);          // 無／不詳 是獨占的
+  else { on.delete('無'); on.delete('不詳'); on.add(o); }
+  inp.value=CREDIT_OPTS.filter(x=>on.has(x)).join('、');
+  inp.dispatchEvent(new Event('input',{bubbles:true}));
+  renderCreditChips();
 }
 // ── 追蹤熱度色籤（取代下拉；仍透過隱藏的 #fHeat 存值，其他程式不用改）──
 function renderHeatChips(){
