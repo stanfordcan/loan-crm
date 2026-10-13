@@ -175,6 +175,12 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .shandle:active{background:var(--t3)}
 .sheader{padding:13px 18px 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
 .stitle{font-size:16px;font-weight:600}
+/* 自動儲存狀態（面板標題旁） */
+.save-status{font-size:11px;color:var(--t3);white-space:nowrap;flex-shrink:0;transition:color .2s}
+.save-status.saving{color:var(--orange)}
+.save-status.saved{color:var(--green)}
+.save-status.dirty{color:var(--t3)}
+.bdel:disabled{opacity:.4;cursor:default}
 .xbtn{background:var(--s2);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
 .stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stabs::-webkit-scrollbar{display:none}
@@ -1113,7 +1119,10 @@ async function applyUrlSettings() {
   <div class="sheet">
     <div class="shandle"></div>
     <div class="sheader">
-      <span class="stitle" id="sheetTitle">新增客戶</span>
+      <div style="display:flex;align-items:baseline;gap:10px;min-width:0;flex:1">
+        <span class="stitle" id="sheetTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">新增客戶</span>
+        <span id="saveStatus" class="save-status"></span>
+      </div>
       <button class="xbtn" onclick="closeSheet()">✕</button>
     </div>
     <div class="stabs">
@@ -1365,6 +1374,7 @@ async function applyUrlSettings() {
     </div>
     <div class="sfooter">
       <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()">刪除</button>
+      <button class="bdel" id="btnRevert" style="display:none;background:var(--obg);color:var(--orange)" onclick="revertClient()" title="整筆退回到剛開啟時的狀態（含已自動儲存的部分）">↩ 還原</button>
       <button class="bdel" id="btnBlack" style="display:none;background:var(--text);color:var(--surface)" onclick="blacklistClient()">🚫 加黑名單</button>
       <button class="bdel" id="btnShare" style="display:none;background:var(--abg);color:var(--accent)" onclick="shareClient()">📤 分享</button>
       <button class="bsave" id="btnSave" onclick="saveClient()">儲存</button>
@@ -1767,7 +1777,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t119 (編輯面板的姓名/電話/身分證等所有欄位標記「不要自動填入」,減少 Edge/Chrome 存檔時跳「要不要儲存身分證」的次數;瀏覽器不一定完全聽話,保險起見 Edge 設定裡的「儲存並填入個人資訊」仍建議關閉) 2026.10.13';
+const APP_VERSION = '🧪測試版 t120 (自動儲存改成停0.5秒就存;面板標題旁會顯示「儲存中…」→「✓ 已自動儲存 時:分」,點快速提醒也看得到;底部新增「↩ 還原」鈕,誤改可整筆退回剛開啟時的狀態(含已自動存的);儲存鈕依情況改字:新客戶「建立客戶」、手機「存並關閉」、電腦「儲存」) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4908,7 +4918,7 @@ function handlePhoneClick(e, phone, cid) {
 
 // ── 表單髒標記 ────────────────────────────────────────────
 let formDirty = false;
-document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; scheduleDraftSave(); });
+document.getElementById('sheetBg').addEventListener('input', ()=>{ formDirty=true; scheduleDraftSave(); updateRevertBtn(); });
 
 // ── 瀏覽器推播通知 ────────────────────────────────────────
 function initNotifications() {
@@ -5030,8 +5040,13 @@ function openCalendar(id) {
 function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.max(85, el.scrollHeight)+'px'; }
 
 // ── Sheet modal ───────────────────────────────────────────
+// 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
+function saveBtnLabel(){ return !editId ? '建立客戶' : (window.innerWidth>=900 ? '儲存' : '存並關閉'); }
 function openAdd(){
   editId=null;formDirty=false;
+  _openSnapshot=null; _changedSinceOpen=false; updateRevertBtn();
+  setSaveStatus('dirty','新客戶：填完按「建立客戶」');
+  document.getElementById('btnSave').textContent=saveBtnLabel();
   document.getElementById('dupPanel').style.display='none';
   document.getElementById('sheetTitle').textContent='新增客戶';
   document.getElementById('btnDel').style.display='none';
@@ -5106,6 +5121,10 @@ function openEdit(id){
   const c=clients.find(x=>x.id===id);
   if(!c)return;
   pushRecent(id);
+  clearTimeout(_draftSaveTimer);
+  takeSnapshot(id);
+  setSaveStatus('','');
+  document.getElementById('btnSave').textContent=saveBtnLabel();
   document.getElementById('sheetTitle').textContent=dispName(c);
   renderDupPanel(c);
   document.getElementById('btnDel').style.display='';
@@ -6615,8 +6634,16 @@ async function saveClient(silent){
   ensureSerials();   // 新客戶補上流水編號(客戶ID);既有的不動
   saveLocal();
   formDirty=false;
-  if(silent) return; // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步
-  btn.disabled=false;btn.textContent='儲存';
+  if(silent){
+    // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步；標題旁打勾、清單同步更新、開放「還原」
+    const d=new Date(), pad=n=>String(n).padStart(2,'0');
+    setSaveStatus('saved',`✓ 已自動儲存 ${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    _changedSinceOpen=true; updateRevertBtn();
+    render();
+    return;
+  }
+  btn.disabled=false;btn.textContent=saveBtnLabel();
+  _changedSinceOpen=true;
   if(window.innerWidth>=900){
     // 電腦版（左右兩欄）：儲存後面板留著，不打斷正在看的位置；重新載入同一位、停在同一分頁與捲動位置
     const tabIdx=[...document.querySelectorAll('.stab')].findIndex(b=>b.classList.contains('active'));
@@ -6638,9 +6665,44 @@ async function saveClient(silent){
 // 編輯中自動存草稿（既有客戶，打字停 1.5 秒觸發）
 let _draftSaveTimer = null;
 function scheduleDraftSave(){
-  if(!editId) return;
+  if(!editId){ setSaveStatus('dirty','尚未建立，按「建立客戶」'); return; }
   clearTimeout(_draftSaveTimer);
-  _draftSaveTimer = setTimeout(()=>{ try{ saveClient(true); }catch(e){} }, 1500);
+  setSaveStatus('saving','儲存中…');
+  _draftSaveTimer = setTimeout(()=>{ try{ saveClient(true); }catch(e){ setSaveStatus('dirty','⚠️ 儲存失敗'); } }, 500);   // 停 0.5 秒就自動存
+}
+// 面板標題旁的狀態字：saving=儲存中、saved=✓ 已自動儲存 時:分、dirty=灰字提示
+function setSaveStatus(kind, text){
+  const el=document.getElementById('saveStatus'); if(!el) return;
+  el.className='save-status '+(kind||'');
+  el.textContent=text||'';
+}
+// ── 還原：開啟客戶時先拍一份快照，誤改（含已自動存的）可整筆退回 ──
+let _openSnapshot=null, _changedSinceOpen=false;
+function takeSnapshot(id){
+  const c=clients.find(x=>x.id===id);
+  _openSnapshot = c ? JSON.parse(JSON.stringify(c)) : null;
+  _changedSinceOpen=false;
+  updateRevertBtn();
+}
+function updateRevertBtn(){
+  const b=document.getElementById('btnRevert'); if(!b) return;
+  b.style.display = (editId && _openSnapshot) ? '' : 'none';
+  b.disabled = !(_changedSinceOpen || formDirty);
+}
+async function revertClient(){
+  if(!editId || !_openSnapshot) return;
+  if(!(await uiConfirm(`把「${dispName(_openSnapshot)}」整筆退回到剛開啟時的狀態？\n\n這次開啟後的所有修改（含已自動儲存的）都會取消。`,{ok:'還原',cancel:'不要',danger:true}))) return;
+  const idx=clients.findIndex(x=>x.id===editId); if(idx<0) return;
+  clients[idx]=JSON.parse(JSON.stringify(_openSnapshot));
+  clearTimeout(_draftSaveTimer);
+  saveLocal();
+  const keepTab=[...document.querySelectorAll('.stab')].findIndex(b=>b.classList.contains('active'));
+  openEdit(editId);   // 重新載入表單（會重拍快照）
+  if(keepTab>0){ const nb=document.querySelectorAll('.stab'); if(nb[keepTab]) sSTab(keepTab, nb[keepTab]); }
+  render();
+  setSaveStatus('saved','↩ 已還原');
+  showToast('↩ 已還原到開啟時的狀態');
+  pushToSheet().catch(()=>{});
 }
 
 async function deleteClient(){
