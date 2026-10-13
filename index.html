@@ -36,20 +36,29 @@
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 .sticky-top{position:sticky;top:0;z-index:50;background:var(--surface)}
-.header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 16px 12px}
-.header-top{display:flex;align-items:center;justify-content:center;margin-bottom:10px}
-.header h1{font-size:20px;font-weight:700;letter-spacing:1px;text-align:center}
-.hbtns{display:flex;gap:7px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-bottom:10px;padding:0 2px 2px;justify-content:flex-start}
-.hbtns::-webkit-scrollbar{display:none}
-/* 按鈕放得下就置中；放不下（手機）仍可橫捲，不會像 justify-content:center 那樣把最左邊切掉 */
-.hbtns>:first-child{margin-left:auto}
-.hbtns>:last-child{margin-right:auto}
 .hbtn{border:none;border-radius:9px;padding:9px 13px;min-height:36px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
 .hbtn:active{transform:scale(.95);opacity:.85}
 .hbtn-sync{background:var(--s2);color:var(--t2)}
 .hbtn-company{background:var(--gbg);color:var(--green)}
 .hbtn-xls{background:var(--abg);color:var(--accent)}
+/* ── 頂部兩排 ── */
+.topbar{display:flex;align-items:center;gap:6px;padding:10px 12px 8px;background:var(--surface);border-bottom:1px solid var(--border)}
+.topbar .stats-bar{flex:1;justify-content:flex-start;padding:0;margin:0;min-width:0}
+.top-actions{display:flex;gap:2px;flex-shrink:0;align-items:center}
+.icon-btn{position:relative;background:var(--s2);border:none;border-radius:9px;width:38px;height:38px;font-size:18px;cursor:pointer;color:var(--t2);font-family:inherit;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.icon-btn:hover{filter:brightness(.95)}
+.menu-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--red)}
+.menu-panel{position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:210px;flex-direction:column;gap:2px}
+.menu-sep{height:1px;background:var(--border);margin:4px 6px}
+.menu-foot{display:flex;flex-direction:column;gap:2px;padding:8px 10px 4px;font-size:10px;color:var(--t3);word-break:break-all}
+.pill-select{background:var(--s2);border:none;border-radius:var(--rs);padding:9px 8px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0;max-width:150px;min-height:38px}
+/* 精簡卡片：點到的那張才展開成完整 */
+.csub{font-size:12px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csub .cphone{display:inline;margin:0}
+.cpin{font-size:12px;margin-left:4px;opacity:.8}
+.ccard.cc-compact .cmeta{margin-bottom:0}
+.ccard.cc-compact .clog{margin-top:6px}
 /* 匯入下拉選單的項目 */
 .imenu-item{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap}
 .imenu-item:hover{background:var(--s2)}
@@ -77,15 +86,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .spill.warn b{color:var(--orange)}
 .spill.info b{color:var(--accent)}
 /* 工具列收合（手機）：預設展開的容器 + 收合切換鈕 */
-.hbtnsBar{display:flex;align-items:center;gap:2px}
-#hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
-@media(min-width:900px){ #hbtnToggle{display:none} }
 @media(max-width:899px){
-  /* 手機首屏瘦身：標題區縮小、帳號信箱收進 ⚙️ 設定 */
-  .header{padding:10px 14px 8px}
-  .header h1{font-size:18px}
-  .header-top{margin-bottom:6px}
-  #loginUserLabel{display:none}
+  /* 手機：頂部只剩兩排（統計卡＋☰、搜尋列） */
+  .topbar{padding:8px 10px 6px}
   /* 統計卡縮成一條細的（橫向小字，省高度） */
   .stats-bar{gap:5px;padding:2px 2px 4px;justify-content:flex-start}
   .spill{display:flex;align-items:center;gap:5px;padding:5px 11px;min-width:0}
@@ -95,23 +98,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
   .search-wrap{flex-wrap:nowrap!important}
   .search-input{min-width:0!important}
   .listtool-txt{display:none}
-  /* 排序選單、篩選鈕縮小，省橫向空間 */
-  #sortSelect{padding:7px 4px!important;font-size:12px!important;max-width:120px}
-  #cityFilterBtn{padding:7px 8px!important;font-size:12px!important}
-  /* 上方功能鈕預設收合，點切換鈕才展開 */
-  #hbtnToggle{display:block}
-  .hbtnsBar{display:none}
-  .hbtnsBar.open{display:flex}
 }
-.tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px;display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;flex:1}
-.tabs::-webkit-scrollbar{display:none}
-.tabs-wrap{position:relative;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border)}
-.tab-arrow{background:none;border:none;padding:0 6px;font-size:18px;cursor:pointer;color:var(--t3);flex-shrink:0;line-height:1}
-.tab-arrow:hover{color:var(--accent)}
-.tabs::-webkit-scrollbar{display:none}
-/* 分頁鈕：手機點得到（高度≥40px），PC 再用 .pc-container 縮回 */
-.tbtn{flex-shrink:0;padding:11px 13px;min-height:40px;font-size:13px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
-.tbtn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .search-wrap{padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
 .search-input{width:100%;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
 .list-wrap{flex:1;padding:10px 14px;display:flex;flex-direction:column;gap:8px;padding-bottom:88px}
@@ -181,6 +168,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .save-status.saved{color:var(--green)}
 .save-status.dirty{color:var(--t3)}
 .bdel:disabled{opacity:.4;cursor:default}
+.sfooter .bdel{white-space:nowrap}
+@media(max-width:899px){ .sfooter .ft{display:none} .sfooter .bdel{padding:11px 13px;font-size:15px} }   /* 手機底部鈕只放圖示，才擠得下 */
 .xbtn{background:var(--s2);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-family:inherit}
 .stabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .stabs::-webkit-scrollbar{display:none}
@@ -221,6 +210,65 @@ input[type=number]{min-width:0}
 .ldel{float:right;background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;margin-top:-1px}
 /* Form section headers */
 .form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
+/* ── 編輯面板改版：淡底、白卡分區、白底細框輸入、區段圖示 ── */
+.sbody{background:var(--bg)}
+.fsec{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 6px;margin-bottom:12px;box-shadow:0 1px 2px rgba(20,32,56,.04)}
+.fsec-hd{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--text);margin:0 0 10px}
+.fsec-ic{width:24px;height:24px;border-radius:7px;background:var(--abg);display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.fsec-remind{border-color:var(--obd);background:var(--surface)}
+.fsec-remind .fsec-ic{background:var(--obg)}
+.fsec-remind.rbox{padding:12px 14px 12px}                       /* 蓋掉舊 rbox 的藍底 */
+.rbox{background:var(--surface);border:1px solid var(--obd)}
+/* 輸入框：白底細框，聚焦藍框＋淡藍光暈；readonly（流水編號、可貸空間）維持原本的彩色底 */
+.sbody input:not([readonly]):not([type=checkbox]):not([type=radio]),.sbody select,.sbody textarea{background:var(--surface)!important;border:1px solid var(--border)!important;transition:border-color .12s,box-shadow .12s}
+.sbody input:not([readonly]):focus,.sbody select:focus,.sbody textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px var(--abg)}
+.frow label{color:var(--t3);text-transform:none;letter-spacing:0}
+/* 追蹤熱度：下拉改色籤 */
+#fHeat{display:none}
+.heat-chips{display:flex;flex-wrap:wrap;gap:6px}
+.heat-chip{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit;min-height:32px}
+.heat-chip.on{border-color:transparent}
+/* 標題列：頭像＋副標＋完整度 */
+.sheader{align-items:center;gap:12px}
+.s-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+.s-sub{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-bar{height:3px;border-radius:99px;background:var(--s2);overflow:hidden;max-width:220px;margin-top:2px}
+.s-bar b{display:block;height:100%;background:var(--accent);transition:width .25s}
+/* 不動產／公司資料分頁：卡片樣式對齊 */
+.prop-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;box-shadow:0 1px 2px rgba(20,32,56,.04)}
+.prop-card-hd{font-size:13px;font-weight:700;color:var(--text)}
+.company-info{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.add-log{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.alrow input{background:var(--surface)}
+/* 聯絡記錄：時間軸 */
+.log-list{position:relative;padding-left:18px;gap:10px}
+.log-list::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border);border-radius:2px}
+.litem{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.litem::before{content:'';position:absolute;left:-17px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface)}
+.ldate{color:var(--accent)}
+/* 文件清單三態籤 */
+.doc-chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}
+.doc-chip{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:6px 11px;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit;min-height:32px}
+.doc-chip.got{background:var(--gbg);color:var(--green);border-color:var(--gbd);font-weight:600}
+.doc-chip.skip{background:var(--s2);color:var(--t3);border-style:dashed;text-decoration:line-through}
+.doc-wrap{display:inline-flex;align-items:center;gap:2px}
+.doc-chip.custom{border-color:var(--pbd)}
+.doc-x{background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;padding:4px;line-height:1;font-family:inherit;border-radius:50%}
+.doc-x:hover{color:var(--red);background:var(--rbg)}
+/* 選中的色籤：明確給底色與文字色（.heat-chip 的白底定義在後面，單靠 .hx 等會被蓋掉） */
+.heat-chip.on{font-weight:700}
+.heat-chip.on.hp{background:var(--s2);color:var(--t2);border-color:var(--border)}
+.heat-chip.on.hw{background:var(--obg);color:var(--orange)}
+.heat-chip.on.hc{background:var(--abg);color:var(--accent)}
+.heat-chip.on.hx{background:var(--pbg);color:var(--purple)}
+.heat-chip.on.hd{background:var(--gbg);color:var(--green)}
+.heat-chip.on.hf{background:var(--s2);color:var(--t3);border-color:var(--border)}
+@media(min-width:900px){
+  /* 基本頁改用網格：兩張卡等高、提醒與備註卡跨整列；不用報紙式分欄（高度不齊、邊距會被吃掉） */
+  .pc-container #sp0{column-count:auto;column-gap:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}
+  .pc-container #sp0>.fsec{margin-bottom:0;break-inside:auto}
+  .pc-container .fsec-wide,.pc-container .fsec-remind{grid-column:1/-1;column-span:none}
+}
 .add-log{background:var(--s2);border-radius:var(--rs);padding:13px}
 /* 快速提醒按鈕列（基本頁提醒區、聯絡記錄頁） */
 .qr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -355,21 +403,14 @@ input[type=number]{min-width:0}
     background:var(--bg);
   }
 
-  /* PC 按鈕列 */
-  .pc-container .hbtn{font-size:12px;padding:7px 12px}
 
   /* 統計列可換行 */
   .pc-container .stats-bar{flex-wrap:wrap;gap:5px;padding:4px 0}
   .pc-container .spill{font-size:12px;padding:5px 12px}
 
   /* PC 整體縮一級：字級以手機為主設計，筆電 125~150% 縮放下會顯得過大 */
-  .pc-container .header{padding:12px 16px 8px}
-  .pc-container .header h1{font-size:18px}
-  .pc-container .header-top{margin-bottom:6px}
   .pc-container .spill b{font-size:18px}
   .pc-container .spill span{font-size:10px}
-  .pc-container .tbtn,.pc-container .stab{padding:9px 12px;min-height:34px;font-size:12px}
-  .pc-container .hbtn{min-height:32px}
   .pc-container .search-input,.pc-container #sortSelect,.pc-container #cityFilterBtn{font-size:13px}
   .pc-container .list-wrap{padding:12px 16px 30px;gap:9px}
   .pc-container .ccard{padding:13px 15px;border-radius:12px}
@@ -900,7 +941,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
-  renderThemePicker();
+  renderThemePicker(); renderCardModePicker();
   // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
   const info=document.getElementById('settingsAccountInfo');
   if(info){
@@ -941,57 +982,46 @@ async function applyUrlSettings() {
 
 <div class="app" id="mainApp" style="display:none">
   <div class="sticky-top">
-  <div class="header">
-    <div class="header-top">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <h1>📋 客戶追蹤系統</h1>
-        <span id="loginUserLabel" style="font-size:11px;color:var(--t3);letter-spacing:0;font-weight:400"></span>
-        <span id="appVersion" style="font-size:10px;color:var(--t3);opacity:.7;letter-spacing:0;font-weight:400"></span>
-      </div>
-      <div style="display:flex;gap:2px">
-        <button class="memo-mobile-btn" onclick="openCalModal()" title="行事曆">📅</button>
-        <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
-      </div>
+  <!-- 第一排：統計卡（可點＝時間篩選）＋ 右側 行事曆/備忘錄(手機) 與 ☰ 選單 -->
+  <div class="topbar">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="top-actions">
+      <button class="memo-mobile-btn" onclick="openCalModal()" title="行事曆">📅</button>
+      <button class="memo-mobile-btn" onclick="openMemoModal()" title="備忘錄">📝</button>
+      <button class="icon-btn" id="mainMenuBtn" onclick="toggleMainMenu(event)" title="選單：匯入／待審／黑名單／設定">☰<span id="menuDot" class="menu-dot" style="display:none"></span></button>
     </div>
-    <button id="hbtnToggle" onclick="toggleHbtns()">⚙️ 功能選單 ▾</button>
-    <div class="hbtnsBar" id="hbtnsBar">
-    <button class="tab-arrow" onclick="scrollHbtns(-150)">&#8249;</button>
-    <div class="hbtns" id="hbtnsRow" style="flex:1">
-      <button class="hbtn hbtn-company" id="importMenuBtn" onclick="toggleImportMenu(event)" title="總檔更新／XLS／謄本／AI 匯入">📥 匯入 ▾</button>
-      <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📨 待審<span id="inboxCount"></span></button>
-      <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
-      <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="設定／備份／登出">⚙️ 設定</button>
-      <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列顯示設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">👁</button>
-    </div>
-    <button class="tab-arrow" onclick="scrollHbtns(150)">&#8250;</button>
-    </div>
-    <!-- 卡片熱度快改小選單 -->
-    <div id="heatPick" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:180px;flex-direction:column;gap:2px"></div>
-    <!-- 匯入下拉選單（四種匯入收在一起，工具列才不會一排十幾顆） -->
-    <div id="importMenu" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:176px;flex-direction:column;gap:2px">
-      <button class="imenu-item" id="companyBtn" onclick="closeImportMenu();syncFromCompany()">🏢 從總檔更新</button>
-      <button class="imenu-item" id="xlsBtn" onclick="closeImportMenu();openImport()">📥 XLS 匯入</button>
-      <button class="imenu-item" id="tenBtn" onclick="closeImportMenu();openTenModal()">📄 謄本匯入</button>
-      <button class="imenu-item" id="aiBtn" onclick="closeImportMenu();openAiImport()">🤖 AI 匯入</button>
-    </div>
-    <!-- 工具列顯示設定面板 -->
-    <div id="hbtnSettingsPanel" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:190px">
+  </div>
+  <!-- ☰ 選單：一天用不到幾次的功能全收這裡（原本一整排工具列） -->
+  <div id="mainMenu" class="menu-panel" style="display:none">
+    <button class="imenu-item" id="companyBtn" onclick="closeMainMenu();syncFromCompany()">🏢 從總檔更新</button>
+    <button class="imenu-item" id="xlsBtn" onclick="closeMainMenu();openImport()">📥 XLS 匯入</button>
+    <button class="imenu-item" id="tenBtn" onclick="closeMainMenu();openTenModal()">📄 謄本匯入</button>
+    <button class="imenu-item" id="aiBtn" onclick="closeMainMenu();openAiImport()">🤖 AI 匯入</button>
+    <div class="menu-sep"></div>
+    <button class="imenu-item" id="inboxBtn" style="display:none;color:var(--red)" onclick="closeMainMenu();openInbox()">📨 待審<span id="inboxCount"></span></button>
+    <button class="imenu-item" id="blBtn" onclick="closeMainMenu();openBlacklist()">🚫 黑名單<span id="blCount"></span></button>
+    <div class="menu-sep"></div>
+    <button class="imenu-item" id="urlSettingsBtn" onclick="closeMainMenu();openUrlSettings()">⚙️ 設定</button>
+    <button class="imenu-item" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="選單項目顯示設定">👁 選單項目顯示</button>
+    <div class="menu-foot"><span id="loginUserLabel"></span><span id="appVersion"></span></div>
+  </div>
+  <div id="heatPick" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:180px;flex-direction:column;gap:2px"></div>
+  <div id="hbtnSettingsPanel" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:190px">
       <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:11px;letter-spacing:.3px">⚙️ 工具列顯示設定</div>
       <div id="hbtnSettingsList"></div>
     </div>
-    <div class="stats-bar" id="statsBar"></div>
-  </div>
-  <div class="tabs-wrap">
-    <button class="tab-arrow tab-arrow-left" onclick="scrollTabs(-150)">&#8249;</button>
-    <div class="tabs" id="tabsWrap"></div>
-    <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
-  </div>
-  <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
+  <!-- 第二排：搜尋 ＋ 分類下拉 ＋ 調整(排序/縣市/批次) ＋ 選取 -->
+  <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:nowrap">
     <div style="position:relative;flex:1;min-width:120px;display:flex">
-      <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){this.blur();}else if(event.key==='Escape'){clearSearch();}" style="flex:1;min-width:0;padding-right:34px"/>
+      <input class="search-input" id="searchInput" placeholder="🔍 搜尋" oninput="onSearchInput()" onfocus="onSearchFocus(true)" onblur="onSearchFocus(false)" title="搜尋流水編號、姓名、電話、身分證、地址、建號" onkeydown="if(event.key==='Enter'){this.blur();}else if(event.key==='Escape'){clearSearch();}" style="flex:1;min-width:0;padding-right:34px"/>
       <button id="searchClear" type="button" onclick="clearSearch()" title="清空搜尋" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;border-radius:50%;background:var(--border);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;line-height:1">✕</button>
     </div>
-    <select id="sortSelect" onchange="saveViewState();render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
+    <select id="tabSelect" class="pill-select" onchange="setTab(this.value)" title="分類"></select>
+    <div style="position:relative;flex-shrink:0">
+      <button id="cityFilterBtn" onclick="toggleCityFilter()" title="排序／縣市／批次" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;min-height:38px">⇅<span class="listtool-txt"> 調整</span><span id="cityFilterCount"></span></button>
+      <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:60;max-height:70vh;overflow-y:auto">
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">排序</div>
+        <select id="sortSelect" onchange="saveViewState();render()" style="width:100%;box-sizing:border-box;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
       <option value="remind">📅 提醒日期</option>
       <option value="deadline">⏰ 到期最近</option>
       <option value="heat">🔥 熱度</option>
@@ -1000,9 +1030,7 @@ async function applyUrlSettings() {
       <option value="phone" title="本人電話→只有債電→完全沒電話">📞 有電話優先</option>
       <option value="lastlog">💬 最後聯絡</option>
     </select>
-    <div style="position:relative;flex-shrink:0">
-      <button id="cityFilterBtn" onclick="toggleCityFilter()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap">🗺️ 篩選 <span id="cityFilterCount"></span></button>
-      <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:var(--sh);z-index:60;max-height:320px;overflow-y:auto">
+        <div style="height:1px;background:var(--border);margin:12px 0 10px"></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:10px">
           <span style="font-size:12px;font-weight:600;color:var(--t2)">選擇縣市</span>
           <div style="display:flex;gap:8px">
@@ -1019,7 +1047,6 @@ async function applyUrlSettings() {
         <div style="margin-top:10px;font-size:11px;color:var(--t3)">要標記批次：按「☑ 選取」勾人，底部列點「🏷️ 標批次」</div>
       </div>
     </div>
-    <!-- 選取模式入口（原本「📋 名單」另一套勾選已併進來：勾人後底部列有改分類／標批次／匯出／通知單／地圖） -->
     <button id="selectModeBtn" onclick="toggleSelectMode()" title="勾選客戶→改分類／標批次／匯出公司格式／通知單／地圖名單" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">☑ <span class="listtool-txt">選取</span></button>
   </div>
   </div><!-- /sticky-top -->
@@ -1119,9 +1146,14 @@ async function applyUrlSettings() {
   <div class="sheet">
     <div class="shandle"></div>
     <div class="sheader">
-      <div style="display:flex;align-items:baseline;gap:10px;min-width:0;flex:1">
-        <span class="stitle" id="sheetTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">新增客戶</span>
-        <span id="saveStatus" class="save-status"></span>
+      <div id="sheetAvatar" class="s-avatar hp">＋</div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+        <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+          <span class="stitle" id="sheetTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">新增客戶</span>
+          <span id="saveStatus" class="save-status"></span>
+        </div>
+        <div id="sheetSub" class="s-sub"></div>
+        <div class="s-bar"><b id="sheetBar" style="width:0"></b></div>
       </div>
       <button class="xbtn" onclick="closeSheet()">✕</button>
     </div>
@@ -1140,6 +1172,7 @@ async function applyUrlSettings() {
         <div id="dupList" style="display:flex;flex-wrap:wrap;gap:7px"></div>
       </div>
       <div id="sp0">
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">👤</span>基本</div>
         <div class="frow"><label>姓名 *</label><input id="fName" placeholder="客戶姓名"/></div>
         <div class="frow">
           <label>出生年月日（民國）</label>
@@ -1161,6 +1194,13 @@ async function applyUrlSettings() {
           <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678" oninput="liveDupCheck()"/></div>
           <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789" oninput="liveDupCheck()"/></div>
         </div>
+        <div class="fg2">
+          <div class="frow"><label>第二電話／LINE</label><input id="fPhone2" placeholder="家裡、公司或 LINE ID"/></div>
+          <div class="frow"><label>方便聯絡時段</label><input id="fContactTime" list="contactTimeOptions" placeholder="例：平日 17:30 後"/>
+            <datalist id="contactTimeOptions"><option value="上午"><option value="中午 12-13"><option value="下午"><option value="平日 17:30 後"><option value="晚上 20 後"><option value="假日"></datalist>
+          </div>
+        </div>
+        <div class="frow"><label>戶籍地址</label><input id="fCensusAddr" placeholder="與現居不同再填；現場找不到人時可循戶籍地，也用來判斷戶籍地是否另有不動產"/></div>
         <div class="frow"><label>🔗 關聯（親友／共同借款人）</label>
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
             <div id="relChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -1176,24 +1216,85 @@ async function applyUrlSettings() {
             <option value="已簽約">🟢 已簽約</option>
             <option value="無效案件">⚫ 無效案件</option>
           </select>
+          <div id="heatChips" class="heat-chips"></div>
         </div>
-        <div class="form-section-hd">👤 客戶資料</div>
+        <div id="closeReasonRow" class="fg2" style="display:none">
+          <div class="frow"><label>結案原因</label>
+            <select id="fCloseReason">
+              <option value="">— 選一個 —</option>
+              <option>估值不足</option><option>信用太差</option><option>利率談不攏</option><option>被同業搶走</option>
+              <option>客戶放棄</option><option>聯絡不上</option><option>資料不實</option><option>已向銀行貸到</option><option>其他</option>
+            </select>
+          </div>
+          <div class="frow"><label>補充</label><input id="fCloseNote" placeholder="一句話"/></div>
+        </div>
+        </div>
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">💼</span>客戶資料</div>
         <div class="fg2">
           <div class="frow"><label>工作／職業</label><input id="fJob" placeholder="例：上班族" oninput="syncToEval('ev_job', this.value)"/></div>
           <div class="frow"><label>年資</label><input id="fJobYears" placeholder="例：5年"/></div>
         </div>
-        <div class="frow"><label>財力證明</label>
-          <div id="finProofList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
-          <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增財力證明</button>
+        <div class="fg2">
+          <div class="frow"><label>公司名稱</label><input id="fCompany" placeholder="例：永利旺運輸企業"/></div>
+          <div class="frow"><label>月收入（萬）</label><input id="fIncome" type="number" inputmode="decimal" placeholder="例：8"/></div>
         </div>
-        <div class="frow"><label>戶籍地址</label><input id="fCensusAddr" placeholder="與現居不同再填；現場找不到人時可循戶籍地，也用來判斷戶籍地是否另有不動產"/></div>
+        <div class="fg2">
+          <div class="frow"><label>薪資型態</label>
+            <select id="fIncomeType" onchange="reorderProofHints()"><option value="">— 未填 —</option><option>薪轉</option><option>現金</option><option>混合（部分薪轉）</option></select>
+          </div>
+          <div class="frow"><label>報稅</label>
+            <select id="fTaxed" onchange="reorderProofHints()"><option value="">— 未填 —</option><option>有</option><option>無</option><option>不詳</option></select>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>婚姻</label>
+            <select id="fMarital" onchange="updateSpouseRow()"><option value="">— 未填 —</option><option>單身</option><option>已婚</option><option>離異</option><option>喪偶</option></select>
+          </div>
+          <div class="frow" id="spouseRow" style="display:none"><label>配偶</label>
+            <select id="fSpouse"><option value="">— 未填 —</option><option>知情</option><option>不知情</option></select>
+          </div>
+        </div>
+        <div class="frow"><label>收入佐證（類型＋金額）</label>
+          <div id="finProofList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+          <datalist id="finTypeOptions"><option value="存摺(近6個月)"><option value="薪資證明"><option value="企業401"><option value="所得清單/扣繳憑單"><option value="勞保明細"><option value="租約"><option value="營業登記"><option value="其他"></datalist>
+          <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增收入佐證</button>
+        </div>
         <div class="frow"><label>來源批次</label>
           <input id="fBatch" list="batchListOptions" placeholder="這筆來自哪批名單，例：0614-A名單"/>
           <datalist id="batchListOptions"></datalist>
         </div>
-        <div class="form-section-hd">📅 下次提醒</div>
-        <div class="rbox">
-          <label>🔔 下次聯絡提醒</label>
+        </div>
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">🎯</span>借款需求</div>
+        <div class="fg2">
+          <div class="frow"><label>想借金額（萬）</label><input id="fLoanWant" type="number" inputmode="decimal" placeholder="例：300"/></div>
+          <div class="frow"><label>希望撥款</label>
+            <select id="fLoanWhen"><option value="">— 未填 —</option><option>急（3 天內）</option><option>一週內</option><option>一個月內</option><option>不急</option></select>
+          </div>
+        </div>
+        <div class="frow"><label>用途</label><input id="fLoanUse" list="loanUseOptions" placeholder="例：週轉"/>
+          <datalist id="loanUseOptions"><option value="週轉"><option value="代償"><option value="購屋"><option value="裝潢"><option value="投資"><option value="醫療"><option value="教育"><option value="其他"></datalist>
+        </div>
+        </div>
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">🧾</span>信用狀況</div>
+        <div class="frow"><label>銀行往來</label>
+          <select id="fCreditBank"><option value="">— 未填 —</option><option>正常</option><option>有遲繳</option><option>協商中</option><option>更生／清算</option><option>不詳</option></select>
+        </div>
+        <div class="frow"><label>其他借款（可複選）</label>
+          <input type="hidden" id="fCreditPrivate"/>
+          <div id="creditChips" class="heat-chips"></div>
+        </div>
+        <div class="frow"><label>退票</label>
+          <select id="fCreditBounce"><option value="">— 未填 —</option><option>無</option><option>有退票</option><option>不詳</option></select>
+        </div>
+        </div>
+        <div class="fsec fsec-wide"><div class="fsec-hd"><span class="fsec-ic">📎</span>文件清單 <span style="font-size:11px;font-weight:400;color:var(--t3);margin-left:4px">點一下：未收 → 已收 → 不需要</span></div>
+          <div id="docChips" class="doc-chips"></div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:2px;padding-bottom:6px">
+            <input id="docCustomInput" placeholder="自訂文件名稱，Enter 加入（例：保單）" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomDoc();}" style="flex:1;min-width:0;font-size:12px;padding:8px 10px"/>
+            <button type="button" onclick="addCustomDoc()" style="flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">＋ 加入</button>
+          </div>
+        </div>
+        <div class="fsec fsec-remind rbox"><div class="fsec-hd"><span class="fsec-ic">🔔</span>下次聯絡提醒</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
             <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind"/></div>
             <div class="frow" style="margin:0"><label>時間</label>
@@ -1216,6 +1317,7 @@ async function applyUrlSettings() {
             <button type="button" class="qr-btn qr-clear" onclick="quickRemind(0)">清除</button>
           </div>
         </div>
+        <div class="fsec fsec-wide"><div class="fsec-hd"><span class="fsec-ic">📝</span>備註與債電</div>
         <div class="note-debt-row">
           <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…" oninput="autoGrowNote(this)" style="overflow:hidden;min-height:85px"></textarea></div>
           <div id="debtPhoneArea">
@@ -1223,6 +1325,7 @@ async function applyUrlSettings() {
             <div id="debtPhoneList" style="background:var(--s2);border-radius:var(--rs);padding:10px 13px;font-size:13px;color:var(--t2);line-height:1.8"></div>
             <button type="button" onclick="addDebtPhone()" style="width:100%;margin-top:6px;background:none;border:1px dashed var(--border);border-radius:var(--rs);padding:7px;font-size:12px;color:var(--t3);font-family:inherit;cursor:pointer">＋ 新增債電</button>
           </div>
+        </div>
         </div>
       </div>
       <div id="sp1" class="prop-tab" style="display:none">
@@ -1373,10 +1476,10 @@ async function applyUrlSettings() {
       </div>
     </div>
     <div class="sfooter">
-      <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()">刪除</button>
-      <button class="bdel" id="btnRevert" style="display:none;background:var(--obg);color:var(--orange)" onclick="revertClient()" title="整筆退回到剛開啟時的狀態（含已自動儲存的部分）">↩ 還原</button>
-      <button class="bdel" id="btnBlack" style="display:none;background:var(--text);color:var(--surface)" onclick="blacklistClient()">🚫 加黑名單</button>
-      <button class="bdel" id="btnShare" style="display:none;background:var(--abg);color:var(--accent)" onclick="shareClient()">📤 分享</button>
+      <button class="bdel" id="btnDel" style="display:none" onclick="deleteClient()" title="刪除">🗑️<span class="ft"> 刪除</span></button>
+      <button class="bdel" id="btnRevert" style="display:none;background:var(--obg);color:var(--orange)" onclick="revertClient()" title="還原：整筆退回到剛開啟時的狀態（含已自動儲存的部分）">↩<span class="ft"> 還原</span></button>
+      <button class="bdel" id="btnBlack" style="display:none;background:var(--text);color:var(--surface)" onclick="blacklistClient()" title="加黑名單">🚫<span class="ft"> 加黑名單</span></button>
+      <button class="bdel" id="btnShare" style="display:none;background:var(--abg);color:var(--accent)" onclick="shareClient()" title="分享">📤<span class="ft"> 分享</span></button>
       <button class="bsave" id="btnSave" onclick="saveClient()">儲存</button>
     </div>
   </div>
@@ -1484,6 +1587,8 @@ async function applyUrlSettings() {
     </div>
     <!-- 外觀：淺色／深色／跟隨系統（只存本機） -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🗂️ 卡片顯示</div>
+      <div id="cardModePicker" style="display:flex;gap:6px;margin-bottom:14px"></div>
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🌓 外觀</div>
       <div id="themePicker" style="display:flex;gap:6px"></div>
       <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
@@ -1777,7 +1882,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.10.13 #1';
+const APP_VERSION = '2026.10.14 #1';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2113,6 +2218,8 @@ const toRow = c => [
     birthM:     c.birthM||0,
     birthD:     c.birthD||0,
     serial:     c.serial||'',
+    extra:      Object.fromEntries((typeof EXTRA_FIELDS!=='undefined'?EXTRA_FIELDS:[]).map(k=>[k,c[k]||''])),
+    docs:       c.docs||{},
   }),
 ];
 
@@ -2156,6 +2263,8 @@ const fromRow = (row, i) => {
     birthM:      rich.birthM      || 0,
     birthD:      rich.birthD      || 0,
     serial:      rich.serial      || '',
+    ...(rich.extra||{}),
+    docs:        rich.docs        || {},
   };
 };
 
@@ -2385,9 +2494,9 @@ async function syncFromCompany() {
   if(!COMPANY_URL){ showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址'); return; }
   const btn=document.getElementById('companyBtn');
   // 「從總檔更新」現在收在匯入下拉選單裡，進度要同時顯示在工具列的「📥 匯入」主鈕上，使用者才看得到
-  const mainBtn=document.getElementById('importMenuBtn');
-  const setTxt=t=>{ btn.textContent=t; if(mainBtn) mainBtn.textContent=t; };
-  const done=()=>{ btn.textContent='🏢 從總檔更新'; btn.disabled=false; if(mainBtn){ mainBtn.textContent='📥 匯入 ▾'; mainBtn.disabled=false; } };
+  const mainBtn=document.getElementById('mainMenuBtn');
+  const setTxt=t=>{ btn.textContent=t; if(mainBtn){ mainBtn.textContent=t; mainBtn.style.width='auto'; mainBtn.style.fontSize='12px'; mainBtn.style.padding='0 10px'; } };
+  const done=()=>{ btn.textContent='🏢 從總檔更新'; btn.disabled=false; if(mainBtn){ mainBtn.innerHTML='☰<span id="menuDot" class="menu-dot" style="display:none"></span>'; mainBtn.style.width=''; mainBtn.style.fontSize=''; mainBtn.style.padding=''; mainBtn.disabled=false; updateStats(); } };
   btn.disabled=true; if(mainBtn) mainBtn.disabled=true;
 
   // 倒數計時顯示（GAS 冷啟動可能需要 20~40 秒）
@@ -2560,7 +2669,7 @@ function foldClientInto(a, b){
   });
   if(merged.length){ a.properties = merged.map((p,i)=>{p.label=propLabel(p)||p.label||('不動產'+(i+1));return p;}); }
   // 純量欄位：a 空白才用 b 補（a 是主，手動填的優先保留）
-  ['phone','idno','addr','censusAddr','col4BuildNo','col7Name','note','job','jobYears','driveUrl','purpose','buildNo','landNo','remind','remindTime','remindNote','batch','birthY','birthM','birthD'].forEach(k=>{
+  ['phone','idno','addr','censusAddr','col4BuildNo','col7Name','note','job','jobYears','driveUrl','purpose','buildNo','landNo','remind','remindTime','remindNote','batch',...(typeof EXTRA_FIELDS!=='undefined'?EXTRA_FIELDS:[]),'birthY','birthM','birthD'].forEach(k=>{
     if((a[k]===undefined||a[k]===''||a[k]===null) && b[k]) a[k]=b[k];
   });
   ['area','mainArea','subArea','commonArea','parkArea','bank','private','legal'].forEach(k=>{
@@ -2577,6 +2686,8 @@ function foldClientInto(a, b){
   if(a.logs) a.logs.sort((x,y)=>(y.date||'').localeCompare(x.date||''));
   // 財力證明合併
   if(b.finProofs&&b.finProofs.length) a.finProofs=[...(a.finProofs||[]),...b.finProofs];
+  // 文件清單：聯集，a 已標的不動
+  if(b.docs&&typeof b.docs==='object'){ a.docs={...(b.docs||{}),...(a.docs||{})}; }
   a.updatedAt=TODAY;
   return a;
 }
@@ -3683,37 +3794,36 @@ function processCompanyData(raw) {
 
 // ── Toolbar visibility settings ───────────────────────────
 const BTN_DEFS=[
-  {id:'importMenuBtn', label:'📥 匯入（下拉選單）'},
-  {id:'companyBtn',    label:'　↳ 🏢 從總檔更新'},
-  {id:'xlsBtn',        label:'　↳ 📥 XLS 匯入'},
-  {id:'tenBtn',        label:'　↳ 📄 謄本匯入'},
-  {id:'aiBtn',         label:'　↳ 🤖 AI 匯入'},
+  {id:'companyBtn',    label:'🏢 從總檔更新'},
+  {id:'xlsBtn',        label:'📥 XLS 匯入'},
+  {id:'tenBtn',        label:'📄 謄本匯入'},
+  {id:'aiBtn',         label:'🤖 AI 匯入'},
   {id:'blBtn',         label:'🚫 黑名單'},
-  {id:'selectModeBtn', label:'☑ 選取'},
+  {id:'selectModeBtn', label:'☑ 選取（搜尋列）'},
   {id:'urlSettingsBtn',label:'⚙️ 設定'},
 ];
 // 「清除」「登出」已從工具列搬進 ⚙️ 設定視窗底部，不再屬於工具列顯示設定
 
-// ── 匯入下拉選單 ─────────────────────────────────────────
-let importMenuOpen=false;
-function toggleImportMenu(e){
+// ── ☰ 主選單（匯入／待審／黑名單／設定）────────────────────
+let mainMenuOpen=false;
+function toggleMainMenu(e){
   if(e) e.stopPropagation();
-  importMenuOpen=!importMenuOpen;
-  const panel=document.getElementById('importMenu');
-  if(!importMenuOpen){ panel.style.display='none'; return; }
+  mainMenuOpen=!mainMenuOpen;
+  const panel=document.getElementById('mainMenu');
+  if(!mainMenuOpen){ panel.style.display='none'; return; }
   panel.style.display='flex';
-  const r=document.getElementById('importMenuBtn').getBoundingClientRect();
+  const r=document.getElementById('mainMenuBtn').getBoundingClientRect();
   panel.style.top=(r.bottom+6)+'px';
-  // 貼齊按鈕左緣；太靠右會超出螢幕就往左推
-  const w=panel.offsetWidth||176;
-  panel.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+  const w=panel.offsetWidth||200;
+  panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';   // 靠右對齊 ☰
 }
-function closeImportMenu(){
-  importMenuOpen=false;
-  const p=document.getElementById('importMenu'); if(p) p.style.display='none';
+function closeMainMenu(){
+  mainMenuOpen=false;
+  const p=document.getElementById('mainMenu'); if(p) p.style.display='none';
 }
+function closeImportMenu(){ closeMainMenu(); }   // 相容舊呼叫
 document.addEventListener('click',e=>{
-  if(importMenuOpen&&!document.getElementById('importMenu').contains(e.target)) closeImportMenu();
+  if(mainMenuOpen&&!document.getElementById('mainMenu').contains(e.target)) closeMainMenu();
 });
 const HBTN_VIS_KEY='hbtn_vis_fb_v1';
 let hbtnVis={};
@@ -3851,7 +3961,6 @@ const hCls={'待分類':'hp','覆訪':'hw','追很緊':'hc','已簽約':'hd','�
 const hOrd={'待分類':0,'覆訪':1,'追很緊':2,'新鑫':3,'已簽約':4,'無效案件':5};
 const rOrd={over:0,today:1,soon:2,ok:3,null:4};
 
-let showFullTotal = false; // 手機端切換含無效總計
 
 function updateStats(){
   const inactive = ['已簽約','無效案件'];
@@ -3866,24 +3975,19 @@ function updateStats(){
   // 總計：預設排除無效案件
   const activeTotal = clients.filter(c=>c.heat!=='無效案件').length;
   const fullTotal   = clients.length;
-  const dispN = showFullTotal ? fullTotal : activeTotal;
-  const dispL = showFullTotal ? '👥 含無效' : '👥 總計';
 
   const todayN = clients.filter(c=>c.remind===TODAY).length;
-  // 統計卡可點：點了就只看那一類（跟熱度分頁疊加），再點一次取消；「總計」＝清掉時間篩選
+  // 統計卡可點：點了就只看那一類（跟分類疊加），再點一次取消。總計數字改放在分類下拉的「全部 (N)」
   const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
     <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span>⚠️ 逾期</span></div>
     <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span>📞 今日</span></div>
     <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span>📅 本週</span></div>
     <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span>📋 未排程</span></div>
-    <div class="spill" id="totalSpill" style="user-select:none" title="點一下取消時間篩選"
-      onmouseenter="totalHover(this,${fullTotal})"
-      onmouseleave="totalLeave(this,${activeTotal})"
-      onclick="totalClick();if(curTime)setTimeFilter(curTime)">
-      <b>${dispN}</b><span>${dispL}</span>
-    </div>
   `;
+  // ☰ 上的紅點：待審收件匣有東西
+  const dot=document.getElementById('menuDot'), ib=document.getElementById('inboxBtn');
+  if(dot) dot.style.display=(ib && ib.style.display!=='none')?'':'none';
   // 瀏覽器標題顯示逾期數
   document.title = over > 0 ? `(${over}) 借款追蹤系統` : '借款追蹤系統';
   // PC 空白統計
@@ -4034,24 +4138,7 @@ async function syncGoogleCal(silent){
 }
 
 // PC hover：暫時顯示含無效的完整數字
-function totalHover(el, full){
-  el.querySelector('b').textContent = full;
-  el.querySelector('span').textContent = '👥 含無效';
-  el.style.outline = '1.5px solid var(--border)';
-}
-function totalLeave(el, active){
-  el.style.outline = '';
-  if(!showFullTotal){
-    el.querySelector('b').textContent = active;
-    el.querySelector('span').textContent = '👥 總計';
-  }
-}
 // 手機端點擊切換
-function totalClick(){
-  if(!('ontouchstart' in window)) return; // PC 只用 hover，不 toggle
-  showFullTotal = !showFullTotal;
-  updateStats();
-}
 function updateTabs(){
   const cnt={
     all: clients.length,
@@ -4064,29 +4151,18 @@ function updateTabs(){
     '已簽約': clients.filter(c=>c.heat==='已簽約').length,
     '無效案件': clients.filter(c=>c.heat==='無效案件').length,
   };
-  // 分頁只放「熱度」一個維度；今日／逾期等時間條件改由上方統計卡點選（可與熱度分頁疊加）
+  // 分類改成搜尋框旁的下拉（原本一整排分頁）；今日／逾期等時間條件由上方統計卡點選（可疊加）
   if(curTab==='today'||curTab==='over') curTab='all';
   const tabs=[{k:'all',l:'全部'},{k:'覆訪',l:'覆訪'},{k:'追很緊',l:'追很緊'},{k:'新鑫',l:'新鑫'},{k:'待分類',l:'待分類'},{k:'已簽約',l:'已簽約'},{k:'無效案件',l:'無效案件'}];
-  document.getElementById('tabsWrap').innerHTML=tabs.map(t=>{
-    const n=cnt[t.k];
-    return`<button class="tbtn ${curTab===t.k?'active':''}" onclick="setTab('${t.k}')">${t.l}${n?`<span style="font-size:10px;opacity:.65;margin-left:2px">(${n})</span>`:''}</button>`;
-  }).join('');
-}
-function scrollTabs(dx) {
-  const tabs = document.getElementById('tabsWrap');
-  tabs.scrollBy({ left: dx, behavior: 'smooth' });
-}
-function scrollHbtns(dx) {
-  const row = document.getElementById('hbtnsRow');
-  row.scrollBy({ left: dx, behavior: 'smooth' });
+  const sel=document.getElementById('tabSelect');
+  if(sel){
+    sel.innerHTML=tabs.map(t=>`<option value="${t.k}">${t.l}${cnt[t.k]?` (${cnt[t.k]})`:''}</option>`).join('');
+    sel.value=curTab;
+  }
+  const tw=document.getElementById('tabsWrap');   // 舊的分頁列（已移除）；保留相容
+  if(tw) tw.innerHTML='';
 }
 // 手機：收合/展開上方功能鈕
-function toggleHbtns(){
-  const bar=document.getElementById('hbtnsBar');
-  const btn=document.getElementById('hbtnToggle');
-  const open=bar.classList.toggle('open');
-  if(btn) btn.textContent = open ? '⚙️ 功能選單 ▴' : '⚙️ 功能選單 ▾';
-}
 
 // ── 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程 ──
 // 跟熱度分頁疊加（例如「追很緊」＋「逾期」）。再點一次同一張卡＝取消。
@@ -4138,24 +4214,72 @@ try{ _recent=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); if(!Array.isArr
 function pushRecent(id){
   _recent=[id, ..._recent.filter(x=>x!==id)].slice(0,5);
   try{ localStorage.setItem(RECENT_KEY, JSON.stringify(_recent)); }catch(e){}
-  // 立刻更新清單上方那排，不等下一次整頁重畫
+  refreshRecentRow();
+}
+// 最近看過那排只在搜尋框聚焦時出現（平常不占位）
+let _searchFocus=false, _searchBlurTimer=null;
+function onSearchFocus(on){
+  clearTimeout(_searchBlurTimer);
+  if(on){ _searchFocus=true; refreshRecentRow(); }
+  else { _searchBlurTimer=setTimeout(()=>{ _searchFocus=false; refreshRecentRow(); },250); }   // 延遲，讓點 chip 來得及觸發
+}
+function refreshRecentRow(){
   const wrap=document.getElementById('listWrap'); if(!wrap) return;
-  const q=(document.getElementById('searchInput')||{}).value||'';
-  const html=recentRowHtml(q.toLowerCase());
+  const q=((document.getElementById('searchInput')||{}).value||'').toLowerCase();
+  const html=recentRowHtml(q);
   const old=wrap.querySelector('.recent-row');
   if(old){ if(html) old.outerHTML=html; else old.remove(); }
   else if(html) wrap.insertAdjacentHTML('afterbegin', html);
 }
 function recentRowHtml(q){
-  if(q) return '';   // 搜尋中不顯示，讓位給結果
+  if(q || !_searchFocus) return '';   // 搜尋中／沒在搜尋框時不顯示
   const items=_recent.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
   if(!items.length) return '';
-  return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="openEdit(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
+  return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="jumpToClient(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
 }
+// ── 卡片顯示模式：精簡（預設；點到的那張展開）／一律完整。存本機 ──
+const CARD_FULL_KEY='crm_card_full';
+let cardFullMode=false;
+try{ cardFullMode=localStorage.getItem(CARD_FULL_KEY)==='1'; }catch(e){}
+function setCardMode(full){
+  cardFullMode=!!full;
+  try{ localStorage.setItem(CARD_FULL_KEY, cardFullMode?'1':'0'); }catch(e){}
+  renderCardModePicker(); render();
+}
+function renderCardModePicker(){
+  const el=document.getElementById('cardModePicker'); if(!el) return;
+  el.innerHTML=[[false,'🗂️ 精簡（點到才展開）'],[true,'📋 一律完整']].map(([k,l])=>
+    `<button onclick="setCardMode(${k})" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cardFullMode===k?'var(--accent)':'var(--border)'};background:${cardFullMode===k?'var(--abg)':'var(--s2)'};color:${cardFullMode===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
+}
+// 地址去掉縣市（卡片上只放區以後；完整版仍顯示全址）
+function shortAddr(a){ return String(a||'').replace(/^[一-龥]{2,3}[市縣]/,''); }
 // ── 清單分段載入：先畫 60 張，捲到底再補，開頁與切分頁才不會卡 ──
 const LIST_PAGE=60;
 let _listLimit=LIST_PAGE, _listKey='';
 function loadMoreCards(){ _listLimit+=LIST_PAGE; render(); }
+// 跳到某個人：左邊清單一定要看得到他那張卡（最近看過用）。
+// 不在目前篩選 → 清掉搜尋、切回「全部」、取消時間篩選；排在分段之後 → 把分段放大到他為止；最後捲到正中間。
+function jumpToClient(id){
+  const c=clients.find(x=>x.id===id); if(!c) return;
+  const si=document.getElementById('searchInput'); if(si && si.value){ si.value=''; updateSearchClear(); }
+  _searchFocus=false; clearTimeout(_searchBlurTimer);
+  if(!applyListFilters([c]).length || !batchFilterPass(c) || (selectedCities.size && !ALL_CITIES.some(city=>selectedCities.has(city)&&((c.addr||'').startsWith(city)||(c.addr||'').startsWith(city.replace('台','臺')))))){
+    curTab='all'; curTime=''; selectedCities=new Set(); if(typeof selectedBatches!=='undefined') selectedBatches=new Set();
+    saveViewState(); if(typeof updateFilterBadge==='function') updateFilterBadge();
+    showToast('已切回「全部」才找得到這位');
+  }
+  render();
+  // 他在清單裡的位置若超過目前已載入張數，就一次載到他為止
+  const pos=[...document.querySelectorAll('.ccard[data-cid]')].findIndex(el=>+el.dataset.cid===id);
+  if(pos<0){
+    const seen=[...document.querySelectorAll('.ccard[data-cid]')].length;
+    _listLimit=Math.max(_listLimit, seen+LIST_PAGE*20);   // 保險：直接放大很多（render 只畫到實際筆數）
+    render();
+  }
+  _kbNavCenter=true;
+  try{ openEdit(id); } finally{ _kbNavCenter=false; }
+}
 let _loadMoreIO=null;
 function watchLoadMore(){
   const btn=document.getElementById('loadMoreBtn');
@@ -4715,6 +4839,27 @@ function render(){
     const heatCls=hCls[c.heat]||'';
     const isSel=selectMode&&selectedIds.has(c.id);
     const cardClick=selectMode?`toggleSelect(${c.id},event)`:`openEdit(${c.id})`;
+    const full = cardFullMode || c.id===editId;   // 精簡模式：只有點到的那張（editId）展開成完整
+    if(!full){
+      const lt=clientLoanTotals(c);
+      const tot=(lt.bank||0)+(lt.legal||0)+(lt.priv||0);
+      const fmt=n=>Math.round(n).toLocaleString('zh-TW');
+      return`<div class="ccard cc-compact ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}" data-cid="${c.id}" onclick="${cardClick}">
+      <div class="ctop">
+        ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
+        <div style="flex:1;min-width:0">
+          <div class="cname">${hl(dispName(c),q)}${c.pinned?'<span class="cpin">📌</span>':''}</div>
+          <div class="csub">${c.phone?`<span class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}">${hl(c.phone,q)}</span>`:''}${c.phone&&c.addr?' · ':''}${c.addr?hl(shortAddr(c.addr),q):''}</div>
+        </div>
+        <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
+      </div>
+      ${(c.remind||tot)?`<div class="cmeta" style="margin-top:6px">
+        ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}
+        ${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯 想借${c.loanWant}萬</span>`:''}
+      </div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+    </div>`;
+    }
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
@@ -4728,6 +4873,7 @@ function render(){
       <div class="cmeta">
         ${c.remind?remChip(c.remind,c.remindTime):''}
         ${(lt=>`${lt.bank?`<span class="mi-amt">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi-amt">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
+        ${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯想借${c.loanWant}萬</span>`:''}
         ${c.serial?`<span class="mi">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
         ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
@@ -4765,7 +4911,7 @@ function applyHeatPick(h){
   const from=c.heat;
   c.heat=h; c.updatedAt=TODAY;
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(h)) c.heatManual=true;   // 跟儲存時的手動分類鎖一致
-  if(editId===c.id){ const s=document.getElementById('fHeat'); if(s) s.value=h; }        // 右邊面板開著同一位就同步
+  if(editId===c.id){ const s=document.getElementById('fHeat'); if(s) s.value=h; renderHeatChips(); updateSheetHeader(); }   // 右邊面板開著同一位就同步
   saveLocal(); render();
   showToast(`🏷️ ${dispName(c)}：${from} → ${h}`);
   pushToSheet().catch(()=>{});
@@ -5040,6 +5186,131 @@ function openCalendar(id) {
 function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.max(85, el.scrollHeight)+'px'; }
 
 // ── Sheet modal ───────────────────────────────────────────
+// ── t126 新欄位：聯絡／工作家庭／借款需求／信用／文件清單／結案原因 ──
+// 這張清單是「新欄位不會被任何同步/合併洗掉」的單一來源：foldClientInto、試算表富欄位往返都用它
+const EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed','marital','spouse','loanWant','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
+const DOC_LIST=['身分證','第二證件(健保卡/駕照)','存摺(近6個月)','薪資證明','企業401','所得清單/扣繳憑單','自然人憑證','印鑑證明','印鑑章','權狀','土地建物謄本','戶籍謄本','原貸款對帳單','房屋稅單','聯徵報告'];
+let tempDocs={};   // {文件名: 'got'|'skip'}；沒鍵＝未收
+function nextDocState(cur){ return cur==='got' ? 'skip' : cur==='skip' ? '' : 'got'; }   // 未收→已收→不需要→未收
+// 自訂文件（存本機；客戶身上已標過的自訂文件就算本機沒有也會顯示）
+const CUSTOM_DOC_KEY='crm_custom_docs';
+let customDocs=[];
+try{ customDocs=JSON.parse(localStorage.getItem(CUSTOM_DOC_KEY)||'[]'); if(!Array.isArray(customDocs)) customDocs=[]; }catch(e){ customDocs=[]; }
+function saveCustomDocs(){ try{ localStorage.setItem(CUSTOM_DOC_KEY, JSON.stringify(customDocs)); }catch(e){} }
+function allDocNames(){
+  const extra=Object.keys(tempDocs||{}).filter(k=>!DOC_LIST.includes(k)&&!customDocs.includes(k));
+  return [...DOC_LIST, ...customDocs, ...extra];
+}
+function addCustomDoc(){
+  const inp=document.getElementById('docCustomInput'); if(!inp) return;
+  const name=inp.value.trim(); if(!name) return;
+  if(allDocNames().includes(name)){ showToast('已經有這個文件了'); inp.value=''; return; }
+  customDocs.push(name); saveCustomDocs(); inp.value='';
+  renderDocChips(); showToast(`📎 已加入「${name}」（之後每位客戶都會看到）`);
+}
+async function removeCustomDoc(name){
+  if(!(await uiConfirm(`移除自訂文件「${name}」？
+
+這台裝置的清單會拿掉它；目前這位客戶若有標記也一併清掉。`,{ok:'移除',danger:true}))) return;
+  customDocs=customDocs.filter(n=>n!==name); saveCustomDocs();
+  if(tempDocs[name]!==undefined){ delete tempDocs[name]; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave(); }
+  renderDocChips();
+}
+function renderDocChips(){
+  const el=document.getElementById('docChips'); if(!el) return;
+  const esc=n=>n.replace(/'/g,"\'");
+  el.innerHTML=allDocNames().map(name=>{
+    const st=tempDocs[name]||'';
+    const ic=st==='got'?'✓ ':st==='skip'?'— ':'';
+    const custom=!DOC_LIST.includes(name);
+    return `<span class="doc-wrap"><button type="button" class="doc-chip ${st}${custom?' custom':''}" onclick="toggleDoc('${esc(name)}')" title="${st==='got'?'已收':st==='skip'?'不需要':'未收'}">${ic}${name}</button>${custom?`<button type="button" class="doc-x" onclick="removeCustomDoc('${esc(name)}')" title="移除這個自訂文件">✕</button>`:''}</span>`;
+  }).join('');
+  const got=Object.values(tempDocs).filter(v=>v==='got').length, need=allDocNames().length-Object.values(tempDocs).filter(v=>v==='skip').length;
+  const hd=el.closest('.fsec')?.querySelector('.fsec-hd span:last-child'); if(hd) hd.textContent=`已收 ${got} / 需要 ${need}　點一下：未收 → 已收 → 不需要`;
+}
+function toggleDoc(name){
+  const nx=nextDocState(tempDocs[name]||'');
+  if(nx) tempDocs[name]=nx; else delete tempDocs[name];
+  renderDocChips();
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave(); updateRevertBtn();
+}
+function fillExtraFields(c){
+  const sv=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=(v==null?'':v); };
+  const o=c||{};
+  EXTRA_FIELDS.forEach(k=>sv('f'+k.charAt(0).toUpperCase()+k.slice(1), o[k]));
+  // 舊的「收入型態／主要收入來源」值對應到薪資型態：薪轉→薪轉、現金→現金，其他清空
+  { const it=document.getElementById('fIncomeType'); if(it && it.value!==o.incomeType){ it.value=(o.incomeType==='薪轉'||o.incomeType==='現金')?o.incomeType:''; } }
+  reorderProofHints();
+  tempDocs=(o.docs&&typeof o.docs==='object')?{...o.docs}:{};
+  renderDocChips();
+  updateCloseReasonRow();
+  updateSpouseRow();
+  // 舊值「有小額／有民間／有當鋪／代書」去掉「有」再畫色籤
+  { const cp=document.getElementById('fCreditPrivate'); if(cp){ cp.value=String(cp.value||'').split('、').map(x=>x.trim().replace(/^有(?=小額|民間|當鋪)/,'')).filter(Boolean).join('、'); } }
+  renderCreditChips();
+}
+// 配偶欄只在「已婚」時出現；改成非已婚就把配偶值清掉
+function updateSpouseRow(){
+  const row=document.getElementById('spouseRow'), m=document.getElementById('fMarital'), sp=document.getElementById('fSpouse');
+  if(!row||!m) return;
+  const married=(m.value==='已婚');
+  row.style.display=married?'':'none';
+  if(!married && sp && sp.value){ sp.value=''; }
+}
+// 結案原因只在「無效案件」時出現
+function updateCloseReasonRow(){
+  const row=document.getElementById('closeReasonRow'), sel=document.getElementById('fHeat');
+  if(row&&sel) row.style.display=(sel.value==='無效案件')?'':'none';
+}
+// ── 其他借款：可複選色籤，值以「、」串接存在隱藏的 #fCreditPrivate（欄位名 creditPrivate 不變）──
+const CREDIT_OPTS=['無','小額','民間','當鋪／代書','企業貸款','汽機車貸款','不詳'];
+function creditSet(){ const v=(document.getElementById('fCreditPrivate')||{}).value||''; return new Set(v.split('、').map(x=>x.trim()).filter(Boolean)); }
+function renderCreditChips(){
+  const el=document.getElementById('creditChips'); if(!el) return;
+  const on=creditSet();
+  el.innerHTML=CREDIT_OPTS.map(o=>`<button type="button" class="heat-chip${on.has(o)?' on hw':''}" onclick="toggleCredit('${o}')">${o}</button>`).join('');
+}
+function toggleCredit(o){
+  const inp=document.getElementById('fCreditPrivate'); if(!inp) return;
+  let on=creditSet();
+  if(on.has(o)) on.delete(o);
+  else if(o==='無'||o==='不詳') on=new Set([o]);          // 無／不詳 是獨占的
+  else { on.delete('無'); on.delete('不詳'); on.add(o); }
+  inp.value=CREDIT_OPTS.filter(x=>on.has(x)).join('、');
+  inp.dispatchEvent(new Event('input',{bubbles:true}));
+  renderCreditChips();
+}
+// ── 追蹤熱度色籤（取代下拉；仍透過隱藏的 #fHeat 存值，其他程式不用改）──
+function renderHeatChips(){
+  const el=document.getElementById('heatChips'), sel=document.getElementById('fHeat'); if(!el||!sel) return;
+  const cur=sel.value;
+  el.innerHTML=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'].map(h=>
+    `<button type="button" class="heat-chip${cur===h?' on '+(hCls[h]||''):''}" onclick="pickHeatChip('${h}')">${h}</button>`).join('');
+}
+function pickHeatChip(h){
+  const sel=document.getElementById('fHeat'); if(!sel) return;
+  sel.value=h; sel.dispatchEvent(new Event('input',{bubbles:true}));   // 觸發 formDirty／自動存
+  renderHeatChips(); updateCloseReasonRow(); updateSheetHeader();
+}
+// ── 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度 ──
+function updateSheetHeader(){
+  const av=document.getElementById('sheetAvatar'), sub=document.getElementById('sheetSub'), bar=document.getElementById('sheetBar');
+  if(!av) return;
+  const g=id=>((document.getElementById(id)||{}).value||'').trim();
+  const name=g('fName'), heat=g('fHeat')||'待分類';
+  av.textContent=name?name.slice(0,1):'＋';
+  av.className='s-avatar '+(hCls[heat]||'hp');
+  const c=editId?clients.find(x=>x.id===editId):null;
+  const addr=g('fAddr')||(c&&c.addr)||'';
+  const dist=(addr.match(/^[一-龥]{2,3}[市縣]([一-龥]{1,3}[區鄉鎮市])/)||[])[1]||'';
+  // 完整度：8 個關鍵欄位
+  const logsN=(typeof tempLogs!=='undefined'&&Array.isArray(tempLogs))?tempLogs.length:0;
+  const checks=[g('fPhone'), g('fIdno'), g('fBirthY'), addr, g('fJob'), g('fIncome'), g('fIncomeType'), g('fMarital'), g('fLoanWant'), g('fCreditBank'), g('fBatch'), g('fRemind'), logsN?'1':''];
+  const done=checks.filter(Boolean).length, pct=Math.round(done/checks.length*100);
+  if(sub) sub.textContent=[g('fSerial')||(c&&c.serial)||'', dist, editId?`資料完整度 ${pct}%`:'新客戶'].filter(Boolean).join(' · ');
+  if(bar) bar.style.width=(editId?pct:0)+'%';
+}
+document.addEventListener('DOMContentLoaded',()=>{ const sb=document.getElementById('sheetBg'); if(sb) sb.addEventListener('input',()=>{ clearTimeout(window._shTimer); window._shTimer=setTimeout(updateSheetHeader,200); }); });
 // 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
 function saveBtnLabel(){ return !editId ? '建立客戶' : (window.innerWidth>=900 ? '儲存' : '存並關閉'); }
 function openAdd(){
@@ -5061,6 +5332,7 @@ function openAdd(){
   document.getElementById('btnDrive').textContent='📁 建立';
   ['fArea','fMainArea','fSubArea','fCommonArea','fParkArea','fLandArea','fBuildShareNum','fBuildShareDen','fLandtaxNormal','fLandtaxSelf','fBank','fLegal','fPrivate'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fHeat').value='追很緊';
+  renderHeatChips();
   document.getElementById('fRemind').value='';
   document.getElementById('fRemindHour').value='';
   document.getElementById('fRemindMin').value='';
@@ -5070,6 +5342,7 @@ function openAdd(){
   document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
   tempDebtPhones=[]; renderDebtPhones();
   finProofs=[];renderFinProofs();
+  fillExtraFields(null);
   extraLoans=[];renderExtraLoans();
   extraLands=[];renderExtraLands();
   tempLogs=[];renderLogs();sSTabTo(0);
@@ -5080,6 +5353,7 @@ function openAdd(){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  updateSheetHeader();
   document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });   // 新增客戶也從最上面開始
 }
 
@@ -5123,6 +5397,7 @@ function openEdit(id){
   pushRecent(id);
   clearTimeout(_draftSaveTimer);
   takeSnapshot(id);
+  if(!cardFullMode) render();   // 精簡模式：讓這張展開、上一張收回
   setSaveStatus('','');
   document.getElementById('btnSave').textContent=saveBtnLabel();
   document.getElementById('sheetTitle').textContent=dispName(c);
@@ -5137,6 +5412,7 @@ function openEdit(id){
   refreshBatchDatalist();
   document.getElementById('fBatch').value=c.batch||'';
   document.getElementById('fHeat').value=c.heat||'追很緊';
+  renderHeatChips();
   document.getElementById('fRemind').value=c.remind||'';
   const rt = c.remindTime||'';
   document.getElementById('fRemindHour').value = rt ? rt.slice(0,2) : '';
@@ -5178,6 +5454,7 @@ function openEdit(id){
   // Company data tab
   _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
+  fillExtraFields(c);
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
@@ -5186,6 +5463,7 @@ function openEdit(id){
   renderRelChips();
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
+  updateSheetHeader();
   // 換人後編輯面板內容回到最上面（否則會停在上一位捲到的位置，例如一直在備註那段）
   document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });
   highlightActiveCard(true);   // 左邊清單同步標記＋捲到這位
@@ -5883,14 +6161,31 @@ function renderFinProofs(){
   const container=document.getElementById('finProofList');if(!container)return;
   container.innerHTML=finProofs.map((fp,i)=>`
     <div style="display:flex;align-items:center;gap:6px">
-      <select onchange="finProofs[${i}].type=this.value" style="flex:0 0 80px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-family:inherit;outline:none;-webkit-appearance:none">
-        ${['薪轉','扣憑','勞健保','薪資單'].map(t=>`<option value="${t}" ${fp.type===t?'selected':''}>${t}</option>`).join('')}
-      </select>
+      <input list="finTypeOptions" value="${calEsc(fp.type||'')}" placeholder="類型" onchange="finProofs[${i}].type=this.value;syncDocFromProof(this.value)" style="flex:0 0 96px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-family:inherit;outline:none"/>
       <input placeholder="月/年 金額" value="${fp.value||''}" onchange="finProofs[${i}].value=this.value" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
       <button onclick="finProofs.splice(${i},1);renderFinProofs()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0">✕</button>
     </div>`).join('');
 }
-function addFinProof(){finProofs.push({type:'薪轉',value:''});renderFinProofs();}
+function addFinProof(){finProofs.push({type:'',value:''});renderFinProofs();}
+// 收入佐證的建議類型排序：薪轉→存摺排第一；有報稅→所得清單/扣繳憑單排第一（只是排序提示，不自動填）
+function reorderProofHints(){
+  const dl=document.getElementById('finTypeOptions'); if(!dl) return;
+  const base=['存摺(近6個月)','薪資證明','企業401','所得清單/扣繳憑單','勞保明細','租約','營業登記','其他'];
+  const it=(document.getElementById('fIncomeType')||{}).value||'', tx=(document.getElementById('fTaxed')||{}).value||'';
+  const first=[]; if(tx==='有') first.push('所得清單/扣繳憑單'); if(it==='薪轉'||it==='混合（部分薪轉）') first.push('存摺(近6個月)');
+  const order=[...first, ...base.filter(x=>!first.includes(x))];
+  dl.innerHTML=order.map(x=>`<option value="${x}">`).join('');
+}
+// 收入佐證 → 文件清單連動：填了「存摺(近6個月)」文件清單的存摺就標已收（已標不需要的不動）
+const PROOF_TO_DOC={'存摺(近6個月)':'存摺(近6個月)','存摺':'存摺(近6個月)','薪轉':'存摺(近6個月)','薪資證明':'薪資證明','薪資單':'薪資證明','企業401':'企業401','401報表':'企業401','所得清單/扣繳憑單':'所得清單/扣繳憑單','所得清單':'所得清單/扣繳憑單','扣憑':'所得清單/扣繳憑單'};
+function syncDocFromProof(type){
+  const doc=PROOF_TO_DOC[String(type||'').trim()]; if(!doc) return;
+  if(tempDocs[doc]==='got') return;
+  if(tempDocs[doc]==='skip') return;            // 使用者說不需要就尊重
+  tempDocs[doc]='got'; renderDocChips();
+  showToast(`📎 文件清單「${doc}」已標為已收`);
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+}
 
 function openLandZoneQuery(){
   const district = (document.getElementById('ev_district')?.value||'').trim();
@@ -6577,6 +6872,7 @@ async function saveClient(silent){
   if(silent && !editId) return; // 自動存只更新既有客戶，不新建
   const btn=document.getElementById('btnSave');
   if(!silent){ btn.disabled=true;btn.textContent='儲存中…'; }
+  const gv=id=>((document.getElementById(id)||{}).value||'').trim();
   const data={
     name,phone,
     idno:document.getElementById('fIdno').value.trim(),
@@ -6590,6 +6886,13 @@ async function saveClient(silent){
     birthM:parseInt(document.getElementById('fBirthM').value)||0,
     birthD:parseInt(document.getElementById('fBirthD').value)||0,
     finProofs:[...finProofs],
+    // t126 新欄位（客戶層級）
+    phone2:gv('fPhone2'), contactTime:gv('fContactTime'),
+    company:gv('fCompany'), income:gv('fIncome'), incomeType:gv('fIncomeType'), taxed:gv('fTaxed'), marital:gv('fMarital'), spouse:gv('fSpouse'),
+    loanWant:gv('fLoanWant'), loanUse:gv('fLoanUse'), loanWhen:gv('fLoanWhen'),
+    creditBank:gv('fCreditBank'), creditPrivate:gv('fCreditPrivate'), creditBounce:gv('fCreditBounce'),
+    closeReason:gv('fCloseReason'), closeNote:gv('fCloseNote'),
+    docs:{...tempDocs},
     note:document.getElementById('fNote').value.trim(),
     censusAddr:document.getElementById('fCensusAddr').value.trim(),
     batch:document.getElementById('fBatch').value.trim(),
