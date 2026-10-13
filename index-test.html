@@ -208,6 +208,20 @@ input[type=number]{min-width:0}
 /* Form section headers */
 .form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
 .add-log{background:var(--s2);border-radius:var(--rs);padding:13px}
+/* 快速提醒按鈕列（基本頁提醒區、聯絡記錄頁） */
+.qr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.qr-lbl{font-size:11px;font-weight:600;color:var(--t2)}
+.qr-btn{background:var(--surface);border:1px solid var(--abd);color:var(--accent);border-radius:99px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;min-height:30px}
+.qr-btn:active{background:var(--abg)}
+.qr-btn.qr-clear{border-color:var(--border);color:var(--t3)}
+/* 清單分段載入 */
+.load-more{width:100%;background:var(--surface);border:1px dashed var(--border);border-radius:var(--r);padding:12px;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit}
+/* 最近看過 */
+.recent-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 2px 2px;align-items:center}
+.recent-row::-webkit-scrollbar{display:none}
+.recent-lbl{font-size:11px;color:var(--t3);flex-shrink:0}
+.recent-chip{flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 11px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;box-shadow:var(--sh);white-space:nowrap}
+.recent-chip:active{background:var(--abg)}
 .add-log>label{font-size:11px;font-weight:600;color:var(--t2);display:block;margin-bottom:7px}
 .alrow{display:flex;gap:7px;margin-bottom:7px}
 .alrow input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none}
@@ -953,8 +967,11 @@ async function applyUrlSettings() {
     <button class="tab-arrow tab-arrow-right" onclick="scrollTabs(150)">&#8250;</button>
   </div>
   <div class="search-wrap" style="display:flex;gap:8px;flex-wrap:wrap">
-    <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="render()" style="flex:1;min-width:120px"/>
-    <select id="sortSelect" onchange="render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
+    <div style="position:relative;flex:1;min-width:120px;display:flex">
+      <input class="search-input" id="searchInput" placeholder="🔍 搜尋流水編號、姓名、電話、身分證、地址、建號…" oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){this.blur();}else if(event.key==='Escape'){clearSearch();}" style="flex:1;min-width:0;padding-right:34px"/>
+      <button id="searchClear" type="button" onclick="clearSearch()" title="清空搜尋" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;border-radius:50%;background:var(--border);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;line-height:1">✕</button>
+    </div>
+    <select id="sortSelect" onchange="saveViewState();render()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
       <option value="remind">📅 提醒日期</option>
       <option value="deadline">⏰ 到期最近</option>
       <option value="heat">🔥 熱度</option>
@@ -1154,6 +1171,16 @@ async function applyUrlSettings() {
             </div>
             <div class="frow" style="margin:0"><label>說明</label><input id="fRemindNote" placeholder="再追一次"/></div>
           </div>
+          <!-- 快速提醒：不用翻日曆 -->
+          <div class="qr-row" style="margin-top:9px">
+            <span class="qr-lbl">快速：</span>
+            <button type="button" class="qr-btn" onclick="quickRemind(1)">明天</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(3)">3天後</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(7)">1週後</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(14)">2週後</button>
+            <button type="button" class="qr-btn" onclick="quickRemind(30)">1個月</button>
+            <button type="button" class="qr-btn qr-clear" onclick="quickRemind(0)">清除</button>
+          </div>
         </div>
         <div class="note-debt-row">
           <div class="frow"><label>備註</label><textarea id="fNote" placeholder="特殊情況、借款條件…" oninput="autoGrowNote(this)" style="overflow:hidden;min-height:85px"></textarea></div>
@@ -1273,9 +1300,19 @@ async function applyUrlSettings() {
             <label>➕ 新增通話記錄</label>
             <div class="alrow">
               <input type="date" id="fLogDate"/>
-              <input id="fLogText" placeholder="通話內容摘要…"/>
+              <input id="fLogText" placeholder="通話內容摘要…（Enter 直接加入）" onkeydown="if(event.key==='Enter'){event.preventDefault();addLog();}"/>
             </div>
             <button class="albtn" onclick="addLog()">加入記錄</button>
+            <!-- 記完這通，順手設下次提醒，不用切回「基本」翻日曆 -->
+            <div class="qr-row" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--border)">
+              <span class="qr-lbl">下次提醒：</span>
+              <button type="button" class="qr-btn" onclick="quickRemind(1)">明天</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(3)">3天後</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(7)">1週後</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(14)">2週後</button>
+              <button type="button" class="qr-btn" onclick="quickRemind(30)">1個月</button>
+              <span id="qrStatus" style="font-size:11px;color:var(--accent);font-weight:600;margin-left:4px"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -1705,7 +1742,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t116 (畫面整理③:上方分頁只留熱度分類,「今日/逾期/本週/未排程」改成點上方統計卡來篩選(可跟分類疊加,再點一次取消);所有「確定嗎?」「請先填…」等跳出視窗改成跟系統同風格的自訂視窗,手機上不會卡住整頁,Esc取消/Enter確定) 2026.10.13';
+const APP_VERSION = '🧪測試版 t117 (操作流程①:搜尋打字不再頓、搜尋框有✕清空、Enter收鍵盤;清單先顯示60筆、往下捲自動補(開頁切分頁變快);「下次提醒」多了明天/3天/1週/2週/1個月快速鈕,聯絡記錄頁也有;聯絡記錄輸入框按Enter直接加入;電腦版儲存後面板不再自動關閉;重新整理會記住上次的分類/篩選/排序;清單上方顯示最近看過的5位;快捷鍵 / 跳搜尋、N 新增) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4016,14 +4053,78 @@ function applyListFilters(list){
   else if(curTime==='noremind') list=list.filter(c=>!c.remind&&!inactive.includes(c.heat));
   return list;
 }
+// ── 記住檢視狀態（分類分頁、時間篩選、排序）：重新整理後不會又回到「全部＋提醒日期」 ──
+const VIEW_KEY='crm_view_v1';
+function saveViewState(){
+  try{ localStorage.setItem(VIEW_KEY, JSON.stringify({tab:curTab, time:curTime, sort:(document.getElementById('sortSelect')||{}).value||''})); }catch(e){}
+}
+function loadViewState(){
+  try{
+    const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(!v) return;
+    const okTabs=['all','覆訪','追很緊','新鑫','待分類','已簽約','無效案件'];
+    if(okTabs.includes(v.tab)) curTab=v.tab;
+    if(['','over','today','week','noremind'].includes(v.time||'')) curTime=v.time||'';
+    const s=document.getElementById('sortSelect');
+    if(s && v.sort && [...s.options].some(o=>o.value===v.sort)) s.value=v.sort;
+  }catch(e){}
+}
+// ── 搜尋：停頓 0.15 秒才重畫（打字不頓）、✕ 清空 ──
+let _searchTimer=null;
+function onSearchInput(){
+  clearTimeout(_searchTimer);
+  _searchTimer=setTimeout(render,150);
+  updateSearchClear();
+}
+function clearSearch(){
+  const i=document.getElementById('searchInput'); if(!i) return;
+  i.value=''; updateSearchClear(); render(); i.focus();
+}
+function updateSearchClear(){
+  const b=document.getElementById('searchClear'), i=document.getElementById('searchInput');
+  if(b&&i) b.style.display=i.value?'':'none';
+}
+// ── 最近看過（本機記 5 位）──
+const RECENT_KEY='crm_recent_v1';
+let _recent=[];
+try{ _recent=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); if(!Array.isArray(_recent)) _recent=[]; }catch(e){ _recent=[]; }
+function pushRecent(id){
+  _recent=[id, ..._recent.filter(x=>x!==id)].slice(0,5);
+  try{ localStorage.setItem(RECENT_KEY, JSON.stringify(_recent)); }catch(e){}
+  // 立刻更新清單上方那排，不等下一次整頁重畫
+  const wrap=document.getElementById('listWrap'); if(!wrap) return;
+  const q=(document.getElementById('searchInput')||{}).value||'';
+  const html=recentRowHtml(q.toLowerCase());
+  const old=wrap.querySelector('.recent-row');
+  if(old){ if(html) old.outerHTML=html; else old.remove(); }
+  else if(html) wrap.insertAdjacentHTML('afterbegin', html);
+}
+function recentRowHtml(q){
+  if(q) return '';   // 搜尋中不顯示，讓位給結果
+  const items=_recent.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+  if(!items.length) return '';
+  return `<div class="recent-row"><span class="recent-lbl">🕘 最近</span>${items.map(c=>`<button type="button" class="recent-chip" onclick="openEdit(${c.id})">${dispName(c)}</button>`).join('')}</div>`;
+}
+// ── 清單分段載入：先畫 60 張，捲到底再補，開頁與切分頁才不會卡 ──
+const LIST_PAGE=60;
+let _listLimit=LIST_PAGE, _listKey='';
+function loadMoreCards(){ _listLimit+=LIST_PAGE; render(); }
+let _loadMoreIO=null;
+function watchLoadMore(){
+  const btn=document.getElementById('loadMoreBtn');
+  if(_loadMoreIO){ _loadMoreIO.disconnect(); _loadMoreIO=null; }
+  if(!btn || typeof IntersectionObserver==='undefined') return;
+  _loadMoreIO=new IntersectionObserver(es=>{ if(es.some(x=>x.isIntersecting)) loadMoreCards(); },{rootMargin:'200px'});
+  _loadMoreIO.observe(btn);
+}
 function setTimeFilter(t){
   curTime=(curTime===t)?'':t;
+  saveViewState();
   render();
   if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
 }
 function setTab(t){
   const same=(t===curTab);
-  curTab=t;render();
+  curTab=t;saveViewState();render();
   if(same){
     // 點同一分類 → 回到最上方（mobile: window；PC: .app overflow scroll）
     document.getElementById('mainApp').scrollTo({top:0,behavior:'smooth'});
@@ -4544,9 +4645,14 @@ function render(){
     }
   });
   const wrap=document.getElementById('listWrap');
-  if(!list.length){wrap.innerHTML=`<div class="empty">🔍 查無資料</div>`;return;}
+  if(!list.length){wrap.innerHTML=recentRowHtml(q)+`<div class="empty">🔍 查無資料</div>`;return;}
   const sheetIsOpen=isSheetOpen();   // 編輯面板開著才標「正在看的那位」
-  wrap.innerHTML=list.map(c=>{
+  // 篩選條件變了就從頭算分段；沒變（例如存檔後重畫）維持已載入的張數
+  const listKey=[curTab,curTime,q,sortBy,[...selectedCities].join(','),(typeof selectedBatches!=='undefined'?[...selectedBatches].join(','):'')].join('|');
+  if(listKey!==_listKey){ _listKey=listKey; _listLimit=LIST_PAGE; }
+  const total=list.length;
+  if(total>_listLimit) list=list.slice(0,_listLimit);
+  wrap.innerHTML=recentRowHtml(q)+list.map(c=>{
     let st=remSt(c.remind);
     // 今天的提醒，但時間已過 → 視為逾期
     if(st==='today'&&c.remindTime){
@@ -4584,7 +4690,8 @@ function render(){
       ${c.addr?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍${hl(c.addr||'',q)}</div>`:''}
       ${lastLog?`<div class="clog"><span style="color:var(--t3)">${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
     </div>`;
-  }).join('');
+  }).join('')+(total>list.length?`<button type="button" class="load-more" id="loadMoreBtn" onclick="loadMoreCards()">顯示更多（還有 ${total-list.length} 筆）</button>`:'');
+  watchLoadMore();
 }
 
 function togglePin(id, e) {
@@ -4719,6 +4826,12 @@ initNotifications();
 // ── 鍵盤快捷鍵 ───────────────────────────────────────────
 document.addEventListener('keydown', e=>{
   const sheetOpen=document.getElementById('sheetBg').classList.contains('open');
+  const inField=(()=>{ const t=(e.target&&e.target.tagName||'').toLowerCase(); return t==='input'||t==='textarea'||t==='select'||(e.target&&e.target.isContentEditable); })();
+  // 「/」跳到搜尋框、「n」新增客戶（焦點不在輸入欄、沒開面板時）
+  if(!inField && !sheetOpen && !_uiDlgResolve){
+    if(e.key==='/'){ e.preventDefault(); const s=document.getElementById('searchInput'); if(s){ s.focus(); s.select(); } return; }
+    if((e.key==='n'||e.key==='N') && !e.ctrlKey && !e.metaKey && !e.altKey){ e.preventDefault(); openAdd(); return; }
+  }
   // Esc 關閉
   if(e.key==='Escape' && selectMode){ exitSelectMode(); return; }
   if(e.key==='Escape' && sheetOpen){ closeSheet(); return; }
@@ -4830,6 +4943,7 @@ function openAdd(){
   document.getElementById('fRemindMin').value='';
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
+  { const st=document.getElementById('qrStatus'); if(st) st.textContent=''; }   // 快速提醒的「✓ 日期」不要帶到下一位
   document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
   tempDebtPhones=[]; renderDebtPhones();
   finProofs=[];renderFinProofs();
@@ -4883,6 +4997,7 @@ function openEdit(id){
   editId=id;formDirty=false;
   const c=clients.find(x=>x.id===id);
   if(!c)return;
+  pushRecent(id);
   document.getElementById('sheetTitle').textContent=dispName(c);
   renderDupPanel(c);
   document.getElementById('btnDel').style.display='';
@@ -4930,6 +5045,7 @@ function openEdit(id){
   document.getElementById('fLandNo').value=c.landNo||'';
   document.getElementById('fLogDate').value=TODAY;
   document.getElementById('fLogText').value='';
+  { const st=document.getElementById('qrStatus'); if(st) st.textContent=''; }   // 快速提醒的「✓ 日期」不要帶到下一位
   // Debt phones（可手動編輯；刪過的記進 deletedDebtPhones，總檔更新不再帶回）
   tempDebtPhones=[...(c.debtPhones||[])]; renderDebtPhones();
   // Company data tab
@@ -5459,7 +5575,23 @@ function addLog(){
   if(!d||!t){uiAlert('請填寫日期和記錄內容');return;}
   tempLogs.unshift({date:d,text:t});
   document.getElementById('fLogText').value='';
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
   renderLogs();
+}
+// 快速提醒：days=1/3/7/14/30 設成幾天後（時間保留原本的）；0=清除。基本頁與聯絡記錄頁共用
+function quickRemind(days){
+  const f=document.getElementById('fRemind'); if(!f) return;
+  if(!days){
+    f.value=''; const h=document.getElementById('fRemindHour'), m=document.getElementById('fRemindMin'); if(h) h.value=''; if(m) m.value='';
+    showToast('已清除提醒');
+  } else {
+    const d=new Date(); d.setDate(d.getDate()+days);
+    f.value=localDateStr(d);
+    const label={1:'明天',3:'3天後',7:'1週後',14:'2週後',30:'1個月後'}[days]||days+'天後';
+    showToast(`🔔 下次提醒：${label}（${f.value}）`);
+    const st=document.getElementById('qrStatus'); if(st) st.textContent='✓ '+f.value;
+  }
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
 }
 function removeLog(i){
   const log = tempLogs[i];
@@ -6364,10 +6496,12 @@ async function saveClient(silent){
   data.properties=properties.map(p=>({...p}));
   // 手動分類鎖：用戶親手分了類(非待分類)→鎖住,之後匯入(總檔/新鑫)都不再覆蓋分類
   if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(data.heat)) data.heatManual = true;
+  let savedId=editId;
   if(editId){
     const idx=clients.findIndex(c=>c.id===editId);
     clients[idx]={...clients[idx],...data};
   } else {
+    savedId=nextId;
     clients.push({id:nextId++,createdAt:TODAY,debtPhones:[],companyRaw:null,...data});
   }
   ensureSerials();   // 新客戶補上流水編號(客戶ID);既有的不動
@@ -6375,8 +6509,19 @@ async function saveClient(silent){
   formDirty=false;
   if(silent) return; // 自動存：寫入本地+雲端就好，不關閉/不跳訊息/不額外同步
   btn.disabled=false;btn.textContent='儲存';
-  closeSheet();render();
-  showToast('💾 已儲存');
+  if(window.innerWidth>=900){
+    // 電腦版（左右兩欄）：儲存後面板留著，不打斷正在看的位置；重新載入同一位、停在同一分頁與捲動位置
+    const tabIdx=[...document.querySelectorAll('.stab')].findIndex(b=>b.classList.contains('active'));
+    const sb=document.querySelector('.sbody'); const st=sb?sb.scrollTop:0;
+    openEdit(savedId);
+    if(tabIdx>0){ const nb=document.querySelectorAll('.stab'); if(nb[tabIdx]) sSTab(tabIdx, nb[tabIdx]); }
+    if(sb) sb.scrollTop=st;
+    render();
+    showToast('💾 已儲存');
+  } else {
+    closeSheet();render();
+    showToast('💾 已儲存');
+  }
   pushToSheet()
     .then(()=>showToast('✅ 同步完成'))
     .catch(()=>{});
@@ -7617,6 +7762,7 @@ initCityFilter();
 loadBlacklist();
 loadMemos();
 initTimeDropdowns();
+loadViewState();   // 還原上次的分類分頁／時間篩選／排序
 loadBtnVis();
 // render() 與 autoClassify() 在 auth 登入後才呼叫
 </script>
