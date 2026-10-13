@@ -54,6 +54,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .imenu-item{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap}
 .imenu-item:hover{background:var(--s2)}
 .imenu-item:disabled{opacity:.5;cursor:default}
+/* 熱度快改小選單 */
+.hbadge.hb-click{cursor:pointer}
+.hbadge.hb-click:active{filter:brightness(.92)}
+.hp-title{font-size:11px;color:var(--t3);padding:6px 10px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.hp-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;font-family:inherit;min-height:38px}
+.hp-item:hover{background:var(--s2)}
+.hp-item.cur{background:var(--abg)}
+.hp-cur{font-size:10px;color:var(--accent);font-weight:600}
 .hbtn:active{opacity:.8}
 .hbtn:disabled{opacity:.5}
 .stats-bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:4px 2px 6px;justify-content:center}
@@ -294,7 +302,12 @@ input[type=number]{min-width:0}
 @media(min-width:900px){.memo-mobile-btn{display:none}}
 
 /* ── Batch select mode ───────────────────────────────────── */
-.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 14px 16px;display:flex;align-items:center;gap:8px;z-index:85;box-shadow:0 -4px 20px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .22s cubic-bezier(.32,1,.46,1);max-width:480px;margin:0 auto}
+.bb-row{display:flex;align-items:center;gap:8px}
+.bb-actions{margin-top:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.bb-actions::-webkit-scrollbar{display:none}
+.bb-btn{flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;min-height:34px}
+.bb-btn:active{filter:brightness(.95)}
+.batch-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 14px 14px;display:flex;flex-direction:column;z-index:85;box-shadow:0 -4px 20px rgba(0,0,0,.1);transform:translateY(100%);transition:transform .22s cubic-bezier(.32,1,.46,1);max-width:480px;margin:0 auto}
 .batch-bar.show{transform:translateY(0)}
 .ccard.selected{background:var(--abg)!important;outline:2px solid var(--accent);outline-offset:-1px}
 .sel-chk{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s;margin-right:8px;background:var(--surface);font-size:11px;font-weight:700;color:transparent}
@@ -941,12 +954,13 @@ async function applyUrlSettings() {
       <button class="hbtn hbtn-company" id="importMenuBtn" onclick="toggleImportMenu(event)" title="總檔更新／XLS／謄本／AI 匯入">📥 匯入 ▾</button>
       <button class="hbtn" id="inboxBtn" style="display:none;background:var(--rbg);color:var(--red);font-weight:700" onclick="openInbox()">📨 待審<span id="inboxCount"></span></button>
       <button class="hbtn hbtn-sync" id="blBtn" onclick="openBlacklist()">黑名單<span id="blCount"></span></button>
-      <button class="hbtn" id="selectModeBtn" onclick="toggleSelectMode()" style="background:var(--s2);color:var(--t2)">☑ 選取</button>
       <button class="hbtn hbtn-sync" id="urlSettingsBtn" onclick="openUrlSettings()" title="設定／備份／登出">⚙️ 設定</button>
       <button class="hbtn" id="hbtnSettingsBtn" onclick="toggleBtnSettings(event)" title="工具列顯示設定" style="background:var(--s2);color:var(--t2);padding:7px 10px;font-size:14px">👁</button>
     </div>
     <button class="tab-arrow" onclick="scrollHbtns(150)">&#8250;</button>
     </div>
+    <!-- 卡片熱度快改小選單 -->
+    <div id="heatPick" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:180px;flex-direction:column;gap:2px"></div>
     <!-- 匯入下拉選單（四種匯入收在一起，工具列才不會一排十幾顆） -->
     <div id="importMenu" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.15);min-width:176px;flex-direction:column;gap:2px">
       <button class="imenu-item" id="companyBtn" onclick="closeImportMenu();syncFromCompany()">🏢 從總檔更新</button>
@@ -996,10 +1010,11 @@ async function applyUrlSettings() {
           <button onclick="clearBatchFilter()" style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;font-family:inherit">清除</button>
         </div>
         <div id="batchCheckboxes" style="display:flex;flex-direction:column;gap:4px"></div>
-        <div style="margin-top:10px;font-size:11px;color:var(--t3)">標記批次請用工具列「📋 名單」</div>
+        <div style="margin-top:10px;font-size:11px;color:var(--t3)">要標記批次：按「☑ 選取」勾人，底部列點「🏷️ 標批次」</div>
       </div>
     </div>
-    <button onclick="openListTool()" title="勾選客戶→標批次/地圖名單/匯出公司格式" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 <span class="listtool-txt">名單</span></button>
+    <!-- 選取模式入口（原本「📋 名單」另一套勾選已併進來：勾人後底部列有改分類／標批次／匯出／通知單／地圖） -->
+    <button id="selectModeBtn" onclick="toggleSelectMode()" title="勾選客戶→改分類／標批次／匯出公司格式／通知單／地圖名單" style="background:var(--abg);color:var(--accent);border:none;border-radius:var(--rs);padding:9px 12px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0">☑ <span class="listtool-txt">選取</span></button>
   </div>
   </div><!-- /sticky-top -->
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
@@ -1008,20 +1023,30 @@ async function applyUrlSettings() {
 <div class="toast" id="toast"></div>
 
 <!-- Batch action bar -->
+<!-- 選取模式底部列：勾人之後所有批次動作都在這裡（改分類／標批次／匯出／通知單），取代原本另一套「📋 名單」勾選 -->
 <div class="batch-bar" id="batchBar">
-  <button id="batchSelAllBtn" onclick="batchSelectAll()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--t2);white-space:nowrap;flex-shrink:0">全選</button>
-  <span id="batchCount" style="flex:1;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">已選 0 筆</span>
-  <select id="batchHeat" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;flex-shrink:0;-webkit-appearance:none">
-    <option value="">移動到…</option>
-    <option value="覆訪">🟡 覆訪</option>
-    <option value="追很緊">🔵 追很緊</option>
-    <option value="新鑫">🟣 新鑫</option>
-    <option value="待分類">🟤 待分類</option>
-    <option value="已簽約">🟢 已簽約</option>
-    <option value="無效案件">⚫ 無效案件</option>
-  </select>
-  <button onclick="applyBatchCategory()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">套用</button>
-  <button onclick="exitSelectMode()" style="background:var(--s2);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button>
+  <div class="bb-row">
+    <button id="batchSelAllBtn" onclick="batchSelectAll()" style="background:var(--s2);border:none;border-radius:var(--rs);padding:8px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--t2);white-space:nowrap;flex-shrink:0">全選</button>
+    <span id="batchCount" style="flex:1;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">已選 0 筆</span>
+    <select id="batchHeat" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;flex-shrink:0;-webkit-appearance:none;max-width:120px">
+      <option value="">改分類…</option>
+      <option value="覆訪">🟡 覆訪</option>
+      <option value="追很緊">🔵 追很緊</option>
+      <option value="新鑫">🟣 新鑫</option>
+      <option value="待分類">🟤 待分類</option>
+      <option value="已簽約">🟢 已簽約</option>
+      <option value="無效案件">⚫ 無效案件</option>
+    </select>
+    <button onclick="applyBatchCategory()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">套用</button>
+    <button onclick="exitSelectMode()" title="離開選取" style="background:var(--s2);border:none;border-radius:50%;width:32px;height:32px;font-size:14px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button>
+  </div>
+  <div class="bb-row bb-actions">
+    <button class="bb-btn" onclick="withSel(ltTagBatch)" title="為勾選的客戶設定來源批次">🏷️ 標批次</button>
+    <button class="bb-btn" onclick="withSel(ltExportCompany)" title="匯出公司格式（25欄）CSV">📤 公司格式</button>
+    <button class="bb-btn" onclick="withSel(ltExportNoticeData)" title="匯出通知單資料">📬 通知單</button>
+    <button class="bb-btn" onclick="withSel(ltPrintNotice)" title="列印投遞通知單">🖨️ 列印</button>
+    <button class="bb-btn" onclick="withSel(mapFromSelection)" title="地圖名單 CSV（給 Google 我的地圖），只預勾目前選取的人">🗺️ 地圖</button>
+  </div>
 </div>
 
 <!-- Client Sheet -->
@@ -1124,8 +1149,8 @@ async function applyUrlSettings() {
           </div>
         </div>
         <div class="fg2">
-          <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678"/></div>
-          <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789"/></div>
+          <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678" oninput="liveDupCheck()"/></div>
+          <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789" oninput="liveDupCheck()"/></div>
         </div>
         <div class="frow"><label>🔗 關聯（親友／共同借款人）</label>
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
@@ -1742,7 +1767,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t117 (操作流程①:搜尋打字不再頓、搜尋框有✕清空、Enter收鍵盤;清單先顯示60筆、往下捲自動補(開頁切分頁變快);「下次提醒」多了明天/3天/1週/2週/1個月快速鈕,聯絡記錄頁也有;聯絡記錄輸入框按Enter直接加入;電腦版儲存後面板不再自動關閉;重新整理會記住上次的分類/篩選/排序;清單上方顯示最近看過的5位;快捷鍵 / 跳搜尋、N 新增) 2026.10.13';
+const APP_VERSION = '🧪測試版 t118 (操作流程②:卡片上點分類標籤就能直接換分類;新增客戶打電話/身分證時立刻提示已有同一人;手機撥完電話回到系統自動開那位的聯絡記錄頁;「☑選取」和「📋名單」併成一套:勾人後底部列有改分類/標批次/公司格式/通知單/列印/地圖) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2441,6 +2466,18 @@ function findDupCandidates(c) {
   return results.slice(0, 6);
 }
 
+// 新增客戶時一邊打電話／身分證一邊查重（停 0.3 秒才查），從源頭擋掉重複
+let _liveDupTimer=null;
+function liveDupCheck(){
+  if(editId) return;   // 既有客戶開啟時已經顯示過重複面板，這裡只管新增
+  clearTimeout(_liveDupTimer);
+  _liveDupTimer=setTimeout(()=>{
+    const g=id=>(document.getElementById(id)||{}).value||'';
+    const temp={ id:-1, name:g('fName').trim(), phone:g('fPhone').trim(), idno:g('fIdno').trim(), addr:g('fAddr').trim() };
+    if(!temp.phone && !temp.idno){ const p=document.getElementById('dupPanel'); if(p) p.style.display='none'; return; }
+    renderDupPanel(temp);
+  },300);
+}
 function renderDupPanel(c) {
   const panel   = document.getElementById('dupPanel');
   const listEl  = document.getElementById('dupList');
@@ -2458,14 +2495,15 @@ function renderDupPanel(c) {
   listEl.innerHTML = dups.map(function(d) {
     const oc = d.client;
     const col = hColor[oc.heat] || '#888';
-    return '<div style="background:#fff;border:1px solid var(--obd);border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
+    return '<div style="background:var(--surface);border:1px solid var(--obd);border-radius:8px;padding:7px 10px;min-width:130px;max-width:200px">'
       + '<div onclick="openEdit(' + oc.id + ')" style="cursor:pointer">'
       + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + calEsc(dispName(oc)) + '</div>'
       + '<div style="font-size:11px;color:#888;margin:1px 0">' + (oc.phone || '（無電話）') + '</div>'
       + '<div style="font-size:11px;color:' + col + ';font-weight:600">' + oc.heat + '</div>'
       + '<div style="font-size:10px;color:var(--orange);margin-top:2px">' + d.reasons.join('、') + '</div>'
       + '</div>'
-      + '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
+      + (editId ? '<button onclick="mergeWithDup(' + oc.id + ')" style="margin-top:6px;width:100%;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:4px 0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">🔗 合併成同一筆</button>'
+                : '<div style="margin-top:6px;font-size:10px;color:var(--t3)">已有這個人，建議點上方開啟既有資料</div>')
       + '</div>';
   }).join('');
   panel.style.display = 'block';
@@ -4190,7 +4228,7 @@ function buildMapRows(){
       const cr=p.companyRaw||(pi===0?c.companyRaw:null)||{};
       const bNo=p.buildNo||(pi===0?(c.buildNo||''):'');
       const lNo=p.landNo||(pi===0?(c.landNo||''):'');
-      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
+      _mapRows.push({cid:c.id,name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),
         bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',
         buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',
         checked:true});
@@ -4437,7 +4475,7 @@ function ltMapCsv(){
       const addr=String(p.addr||'').trim(); if(!addr) return;
       const cr=p.companyRaw||(pi===0?c.companyRaw:null)||{};
       const bNo=p.buildNo||(pi===0?(c.buildNo||''):''); const lNo=p.landNo||(pi===0?(c.landNo||''):'');
-      _mapRows.push({name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',checked:true});
+      _mapRows.push({cid:c.id,name:c.name||'',heat:c.heat||'待分類',addr,phone:c.phone||'',batch:(c.batch||'').trim(),bank:p.bank||0,legal:p.legal||0,private:p.private||0,purpose:String(p.purpose||c.loanPurpose||'').trim(),note:c.note||'',buildNo:bNo,landNo:lNo,coArea:cr.area||'',coBuild:cr.buildInfo||'',coOwner:cr.owner||'',coRights:cr.rights||'',coProcess:cr.process||'',coNote:cr.note||'',checked:true});
     });
   });
   if(!_mapRows.length){ showToast('⚠️ 勾選的客戶沒有地址'); return; }
@@ -4670,11 +4708,11 @@ function render(){
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
-        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}')" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
+        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}',${c.id})" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
           ${(!selectMode&&c.remind)?`<button class="pin-btn act" onclick="openCalendar(${c.id});event.stopPropagation()" title="加入行事曆">📅</button>${(st==='over'||st==='today'||st==='soon')?`<button class="pin-btn act" onclick="clearRemind(event,${c.id})" title="清除提醒">🔕</button>`:''}`:''}
           ${selectMode?'':`<button class="pin-btn${c.pinned?' on':''}" onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}">📌</button>`}
-          <span class="hbadge ${heatCls}">${c.heat}</span>
+          <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
         </div>
       </div>
       <div class="cmeta">
@@ -4693,6 +4731,36 @@ function render(){
   }).join('')+(total>list.length?`<button type="button" class="load-more" id="loadMoreBtn" onclick="loadMoreCards()">顯示更多（還有 ${total-list.length} 筆）</button>`:'');
   watchLoadMore();
 }
+
+// ── 卡片上點熱度標籤 → 小選單直接換分類（不用進去改再儲存）──
+let _heatPickId=null;
+function openHeatPick(e, id){
+  e.stopPropagation();
+  const panel=document.getElementById('heatPick'); if(!panel) return;
+  const c=clients.find(x=>x.id===id); if(!c) return;
+  _heatPickId=id;
+  const order=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
+  panel.innerHTML=`<div class="hp-title">${dispName(c)}</div>`+order.map(h=>`<button type="button" class="hp-item${c.heat===h?' cur':''}" onclick="applyHeatPick('${h}')"><span class="hbadge ${hCls[h]}">${h}</span>${c.heat===h?'<span class="hp-cur">目前</span>':''}</button>`).join('');
+  panel.style.display='flex';
+  const r=e.currentTarget.getBoundingClientRect();
+  const w=panel.offsetWidth||180, h=panel.offsetHeight||260;
+  let top=r.bottom+6; if(top+h>window.innerHeight-8) top=Math.max(8, r.top-h-6);
+  panel.style.top=top+'px';
+  panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';
+}
+function closeHeatPick(){ _heatPickId=null; const p=document.getElementById('heatPick'); if(p) p.style.display='none'; }
+function applyHeatPick(h){
+  const c=clients.find(x=>x.id===_heatPickId); closeHeatPick();
+  if(!c || c.heat===h) return;
+  const from=c.heat;
+  c.heat=h; c.updatedAt=TODAY;
+  if(['覆訪','追很緊','已簽約','無效案件','新鑫'].includes(h)) c.heatManual=true;   // 跟儲存時的手動分類鎖一致
+  if(editId===c.id){ const s=document.getElementById('fHeat'); if(s) s.value=h; }        // 右邊面板開著同一位就同步
+  saveLocal(); render();
+  showToast(`🏷️ ${dispName(c)}：${from} → ${h}`);
+  pushToSheet().catch(()=>{});
+}
+document.addEventListener('click',e=>{ const p=document.getElementById('heatPick'); if(p && p.style.display!=='none' && !p.contains(e.target)) closeHeatPick(); });
 
 function togglePin(id, e) {
   e.stopPropagation();
@@ -4721,19 +4789,19 @@ function getVisibleList(){
 function toggleSelectMode(){
   selectMode=!selectMode;
   selectedIds.clear();
-  const btn=document.getElementById('selectModeBtn');
-  if(selectMode){
-    btn.style.background='var(--abg)'; btn.style.color='var(--accent)'; btn.textContent='✕ 取消';
-  } else {
-    btn.style.background=''; btn.style.color=''; btn.textContent='☑ 選取';
-  }
+  setSelectBtn(selectMode);
   updateBatchBar(); render();
+}
+// 選取鈕外觀：進入選取＝實心藍「✕ 取消」；平常＝淡藍「☑ 選取」（手機只顯示圖示）
+function setSelectBtn(on){
+  const btn=document.getElementById('selectModeBtn'); if(!btn) return;
+  if(on){ btn.style.background='var(--accent)'; btn.style.color='#fff'; btn.innerHTML='✕ <span class="listtool-txt">取消</span>'; }
+  else { btn.style.background='var(--abg)'; btn.style.color='var(--accent)'; btn.innerHTML='☑ <span class="listtool-txt">選取</span>'; }
 }
 
 function exitSelectMode(){
   selectMode=false; selectedIds.clear();
-  const btn=document.getElementById('selectModeBtn');
-  if(btn){ btn.style.background=''; btn.style.color=''; btn.textContent='☑ 選取'; }
+  setSelectBtn(false);
   updateBatchBar(); render();
 }
 
@@ -4743,6 +4811,18 @@ function toggleSelect(id, e){
   updateBatchBar(); render();
 }
 
+// 名單面板那套動作（標批次／匯出／通知單／地圖）都吃 _ltChecked；這裡把主清單勾選的人灌進去再呼叫
+function withSel(fn){
+  if(!selectedIds.size){ showToast('⚠️ 請先勾選客戶'); return; }
+  _ltChecked=new Set(selectedIds);
+  return fn();
+}
+// 地圖名單：開原本的地圖匯出視窗，但只預勾目前選取的人（分類全開，免得被分類篩掉）
+function mapFromSelection(){
+  if(typeof _mapCats!=='undefined') _mapCats=new Set(['待分類','覆訪','追很緊','新鑫','已簽約','無效案件']);
+  openMapExport();
+  if(Array.isArray(_mapRows)){ _mapRows.forEach(r=>{ r.checked=selectedIds.has(r.cid); }); if(typeof renderMapList==='function') renderMapList(); }
+}
 function batchSelectAll(){
   const visible=getVisibleList();
   const allSel=visible.length>0&&visible.every(c=>selectedIds.has(c.id));
@@ -4788,10 +4868,24 @@ async function clearRemind(e, id) {
 }
 
 // ── 電話點擊 ──────────────────────────────────────────────
-function handlePhoneClick(e, phone) {
+// ── 手機撥號後回到 app → 自動開那位客戶的「聯絡記錄」頁，游標停在輸入框 ──
+let _pendingCall=null;   // {id, t}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible' || !_pendingCall) return;
+  const p=_pendingCall; _pendingCall=null;
+  if(Date.now()-p.t > 30*60*1000) return;            // 超過 30 分鐘就當沒這回事
+  if(Date.now()-p.t < 1500) return;                  // 太快回來＝沒真的撥出去（例如取消）
+  const c=clients.find(x=>x.id===p.id); if(!c) return;
+  openEdit(p.id);
+  const nb=document.querySelectorAll('.stab'); if(nb[2]) sSTab(2, nb[2]);
+  setTimeout(()=>{ const t=document.getElementById('fLogText'); if(t){ t.focus(); } }, 350);
+  showToast(`📞 剛打給「${dispName(c)}」，順手記一筆？`);
+});
+function handlePhoneClick(e, phone, cid) {
   e.stopPropagation();
   if(!phone) return;
   if(/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+    if(cid) _pendingCall={id:cid, t:Date.now()};
     window.location.href = 'tel:' + phone.replace(/[-\s]/g,'');
   } else {
     navigator.clipboard.writeText(phone).then(()=>showToast('📋 已複製電話號碼'));
