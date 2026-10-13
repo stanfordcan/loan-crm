@@ -246,6 +246,11 @@ input[type=number]{min-width:0}
 .litem{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px}
 .litem::before{content:'';position:absolute;left:-17px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface)}
 .ldate{color:var(--accent)}
+/* 文件清單三態籤 */
+.doc-chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}
+.doc-chip{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:6px 11px;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit;min-height:32px}
+.doc-chip.got{background:var(--gbg);color:var(--green);border-color:var(--gbd);font-weight:600}
+.doc-chip.skip{background:var(--s2);color:var(--t3);border-style:dashed;text-decoration:line-through}
 /* 選中的色籤：明確給底色與文字色（.heat-chip 的白底定義在後面，單靠 .hx 等會被蓋掉） */
 .heat-chip.on{font-weight:700}
 .heat-chip.on.hp{background:var(--s2);color:var(--t2);border-color:var(--border)}
@@ -1185,6 +1190,12 @@ async function applyUrlSettings() {
           <div class="frow"><label>電話</label><input id="fPhone" type="tel" placeholder="0912-345-678" oninput="liveDupCheck()"/></div>
           <div class="frow"><label>身分證字號</label><input id="fIdno" placeholder="A123456789" oninput="liveDupCheck()"/></div>
         </div>
+        <div class="fg2">
+          <div class="frow"><label>第二電話／LINE</label><input id="fPhone2" placeholder="家裡、公司或 LINE ID"/></div>
+          <div class="frow"><label>方便聯絡時段</label><input id="fContactTime" list="contactTimeOptions" placeholder="例：平日 17:30 後"/>
+            <datalist id="contactTimeOptions"><option value="上午"><option value="中午 12-13"><option value="下午"><option value="平日 17:30 後"><option value="晚上 20 後"><option value="假日"></datalist>
+          </div>
+        </div>
         <div class="frow"><label>🔗 關聯（親友／共同借款人）</label>
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
             <div id="relChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -1202,14 +1213,40 @@ async function applyUrlSettings() {
           </select>
           <div id="heatChips" class="heat-chips"></div>
         </div>
+        <div id="closeReasonRow" class="fg2" style="display:none">
+          <div class="frow"><label>結案原因</label>
+            <select id="fCloseReason">
+              <option value="">— 選一個 —</option>
+              <option>估值不足</option><option>信用太差</option><option>利率談不攏</option><option>被同業搶走</option>
+              <option>客戶放棄</option><option>聯絡不上</option><option>資料不實</option><option>已向銀行貸到</option><option>其他</option>
+            </select>
+          </div>
+          <div class="frow"><label>補充</label><input id="fCloseNote" placeholder="一句話"/></div>
+        </div>
         </div>
         <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">💼</span>客戶資料</div>
         <div class="fg2">
           <div class="frow"><label>工作／職業</label><input id="fJob" placeholder="例：上班族" oninput="syncToEval('ev_job', this.value)"/></div>
           <div class="frow"><label>年資</label><input id="fJobYears" placeholder="例：5年"/></div>
         </div>
+        <div class="fg2">
+          <div class="frow"><label>公司名稱</label><input id="fCompany" placeholder="例：永利旺運輸企業"/></div>
+          <div class="frow"><label>月收入（萬）</label><input id="fIncome" type="number" inputmode="decimal" placeholder="例：8"/></div>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>收入型態</label>
+            <select id="fIncomeType"><option value="">— 未填 —</option><option>薪轉</option><option>現金</option><option>自營</option><option>租金／被動</option><option>其他</option></select>
+          </div>
+          <div class="frow"><label>婚姻</label>
+            <select id="fMarital"><option value="">— 未填 —</option><option>單身</option><option>已婚</option><option>離異</option><option>喪偶</option></select>
+          </div>
+        </div>
+        <div class="frow" id="spouseRow"><label>配偶</label>
+          <select id="fSpouse"><option value="">— 未填 —</option><option>知情</option><option>不知情</option><option>共同借款</option><option>需配偶同意（共有）</option></select>
+        </div>
         <div class="frow"><label>財力證明</label>
           <div id="finProofList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+          <datalist id="finTypeOptions"><option value="薪轉"><option value="扣憑"><option value="勞健保"><option value="薪資單"><option value="所得清單"><option value="401報表"><option value="營業登記"><option value="存摺"><option value="租金收入"><option value="其他"></datalist>
           <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增財力證明</button>
         </div>
         <div class="frow"><label>戶籍地址</label><input id="fCensusAddr" placeholder="與現居不同再填；現場找不到人時可循戶籍地，也用來判斷戶籍地是否另有不動產"/></div>
@@ -1217,6 +1254,33 @@ async function applyUrlSettings() {
           <input id="fBatch" list="batchListOptions" placeholder="這筆來自哪批名單，例：0614-A名單"/>
           <datalist id="batchListOptions"></datalist>
         </div>
+        </div>
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">🎯</span>借款需求</div>
+        <div class="fg2">
+          <div class="frow"><label>想借金額（萬）</label><input id="fLoanWant" type="number" inputmode="decimal" placeholder="例：300"/></div>
+          <div class="frow"><label>希望撥款</label>
+            <select id="fLoanWhen"><option value="">— 未填 —</option><option>急（3 天內）</option><option>一週內</option><option>一個月內</option><option>不急</option></select>
+          </div>
+        </div>
+        <div class="frow"><label>用途</label><input id="fLoanUse" list="loanUseOptions" placeholder="例：週轉"/>
+          <datalist id="loanUseOptions"><option value="週轉"><option value="代償"><option value="購屋"><option value="裝潢"><option value="投資"><option value="醫療"><option value="教育"><option value="其他"></datalist>
+        </div>
+        </div>
+        <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">🧾</span>信用狀況</div>
+        <div class="frow"><label>銀行往來</label>
+          <select id="fCreditBank"><option value="">— 未填 —</option><option>正常</option><option>有遲繳</option><option>協商中</option><option>更生／清算</option><option>不詳</option></select>
+        </div>
+        <div class="fg2">
+          <div class="frow"><label>其他民間借款</label>
+            <select id="fCreditPrivate"><option value="">— 未填 —</option><option>無</option><option>有民間</option><option>有當鋪／代書</option><option>不詳</option></select>
+          </div>
+          <div class="frow"><label>退票</label>
+            <select id="fCreditBounce"><option value="">— 未填 —</option><option>無</option><option>有退票</option><option>不詳</option></select>
+          </div>
+        </div>
+        </div>
+        <div class="fsec fsec-wide"><div class="fsec-hd"><span class="fsec-ic">📎</span>文件清單 <span style="font-size:11px;font-weight:400;color:var(--t3);margin-left:4px">點一下：未收 → 已收 → 不需要</span></div>
+          <div id="docChips" class="doc-chips"></div>
         </div>
         <div class="fsec fsec-remind rbox"><div class="fsec-hd"><span class="fsec-ic">🔔</span>下次聯絡提醒</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
@@ -1806,7 +1870,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t125 (修排版:電腦版「基本」「客戶資料」兩張卡等高對齊、提醒卡與上方間距正常;選中的追蹤熱度色籤底色正確顯示) 2026.10.14';
+const APP_VERSION = '🧪測試版 t126 (客戶資料補欄位:基本頁多了第二電話/聯絡時段,選「無效案件」才出現結案原因;客戶資料多了公司/月收入/收入型態/婚姻/配偶,財力證明類型可自填;新增「借款需求」(金額/用途/希望撥款)、「信用狀況」(銀行/民間/退票)、「文件清單」(15項,點一下未收→已收→不需要);精簡卡片顯示想借金額;資料完整度改算12項) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4773,7 +4837,7 @@ function render(){
       </div>
       ${(c.remind||tot)?`<div class="cmeta" style="margin-top:6px">
         ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}
-        ${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}
+        ${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯 想借${c.loanWant}萬</span>`:''}
       </div>`:''}
       ${lastLog?`<div class="clog"><span style="color:var(--t3)">${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
     </div>`;
@@ -4791,6 +4855,7 @@ function render(){
       <div class="cmeta">
         ${c.remind?remChip(c.remind,c.remindTime):''}
         ${(lt=>`${lt.bank?`<span class="mi-amt">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi-amt">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
+        ${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯想借${c.loanWant}萬</span>`:''}
         ${c.serial?`<span class="mi">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
         ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
@@ -5103,6 +5168,40 @@ function openCalendar(id) {
 function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.max(85, el.scrollHeight)+'px'; }
 
 // ── Sheet modal ───────────────────────────────────────────
+// ── t126 新欄位：聯絡／工作家庭／借款需求／信用／文件清單／結案原因 ──
+const DOC_LIST=['身分證','第二證件(健保卡/駕照)','存摺(近6個月)','薪資證明','企業401','所得清單/扣繳憑單','自然人憑證','印鑑證明','印鑑章','權狀','土地建物謄本','戶籍謄本','原貸款對帳單','房屋稅單','聯徵報告'];
+let tempDocs={};   // {文件名: 'got'|'skip'}；沒鍵＝未收
+function nextDocState(cur){ return cur==='got' ? 'skip' : cur==='skip' ? '' : 'got'; }   // 未收→已收→不需要→未收
+function renderDocChips(){
+  const el=document.getElementById('docChips'); if(!el) return;
+  el.innerHTML=DOC_LIST.map(name=>{
+    const st=tempDocs[name]||'';
+    const ic=st==='got'?'✓ ':st==='skip'?'— ':'';
+    return `<button type="button" class="doc-chip ${st}" onclick="toggleDoc('${name.replace(/'/g,"\'")}')" title="${st==='got'?'已收':st==='skip'?'不需要':'未收'}">${ic}${name}</button>`;
+  }).join('');
+  const got=Object.values(tempDocs).filter(v=>v==='got').length, need=DOC_LIST.length-Object.values(tempDocs).filter(v=>v==='skip').length;
+  const hd=el.closest('.fsec')?.querySelector('.fsec-hd span:last-child'); if(hd) hd.textContent=`已收 ${got} / 需要 ${need}　點一下：未收 → 已收 → 不需要`;
+}
+function toggleDoc(name){
+  const nx=nextDocState(tempDocs[name]||'');
+  if(nx) tempDocs[name]=nx; else delete tempDocs[name];
+  renderDocChips();
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave(); updateRevertBtn();
+}
+function fillExtraFields(c){
+  const sv=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=(v==null?'':v); };
+  const o=c||{};
+  ['phone2','contactTime','company','income','incomeType','marital','spouse','loanWant','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote']
+    .forEach(k=>sv('f'+k.charAt(0).toUpperCase()+k.slice(1), o[k]));
+  tempDocs=(o.docs&&typeof o.docs==='object')?{...o.docs}:{};
+  renderDocChips();
+  updateCloseReasonRow();
+}
+// 結案原因只在「無效案件」時出現
+function updateCloseReasonRow(){
+  const row=document.getElementById('closeReasonRow'), sel=document.getElementById('fHeat');
+  if(row&&sel) row.style.display=(sel.value==='無效案件')?'':'none';
+}
 // ── 追蹤熱度色籤（取代下拉；仍透過隱藏的 #fHeat 存值，其他程式不用改）──
 function renderHeatChips(){
   const el=document.getElementById('heatChips'), sel=document.getElementById('fHeat'); if(!el||!sel) return;
@@ -5113,7 +5212,7 @@ function renderHeatChips(){
 function pickHeatChip(h){
   const sel=document.getElementById('fHeat'); if(!sel) return;
   sel.value=h; sel.dispatchEvent(new Event('input',{bubbles:true}));   // 觸發 formDirty／自動存
-  renderHeatChips(); updateSheetHeader();
+  renderHeatChips(); updateCloseReasonRow(); updateSheetHeader();
 }
 // ── 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度 ──
 function updateSheetHeader(){
@@ -5128,7 +5227,7 @@ function updateSheetHeader(){
   const dist=(addr.match(/^[一-龥]{2,3}[市縣]([一-龥]{1,3}[區鄉鎮市])/)||[])[1]||'';
   // 完整度：8 個關鍵欄位
   const logsN=(typeof tempLogs!=='undefined'&&Array.isArray(tempLogs))?tempLogs.length:0;
-  const checks=[g('fPhone'), g('fIdno'), g('fBirthY'), addr, g('fJob'), g('fBatch'), g('fRemind'), logsN?'1':''];
+  const checks=[g('fPhone'), g('fIdno'), g('fBirthY'), addr, g('fJob'), g('fIncome'), g('fMarital'), g('fLoanWant'), g('fCreditBank'), g('fBatch'), g('fRemind'), logsN?'1':''];
   const done=checks.filter(Boolean).length, pct=Math.round(done/checks.length*100);
   if(sub) sub.textContent=[g('fSerial')||(c&&c.serial)||'', dist, editId?`資料完整度 ${pct}%`:'新客戶'].filter(Boolean).join(' · ');
   if(bar) bar.style.width=(editId?pct:0)+'%';
@@ -5165,6 +5264,7 @@ function openAdd(){
   document.getElementById('companyInfoPanel').innerHTML='<div class="company-info-title">📊 公司總檔資料</div><div style="font-size:12px;color:var(--t3)">尚無公司資料</div>';
   tempDebtPhones=[]; renderDebtPhones();
   finProofs=[];renderFinProofs();
+  fillExtraFields(null);
   extraLoans=[];renderExtraLoans();
   extraLands=[];renderExtraLands();
   tempLogs=[];renderLogs();sSTabTo(0);
@@ -5276,6 +5376,7 @@ function openEdit(id){
   // Company data tab
   _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
+  fillExtraFields(c);
   tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
@@ -5982,9 +6083,7 @@ function renderFinProofs(){
   const container=document.getElementById('finProofList');if(!container)return;
   container.innerHTML=finProofs.map((fp,i)=>`
     <div style="display:flex;align-items:center;gap:6px">
-      <select onchange="finProofs[${i}].type=this.value" style="flex:0 0 80px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-family:inherit;outline:none;-webkit-appearance:none">
-        ${['薪轉','扣憑','勞健保','薪資單'].map(t=>`<option value="${t}" ${fp.type===t?'selected':''}>${t}</option>`).join('')}
-      </select>
+      <input list="finTypeOptions" value="${calEsc(fp.type||'')}" placeholder="類型" onchange="finProofs[${i}].type=this.value" style="flex:0 0 96px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-family:inherit;outline:none"/>
       <input placeholder="月/年 金額" value="${fp.value||''}" onchange="finProofs[${i}].value=this.value" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none"/>
       <button onclick="finProofs.splice(${i},1);renderFinProofs()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0">✕</button>
     </div>`).join('');
@@ -6676,6 +6775,7 @@ async function saveClient(silent){
   if(silent && !editId) return; // 自動存只更新既有客戶，不新建
   const btn=document.getElementById('btnSave');
   if(!silent){ btn.disabled=true;btn.textContent='儲存中…'; }
+  const gv=id=>((document.getElementById(id)||{}).value||'').trim();
   const data={
     name,phone,
     idno:document.getElementById('fIdno').value.trim(),
@@ -6689,6 +6789,13 @@ async function saveClient(silent){
     birthM:parseInt(document.getElementById('fBirthM').value)||0,
     birthD:parseInt(document.getElementById('fBirthD').value)||0,
     finProofs:[...finProofs],
+    // t126 新欄位（客戶層級）
+    phone2:gv('fPhone2'), contactTime:gv('fContactTime'),
+    company:gv('fCompany'), income:gv('fIncome'), incomeType:gv('fIncomeType'), marital:gv('fMarital'), spouse:gv('fSpouse'),
+    loanWant:gv('fLoanWant'), loanUse:gv('fLoanUse'), loanWhen:gv('fLoanWhen'),
+    creditBank:gv('fCreditBank'), creditPrivate:gv('fCreditPrivate'), creditBounce:gv('fCreditBounce'),
+    closeReason:gv('fCloseReason'), closeNote:gv('fCloseNote'),
+    docs:{...tempDocs},
     note:document.getElementById('fNote').value.trim(),
     censusAddr:document.getElementById('fCensusAddr').value.trim(),
     batch:document.getElementById('fBatch').value.trim(),

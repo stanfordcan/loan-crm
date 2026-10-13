@@ -125,5 +125,7 @@ ok(lt.bank===500&&lt.legal===0&&lt.priv===300,'clientLoanTotals 舊欄位加總(
 const lt2=clientLoanTotals({properties:[{bank:100,private:50},{bank:200,legal:30}]});
 ok(lt2.bank===300&&lt2.legal===30&&lt2.priv===50,'clientLoanTotals 多筆不動產加總');
 
+eval(ext('nextDocState'));
+ok(nextDocState('')==='got'&&nextDocState('got')==='skip'&&nextDocState('skip')==='','文件清單三態循環 未收→已收→不需要→未收');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
