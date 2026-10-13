@@ -99,5 +99,31 @@ ok(ownBuildKeyFromBuildInfo('台北市中山區金泰段06268-000建號 民國09
 ok(ownBuildKeyFromBuildInfo('台北市中山區中山段一小段03913-000建號')!==ownBuildKeyFromBuildInfo('台北市中山區中山段一小段03928-000建號'),'不同建號→不同識別(地下室不再被當同一間)');
 ok(ownBuildKeyFromBuildInfo('沒有建號的文字')===''&&ownBuildKeyFromBuildInfo(null)==='','抓不到回空字串');
 
+
+console.log('— 畫面邏輯 (t116~t123)：清單篩選、地址縮短、版本短名、債務加總 —');
+eval(['localDateStr','weekEndStr','applyListFilters','shortAddr','shortVersion','getLoanE','clientLoanTotals'].map(ext).join('\n\n'));
+var curTab='all', curTime='';
+const d=n=>{const t=new Date(); t.setDate(t.getDate()+n); return localDateStr(t);};
+const L=[{id:1,name:'逾期',heat:'追很緊',remind:d(-2)},{id:2,name:'逾期已簽',heat:'已簽約',remind:d(-2)},{id:3,name:'今日',heat:'覆訪',remind:d(0)},
+         {id:4,name:'本週',heat:'覆訪',remind:d(5)},{id:5,name:'未排',heat:'待分類'},{id:6,name:'未排無效',heat:'無效案件'},{id:7,name:'下月',heat:'覆訪',remind:d(20)}];
+const names=l=>l.map(c=>c.name).join(',');
+curTab='all'; curTime='';      ok(applyListFilters([...L]).length===7,'無篩選＝全部');
+curTab='覆訪';                  ok(names(applyListFilters([...L]))==='今日,本週,下月','分類：只留覆訪');
+curTab='all'; curTime='over';   ok(names(applyListFilters([...L]))==='逾期','逾期：排除已簽約');
+curTime='today';                ok(names(applyListFilters([...L]))==='今日','今日');
+curTime='week';                 ok(names(applyListFilters([...L]))==='今日,本週','本週：含今天、7天內，不含20天後');
+curTime='noremind';             ok(names(applyListFilters([...L]))==='未排','未排程：排除無效案件');
+curTab='追很緊'; curTime='over'; ok(names(applyListFilters([...L]))==='逾期','分類＋時間可疊加');
+curTab='all'; curTime='';
+ok(shortAddr('臺北市萬華區武成街51巷6號')==='萬華區武成街51巷6號','shortAddr 去掉臺北市');
+ok(shortAddr('新北市板橋區')==='板橋區'&&shortAddr('')===''&&shortAddr(null)==='','shortAddr 新北市／空值');
+ok(shortAddr('萬華區武成街')==='萬華區武成街','shortAddr 沒有縣市就不動');
+ok(shortVersion("🧪測試版 t123 (一堆說明;含分號) 2026.10.14")==='🧪 t123','shortVersion 測試版→🧪 tNN');
+ok(shortVersion('2026.10.13 #1')==='2026.10.13 #1','shortVersion 正式版不變');
+const lt=clientLoanTotals({bank:'500',legal:0,private:300});
+ok(lt.bank===500&&lt.legal===0&&lt.priv===300,'clientLoanTotals 舊欄位加總(字串也算)');
+const lt2=clientLoanTotals({properties:[{bank:100,private:50},{bank:200,legal:30}]});
+ok(lt2.bank===300&&lt2.legal===30&&lt2.priv===50,'clientLoanTotals 多筆不動產加總');
+
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

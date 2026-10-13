@@ -36,14 +36,6 @@
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 .sticky-top{position:sticky;top:0;z-index:50;background:var(--surface)}
-.header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 16px 12px}
-.header-top{display:flex;align-items:center;justify-content:center;margin-bottom:10px}
-.header h1{font-size:20px;font-weight:700;letter-spacing:1px;text-align:center}
-.hbtns{display:flex;gap:7px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-bottom:10px;padding:0 2px 2px;justify-content:flex-start}
-.hbtns::-webkit-scrollbar{display:none}
-/* 按鈕放得下就置中；放不下（手機）仍可橫捲，不會像 justify-content:center 那樣把最左邊切掉 */
-.hbtns>:first-child{margin-left:auto}
-.hbtns>:last-child{margin-right:auto}
 .hbtn{border:none;border-radius:9px;padding:9px 13px;min-height:36px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
 .hbtn:active{transform:scale(.95);opacity:.85}
@@ -94,9 +86,6 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .spill.warn b{color:var(--orange)}
 .spill.info b{color:var(--accent)}
 /* 工具列收合（手機）：預設展開的容器 + 收合切換鈕 */
-.hbtnsBar{display:flex;align-items:center;gap:2px}
-#hbtnToggle{display:none;width:100%;margin-bottom:8px;background:var(--s2);color:var(--t2);border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
-@media(min-width:900px){ #hbtnToggle{display:none} }
 @media(max-width:899px){
   /* 手機：頂部只剩兩排（統計卡＋☰、搜尋列） */
   .topbar{padding:8px 10px 6px}
@@ -109,23 +98,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
   .search-wrap{flex-wrap:nowrap!important}
   .search-input{min-width:0!important}
   .listtool-txt{display:none}
-  /* 排序選單、篩選鈕縮小，省橫向空間 */
-  #sortSelect{padding:7px 4px!important;font-size:12px!important;max-width:120px}
-  #cityFilterBtn{padding:7px 8px!important;font-size:12px!important}
-  /* 上方功能鈕預設收合，點切換鈕才展開 */
-  #hbtnToggle{display:block}
-  .hbtnsBar{display:none}
-  .hbtnsBar.open{display:flex}
 }
-.tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px;display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;flex:1}
-.tabs::-webkit-scrollbar{display:none}
-.tabs-wrap{position:relative;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border)}
-.tab-arrow{background:none;border:none;padding:0 6px;font-size:18px;cursor:pointer;color:var(--t3);flex-shrink:0;line-height:1}
-.tab-arrow:hover{color:var(--accent)}
-.tabs::-webkit-scrollbar{display:none}
-/* 分頁鈕：手機點得到（高度≥40px），PC 再用 .pc-container 縮回 */
-.tbtn{flex-shrink:0;padding:11px 13px;min-height:40px;font-size:13px;font-weight:500;color:var(--t3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap}
-.tbtn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .search-wrap{padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
 .search-input{width:100%;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 13px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
 .list-wrap{flex:1;padding:10px 14px;display:flex;flex-direction:column;gap:8px;padding-bottom:88px}
@@ -411,21 +384,14 @@ input[type=number]{min-width:0}
     background:var(--bg);
   }
 
-  /* PC 按鈕列 */
-  .pc-container .hbtn{font-size:12px;padding:7px 12px}
 
   /* 統計列可換行 */
   .pc-container .stats-bar{flex-wrap:wrap;gap:5px;padding:4px 0}
   .pc-container .spill{font-size:12px;padding:5px 12px}
 
   /* PC 整體縮一級：字級以手機為主設計，筆電 125~150% 縮放下會顯得過大 */
-  .pc-container .header{padding:12px 16px 8px}
-  .pc-container .header h1{font-size:18px}
-  .pc-container .header-top{margin-bottom:6px}
   .pc-container .spill b{font-size:18px}
   .pc-container .spill span{font-size:10px}
-  .pc-container .tbtn,.pc-container .stab{padding:9px 12px;min-height:34px;font-size:12px}
-  .pc-container .hbtn{min-height:32px}
   .pc-container .search-input,.pc-container #sortSelect,.pc-container #cityFilterBtn{font-size:13px}
   .pc-container .list-wrap{padding:12px 16px 30px;gap:9px}
   .pc-container .ccard{padding:13px 15px;border-radius:12px}
@@ -1830,7 +1796,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t123 (編輯面板改版:輸入框改白底細框、聚焦有藍框;每一段變成一張白卡(基本/客戶資料/下次提醒/備註與債電),各有小圖示;追蹤熱度從下拉改成一排色籤;標題列多了名字頭像(顏色跟分類)、流水編號·區、資料完整度;聯絡記錄改時間軸;不動產/公司資料分頁的卡片樣式統一) 2026.10.14';
+const APP_VERSION = '🧪測試版 t124 (程式整理,畫面無變化:清掉舊標題列/工具列/分頁列的殘留程式;回歸測試從45項增加到59項,涵蓋清單篩選、地址縮短、版本短名、債務加總) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3903,7 +3869,6 @@ const hCls={'待分類':'hp','覆訪':'hw','追很緊':'hc','已簽約':'hd','�
 const hOrd={'待分類':0,'覆訪':1,'追很緊':2,'新鑫':3,'已簽約':4,'無效案件':5};
 const rOrd={over:0,today:1,soon:2,ok:3,null:4};
 
-let showFullTotal = false; // 手機端切換含無效總計
 
 function updateStats(){
   const inactive = ['已簽約','無效案件'];
@@ -3918,8 +3883,6 @@ function updateStats(){
   // 總計：預設排除無效案件
   const activeTotal = clients.filter(c=>c.heat!=='無效案件').length;
   const fullTotal   = clients.length;
-  const dispN = showFullTotal ? fullTotal : activeTotal;
-  const dispL = showFullTotal ? '👥 含無效' : '👥 總計';
 
   const todayN = clients.filter(c=>c.remind===TODAY).length;
   // 統計卡可點：點了就只看那一類（跟分類疊加），再點一次取消。總計數字改放在分類下拉的「全部 (N)」
@@ -4083,24 +4046,7 @@ async function syncGoogleCal(silent){
 }
 
 // PC hover：暫時顯示含無效的完整數字
-function totalHover(el, full){
-  el.querySelector('b').textContent = full;
-  el.querySelector('span').textContent = '👥 含無效';
-  el.style.outline = '1.5px solid var(--border)';
-}
-function totalLeave(el, active){
-  el.style.outline = '';
-  if(!showFullTotal){
-    el.querySelector('b').textContent = active;
-    el.querySelector('span').textContent = '👥 總計';
-  }
-}
 // 手機端點擊切換
-function totalClick(){
-  if(!('ontouchstart' in window)) return; // PC 只用 hover，不 toggle
-  showFullTotal = !showFullTotal;
-  updateStats();
-}
 function updateTabs(){
   const cnt={
     all: clients.length,
@@ -4124,21 +4070,7 @@ function updateTabs(){
   const tw=document.getElementById('tabsWrap');   // 舊的分頁列（已移除）；保留相容
   if(tw) tw.innerHTML='';
 }
-function scrollTabs(dx) {
-  const tabs = document.getElementById('tabsWrap');
-  tabs.scrollBy({ left: dx, behavior: 'smooth' });
-}
-function scrollHbtns(dx) {
-  const row = document.getElementById('hbtnsRow');
-  row.scrollBy({ left: dx, behavior: 'smooth' });
-}
 // 手機：收合/展開上方功能鈕
-function toggleHbtns(){
-  const bar=document.getElementById('hbtnsBar');
-  const btn=document.getElementById('hbtnToggle');
-  const open=bar.classList.toggle('open');
-  if(btn) btn.textContent = open ? '⚙️ 功能選單 ▴' : '⚙️ 功能選單 ▾';
-}
 
 // ── 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程 ──
 // 跟熱度分頁疊加（例如「追很緊」＋「逾期」）。再點一次同一張卡＝取消。
