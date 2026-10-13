@@ -1691,7 +1691,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t113 (畫面整理②:⚙️設定新增「外觀」可選淺色/深色/跟隨系統;手機標題區變矮、版本只顯示tNN、信箱收進設定;卡片上的「加入行事曆」「清除提醒」改成右上角📅🔕小圖示;分頁與按鈕加高到手指好點;排序選單文字縮短;電腦版字級整體縮一級) 2026.10.13';
+const APP_VERSION = '🧪測試版 t114 (電腦版用鍵盤↑↓切換客戶時,左邊清單會把目前這張卡片捲到正中間,不會一直貼在最底下;也不會被上方固定的標題列蓋住) 2026.10.13';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4669,7 +4669,8 @@ document.addEventListener('keydown', e=>{
     const idx=ids.indexOf(editId);
     const next=e.key==='ArrowUp'?idx-1:idx+1;
     if(next>=0&&next<ids.length){
-      openEdit(ids[next]);
+      _kbNavCenter=true;                       // 讓左邊清單把新卡片捲到正中間(見 highlightActiveCard)
+      try{ openEdit(ids[next]); } finally{ _kbNavCenter=false; }
       if(keepTab>0){ const nb=document.querySelectorAll('.stab'); if(nb[keepTab]) sSTab(keepTab, nb[keepTab]); } // 還原到同一分頁(基本=0不用動)
     }
   }
@@ -4782,12 +4783,22 @@ function highlightActiveCard(doScroll){
   if(isPage) sc=document.scrollingElement||document.documentElement;
   const er=el.getBoundingClientRect();
   const sr=isPage ? {top:0,bottom:window.innerHeight} : sc.getBoundingClientRect();
+  // 可視區上緣要扣掉固定在頂部的標題/搜尋列(.sticky-top)，否則卡片會捲到它底下被蓋住
+  const stickyEl=isPage ? document.querySelector('.sticky-top') : sc.querySelector('.sticky-top');
+  const stickyH=stickyEl ? stickyEl.getBoundingClientRect().height : 0;
+  const visTop=sr.top+stickyH, visBottom=sr.bottom;
   const pad=14;   // 留一點邊，卡片不會剛好貼齊邊緣
   let delta=0;
-  if(er.top < sr.top+pad) delta = er.top - sr.top - pad;                    // 跑到上面 → 往回捲
-  else if(er.bottom > sr.bottom-pad) delta = er.bottom - sr.bottom + pad;   // 跑到下面 → 往下捲
-  if(delta) sc.scrollTop += delta;   // 只有真的跑出畫面才捲,在畫面內就完全不動
+  if(_kbNavCenter){
+    // 鍵盤 ↑↓ 切換：卡片放在可視區正中間，前後幾張都看得到；不然往下按時每張都貼在最底邊
+    delta = (er.top+er.height/2) - (visTop+(visBottom-visTop)/2);
+  } else {
+    if(er.top < visTop+pad) delta = er.top - visTop - pad;                    // 跑到上面 → 往回捲
+    else if(er.bottom > visBottom-pad) delta = er.bottom - visBottom + pad;   // 跑到下面 → 往下捲
+  }
+  if(Math.abs(delta)>1) sc.scrollTop += delta;   // 滑鼠點的：只有真的跑出畫面才捲,在畫面內就完全不動
 }
+let _kbNavCenter=false;   // 只在鍵盤 ↑↓ 切換那一瞬間為 true
 function openEdit(id){
   editId=id;formDirty=false;
   const c=clients.find(x=>x.id===id);
