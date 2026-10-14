@@ -79,6 +79,8 @@ GAS 送 0~24 欄＋分頁名。關鍵欄：col0 電話姓名、col1 拜訪過程
 
 ## 6. GAS（Google Apps Script）
 
+- **新同事開通**：照 `新同事開通流程_管理員版.md`（開 Firebase 帳號 → 他的 Drive 總檔轉 Google 試算表 → 建個人 GAS、authorize、部署 → 網址貼進他的 ⚙️ 設定）。一帳號一份資料，各管各的。
+
 - repo 的 `個人GAS.gs` ＝ 最新完整版。功能：回傳總檔 25 欄（doGet 預設）、createFolder（Drive 客戶資料夾）、getEvents（行事曆）、listFolder／uploadFile（☁️雲端分頁）。
 - `TOKEN = 'stanford87'`（全公司同一個）；`SPREADSHEET_ID` 每人各自填自己的總檔試算表 ID。
 - 部署鐵則：執行身分＝我自己、存取＝**任何人**；改完要「管理部署→編輯→**新版本**」（網址才不變）；加權限後要跑一次 `authorize()`。
