@@ -14,7 +14,8 @@ description: 出測試版——loan-crm 改完 index-test.html 後的標準發�
    - `node dev/test.js` → 18/18 通過
    - 這次改動有對應的邏輯？先寫小測試抽函式驗過（參考 dev/backup-audit.js 的抽取手法）。
    - 大改動／動到匯入比對：用業主給的備份 JSON 跑 `node dev/backup-audit.js <備份.json>`。
-4. `git pull` → `git add index-test.html`（別把 CRLF 髒檔一起帶進去）→ commit：
+4. `node dev/map.js` 更新函式索引（dev/MAP.md 一起 commit）。
+5. `git pull` → `git add index-test.html dev/MAP.md`（別把 CRLF 髒檔一起帶進去）→ commit：
    - 標題 `tNN: 一句話`，內文講清楚原因與做法。
    - 結尾固定：`Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
 5. `git push`，成功後告訴業主：測試版 **Ctrl+Shift+R**（iPhone 用 Safari 無痕視窗），版本會顯示 tNN，並用白話列「這次改了什麼、要測哪裡」。
