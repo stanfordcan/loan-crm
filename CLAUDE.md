@@ -6,7 +6,7 @@
 業主是民間二胎放款業務、**非工程師**：溝通一律白話中文、先講結論、少術語。他說「先回答我再動手」＝只回計畫、不改碼。
 
 ## 省 token 開工流程（2026/10/14 業主要求）
-1. 開工只讀三份：`CLAUDE.md`、`協作板.md`、`dev/MAP.md`（函式索引＋手冊目錄，約 6k token）。**不要整份讀 `index-test.html`（25 萬 token）或 `開發手冊.md`（2.6 萬）**。
+1. 開工只讀三份：`CLAUDE.md`、`協作板.md`、`dev/MAP.md`（函式索引＋手冊目錄，約 15k token；只看「函式索引」那段就好，手冊目錄要用再看）。**不要整份讀 `index-test.html`（25 萬 token）或 `開發手冊.md`（2.6 萬）**。
 2. 找程式一律先查 `dev/MAP.md` 的行號，再用 Read 的 offset/limit 只讀那一段；grep 只在 MAP 查不到時用，且限定 `-n` 加 `head`。
 3. 改完程式跑 `node dev/map.js` 更新 MAP.md 一起 commit（release-test 流程已含）。
 4. 手冊、交接報告、歷史協作板只在遇到該主題時按需讀對應章節；回歸測試與語法檢查只看 `tail`。
