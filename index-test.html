@@ -260,6 +260,10 @@ body.readonly .memo-mobile-btn{display:none!important}
 body.readonly .hbadge.hb-click{cursor:default}
 body.readonly .sbody input, body.readonly .sbody select, body.readonly .sbody textarea{background:var(--s2)!important;color:var(--t2)}
 body.readonly #batchChips .heat-chip button{display:none}
+body.readonly .sbody button.dial-btn{display:inline-flex!important}
+body.readonly .debt-x{display:none!important}
+.dial-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;background:var(--gbg);border:1px solid var(--gbd);border-radius:var(--rs);color:var(--green);cursor:pointer;font-size:16px;line-height:1;font-family:inherit}
+.dial-btn:active{transform:scale(.94)}
 /* 持分結算條 */
 .share-banner{margin-top:10px;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;border:1.5px solid var(--border);background:var(--s2);color:var(--text)}
 .share-banner.part{background:var(--obg);border-color:var(--orange);color:var(--orange)}
@@ -2015,7 +2019,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t143 (登入畫面多「👁 唯讀模式登入」:手機勾了之後只能看、搜尋、撥號,不會踢掉電腦的登入、也不會寫任何東西;每3分鐘自動重讀雲端,上方有橘色提示列可手動🔄或切回可編輯;電腦版選取模式的動作列改自動換行不再被切掉) 2026.10.14';
+const APP_VERSION = '🧪測試版 t144 (債電一鍵撥號:編輯面板每支債電旁有綠色📞,手機點了直接撥、電腦點了複製;唯讀模式也看得到📞;卡片上沒本人電話的人會顯示第一支債電(橘字「債電」標)點了一樣可撥) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -5077,7 +5081,7 @@ function render(){
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
         <div style="flex:1;min-width:0">
           <div class="cname">${hl(dispName(c),q)}${c.pinned?'<span class="cpin">📌</span>':''}</div>
-          <div class="csub">${c.phone?`<span class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}">${hl(c.phone,q)}</span>`:''}${c.phone&&c.addr?' · ':''}${c.addr?hl(shortAddr(c.addr),q):''}</div>
+          <div class="csub">${c.phone?`<span class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}">${hl(c.phone,q)}</span>`:((c.debtPhones||[]).find(p=>debtPhoneTel(p))?`<span class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${debtPhoneTel((c.debtPhones||[]).find(p=>debtPhoneTel(p)))}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}"><span style="font-size:10px;color:var(--orange);font-weight:700">債電</span> ${hl((c.debtPhones||[]).find(p=>debtPhoneTel(p)),q)}</span>`:'')}${(c.phone||(c.debtPhones||[]).some(p=>debtPhoneTel(p)))&&c.addr?' · ':''}${c.addr?hl(shortAddr(c.addr),q):''}</div>
         </div>
         <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
       </div>
@@ -5091,7 +5095,7 @@ function render(){
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
       <div class="ctop">
         ${selectMode?`<div class="sel-chk">${isSel?'✓':''}</div>`:''}
-        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div><div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone||''}',${c.id})" style="${c.phone&&!selectMode?'cursor:pointer;text-decoration:underline dotted':''}">${hl(c.phone||'',q)}</div></div>
+        <div style="flex:1;min-width:0"><div class="cname">${hl(dispName(c),q)}</div>${c.phone?`<div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${c.phone}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}">${hl(c.phone,q)}</div>`:((c.debtPhones||[]).find(p=>debtPhoneTel(p))?`<div class="cphone" onclick="${selectMode?'event.stopPropagation()':''};handlePhoneClick(event,'${debtPhoneTel((c.debtPhones||[]).find(p=>debtPhoneTel(p)))}',${c.id})" style="${selectMode?'':'cursor:pointer;text-decoration:underline dotted'}"><span style="font-size:10px;color:var(--orange);font-weight:700">債電</span> ${hl((c.debtPhones||[]).find(p=>debtPhoneTel(p)),q)}</div>`:`<div class="cphone"></div>`)}</div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
           ${(!selectMode&&c.remind)?`<button class="pin-btn act" onclick="openCalendar(${c.id});event.stopPropagation()" title="加入行事曆">📅</button>${(st==='over'||st==='today'||st==='soon')?`<button class="pin-btn act" onclick="clearRemind(event,${c.id})" title="清除提醒">🔕</button>`:''}`:''}
           ${selectMode?'':`<button class="pin-btn${c.pinned?' on':''}" onclick="togglePin(${c.id},event)" title="${c.pinned?'取消置頂':'置頂'}">📌</button>`}
@@ -6263,8 +6267,22 @@ function renderDebtPhones(){
   list.innerHTML = tempDebtPhones.length ? tempDebtPhones.map((p,i)=>`
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
       <input value="${calEsc(p)}" placeholder="債務人電話" onchange="setDebtPhone(${i},this.value)" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:6px 9px;font-size:13px;color:var(--t2);font-family:inherit;outline:none"/>
-      <button type="button" onclick="removeDebtPhone(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;line-height:1">✕</button>
+      <button type="button" class="dial-btn" onclick="dialDebtPhone(${i})" title="手機：直接撥號／電腦：複製號碼">📞</button>
+      <button type="button" class="debt-x" onclick="removeDebtPhone(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;line-height:1">✕</button>
     </div>`).join('') : '<div style="font-size:12px;color:var(--t3)">尚無債電</div>';
+}
+// 債電字串 → tel: 可用的號碼：去掉「（名字）」等註記，#分機 變成「,分機」（撥通後停一下再送分機）
+function debtPhoneTel(p){
+  let t=String(p||'').split(/[（(]/)[0];
+  let ext=''; const em=t.match(/[#＃]\s*(\d{1,5})\s*$/);
+  if(em){ ext=em[1]; t=t.slice(0,em.index); }
+  const d=t.replace(/\D/g,''); if(!d) return '';
+  return d+(ext?','+ext:'');
+}
+function dialDebtPhone(i){
+  const tel=debtPhoneTel(tempDebtPhones[i]);
+  if(!tel){ showToast('⚠️ 這支債電沒有可撥的號碼'); return; }
+  handlePhoneClick(event, tel, editId);
 }
 function addDebtPhone(){ tempDebtPhones.push(''); renderDebtPhones(); formDirty=true; }
 function setDebtPhone(i,v){

@@ -166,5 +166,10 @@ eval(['batchList','batchJoin','batchAdd','batchSetAll','suggestBatchName'].map(e
   ok(suggestBatchName('ACER中人件')==='中人 ACER' && suggestBatchName('kira案件')==='中人 kira','中人改名建議');
   ok(suggestBatchName('Ashley')==='Ashley','認不得的維持原名');
 }
+// t144：債電 → tel: 號碼
+eval(ext('debtPhoneTel'));
+ok(debtPhoneTel('0912-345-678（陳廣庠）')==='0912345678','債電去掉名字註記');
+ok(debtPhoneTel('0223059393#123')==='0223059393,123','#分機 → ,分機');
+ok(debtPhoneTel('（只有名字）')==='' && debtPhoneTel('')==='','沒號碼回空字串');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
