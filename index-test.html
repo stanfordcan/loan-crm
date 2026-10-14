@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>借款客戶追蹤系統</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -262,6 +262,7 @@ body.readonly .sbody input, body.readonly .sbody select, body.readonly .sbody te
 body.readonly #batchChips .heat-chip button{display:none}
 body.readonly .sbody button.dial-btn{display:inline-flex!important}
 body.readonly .debt-x{display:none!important}
+body.readonly .add-log{display:none!important}
 .dial-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;background:var(--gbg);border:1px solid var(--gbd);border-radius:var(--rs);color:var(--green);cursor:pointer;font-size:16px;line-height:1;font-family:inherit}
 .dial-btn:active{transform:scale(.94)}
 /* 持分結算條 */
@@ -665,7 +666,10 @@ auth.onAuthStateChanged(async user => {
     const uEl = document.getElementById('loginUserLabel');
     if (uEl) uEl.textContent = user.email;
     // 唯讀模式：不搶 session（電腦照常編輯）、不寫雲端
-    readOnlyMode = (sessionStorage.getItem('crm_readonly')==='1');
+    // 這次有明確登入就看 sessionStorage；手機關掉再開（Firebase 自動還原登入、sessionStorage 已清空）就看這台裝置記住的偏好
+    { let ro=null; try{ ro=sessionStorage.getItem('crm_readonly'); }catch(e){}
+      if(ro===null){ try{ ro=localStorage.getItem('crm_readonly_pref'); }catch(e){} }
+      readOnlyMode = (ro==='1'); }
     document.body.classList.toggle('readonly', readOnlyMode);
     if (!readOnlyMode) {
       // 搶佔 session（若其他裝置在線則詢問是否繼續）
@@ -2019,7 +2023,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t144 (債電一鍵撥號:編輯面板每支債電旁有綠色📞,手機點了直接撥、電腦點了複製;唯讀模式也看得到📞;卡片上沒本人電話的人會顯示第一支債電(橘字「債電」標)點了一樣可撥) 2026.10.14';
+const APP_VERSION = '🧪測試版 t145 (手機重開App會記得上次勾的唯讀模式,不再跑去問要不要踢掉電腦;唯讀時聯絡記錄分頁不再顯示半截的新增記錄框;iPhone點搜尋框不再自動放大整頁) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
