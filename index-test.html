@@ -1926,7 +1926,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t138 (二次匯入:同一人又被匯入會在卡片和面板標 🔁(XLS併入/總檔新增不動產/總檔謄本內容有變);公司資料分頁可切換每次匯入的舊版並把不同的欄標橘底;抵押列依登序合併:既有與手改不動、新謄本多的筆標🆕新增、沒有的筆反灰標🚫塗銷不計入並有「確認移除」鈕;調整面板可只看二次匯入的人) 2026.10.14';
+const APP_VERSION = '🧪測試版 t139 (總檔更新/XLS匯入會從所有權部抓「建物持分」填進不動產卡(全部1分之1→1/1、5分之1→1/5),以前只有AI匯入會填;已手填的不動) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3676,6 +3676,7 @@ function processCompanyData(raw) {
         const np = emptyProperty(existing.properties.length);
         np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||'';
         np.area=area||0; np.mainArea=mainArea||0; np.subArea=subArea||0; np.commonArea=commonArea||0;
+        { const _sh=shareFromOwner(ownerRaw); np.buildShareNum=_sh.num; np.buildShareDen=_sh.den; }   // 建物持分（總檔/XLS 以前沒填）
         applyLoansToProp(np, loans);   // 設 np.loans 並從中加總回寫 bank/legal/private
         np.companyRaw = companyRaw;   // 這筆房產自己的公司總檔資料
         np.label=propLabel(np)||('不動產'+(existing.properties.length+1));
@@ -3796,6 +3797,7 @@ function processCompanyData(raw) {
           job: '', jobYears: '', finProofs: [],
           note: noteText,
           addr, area, mainArea, subArea, commonArea, parkArea: 0, bank, private: priv, legal,
+          buildShareNum: shareFromOwner(ownerRaw).num, buildShareDen: shareFromOwner(ownerRaw).den,
           loans: loans.length ? loans : undefined,
           loanEstimated: (bank>0||legal>0)?true:undefined,
           privateConfirmed: priv>0?false:undefined,
@@ -3864,6 +3866,7 @@ function processCompanyData(raw) {
           if(f.mainArea && !ex.mainArea) ex.mainArea = f.mainArea;
           if(f.subArea && !ex.subArea) ex.subArea = f.subArea;
           if(f.commonArea && !ex.commonArea) ex.commonArea = f.commonArea;
+          if(!ex.buildShareNum){ const _sh=shareFromOwner((f.companyRaw||{}).owner); if(_sh.num){ ex.buildShareNum=_sh.num; ex.buildShareDen=_sh.den; } }
           if(f.buildNo && !ex.buildNo) ex.buildNo = f.buildNo;
           if(f.landNos && !ex.landNo) ex.landNo = f.landNos;
           if(f.sectionName && !ex.purpose) ex.purpose = f.sectionName;
@@ -3903,6 +3906,7 @@ function processCompanyData(raw) {
             note: f.noteText||'',
             addr: f.addr, area: f.area, mainArea: f.mainArea, subArea: f.subArea,
             commonArea: f.commonArea, parkArea: 0, bank: f.bank, private: f.priv, legal: f.legal,
+            buildShareNum: shareFromOwner((f.companyRaw||{}).owner).num, buildShareDen: shareFromOwner((f.companyRaw||{}).owner).den,
             loans: (f.loans&&f.loans.length) ? f.loans : undefined,
             purpose: f.sectionName, buildNo: f.buildNo, col4BuildNo: f.col4BuildNo, col7Name: f.col7Name, driveUrl:'', landNo: f.landNos,
             logs: logs.slice(0,3),
@@ -7429,6 +7433,13 @@ function mapEval(rec){
 }
 
 // 解析建物持分：回傳 {num,den}。支援 "1/2"（分子/分母）、"2分之1"（分母在前）、或分開的 num/den
+// 從所有權部文字抓這一戶的建物持分：第一個「X分之Y」→ Y/X（全部1分之1＝1/1）；抓不到回 0/0
+function shareFromOwner(ownerRaw){
+  const m=String(ownerRaw||'').match(/(\d+)\s*分之\s*(\d+)/);
+  if(!m) return {num:0,den:0};
+  const den=parseInt(m[1]), num=parseInt(m[2]);
+  return (num>0&&den>0&&num<=den)?{num,den}:{num:0,den:0};
+}
 function parseShare(s, num, den){
   let n=parseFloat(num)||0, d=parseFloat(den)||0;
   if((!n||!d) && s){
@@ -7543,6 +7554,7 @@ function mergePropInto(dst, src){
   ['mainArea','subArea','commonArea','area','landArea','parkArea','bank','legal','private'].forEach(k=>{
     if((!dst[k]||dst[k]===0) && src[k]) dst[k]=src[k];
   });
+  if(!dst.buildShareNum && src.buildShareNum && src.buildShareDen){ dst.buildShareNum=src.buildShareNum; dst.buildShareDen=src.buildShareDen; }   // 建物持分：空的才補，手填的不動
   // 車位型式/權狀：還是預設值(無/非獨立)才補,不覆蓋使用者選過的
   if((!dst.parkType||dst.parkType==='無') && src.parkType && src.parkType!=='無') dst.parkType=src.parkType;
   if((!dst.parkTitle||dst.parkTitle==='非獨立') && src.parkTitle==='獨立') dst.parkTitle='獨立';

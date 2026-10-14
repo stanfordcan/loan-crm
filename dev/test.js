@@ -145,5 +145,12 @@ eval(ext('normalizeXlsRows'));
   ok(normalizeXlsRows([['電話','拜訪過程'],['電話','拜訪過程'],['0911','x']]).format==='master','總檔格式照舊');
   ok(normalizeXlsRows([['姓名','電話'],['a','b'],['c','d']]).format==='unknown','不認得的格式→unknown');
 }
+// t139：所有權部抓建物持分
+eval(ext('shareFromOwner'));
+ok(JSON.stringify(shareFromOwner('A123456789 王小明\n台北市A路1號\n全部1分之1  27.88 坪'))==='{"num":1,"den":1}','全部1分之1 → 1/1');
+ok(JSON.stringify(shareFromOwner('5分之1  20.42 平方公尺'))==='{"num":1,"den":5}','5分之1 → 1/5');
+ok(JSON.stringify(shareFromOwner('持分 10000分之235'))==='{"num":235,"den":10000}','10000分之235 → 235/10000');
+ok(JSON.stringify(shareFromOwner('全部 1 分之 1  26.17 坪'))==='{"num":1,"den":1}','有空白的 1 分之 1');
+ok(JSON.stringify(shareFromOwner('沒有持分字樣'))==='{"num":0,"den":0}','抓不到 → 0/0');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
