@@ -175,5 +175,16 @@ ok(debtPhoneTel('（只有名字）')==='' && debtPhoneTel('')==='','沒號碼�
 eval(ext('splitChunks'));
 ok(JSON.stringify(splitChunks('abcdefg',3))==='["abc","def","g"]' && splitChunks('',3).length===0,'splitChunks 切段');
 ok(splitChunks('x'.repeat(1200000),500000).length===3,'120 萬字 → 3 段');
+// t150：公司格式匯出列
+eval(['logsToProcess','companyExportRows'].map(ext).join(String.fromCharCode(10)));
+{
+  const r=companyExportRows([
+    {id:1,name:'甲',phone:'0912',note:'新備註',logs:[{date:'2026-10-14',text:'B'},{date:'2026-10-01',text:'A'}],properties:[{companyRaw:{cols:['電','舊程','舊備','標']}}]},
+    {id:2,name:'乙',phone:'0933',addr:'地址',logs:[],properties:[]}
+  ]);
+  ok(r.rows.length===2 && r.rows[0].length===25 && r.rows[1].length===25,'每人 25 欄');
+  ok(r.rows[0][2]==='新備註' && r.rows[0][1]==='1151001 A'+String.fromCharCode(10)+'1151014 B' && r.rows[0][3]==='標','備註與拜訪過程用 CRM 最新、其餘照總檔原值');
+  ok(r.noRaw===1 && r.rows[1][0]==='0933'+String.fromCharCode(10)+'乙' && r.rows[1][4]==='地址','無總檔原值的人只填電話姓名與門牌');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
