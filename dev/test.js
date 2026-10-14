@@ -171,5 +171,9 @@ eval(ext('debtPhoneTel'));
 ok(debtPhoneTel('0912-345-678（陳廣庠）')==='0912345678','債電去掉名字註記');
 ok(debtPhoneTel('0223059393#123')==='0223059393,123','#分機 → ,分機');
 ok(debtPhoneTel('（只有名字）')==='' && debtPhoneTel('')==='','沒號碼回空字串');
+// t146：雲端分段
+eval(ext('splitChunks'));
+ok(JSON.stringify(splitChunks('abcdefg',3))==='["abc","def","g"]' && splitChunks('',3).length===0,'splitChunks 切段');
+ok(splitChunks('x'.repeat(1200000),500000).length===3,'120 萬字 → 3 段');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

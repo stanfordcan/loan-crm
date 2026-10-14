@@ -686,7 +686,7 @@ auth.onAuthStateChanged(async user => {
 
     // ── 1. 先清空，再載入本地快取（零等待）──
     clients = []; nextId = 1;
-    loadLocal();
+    await loadLocal();
     const _preSerials = ensureSerials();   // 立即補流水編號(顯示用)
     if (typeof loadGoogleCalCache === 'function') loadGoogleCalCache();
     if (typeof autoClassify === 'function') autoClassify();
@@ -793,18 +793,60 @@ async function unpackData(s){
   return await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
 }
 
-// 寫入 Firestore（ts 可由 saveLocal 傳入，確保本地與雲端時間戳一致）
-async function saveToFirestore(ts) {
+// ── 雲端分段儲存（t146）────────────────────────────────────────
+// Firestore 單一文件上限 1 MiB。壓縮後的客戶資料切成每段 CLOUD_CHUNK 字元，存到子集合
+// users/{uid}/dataParts/{0,1,2…}（備份存 backupParts），主文件只記段數 dataN 與時間戳 dataTs。
+// 主文件與各段放同一個 batch 送出：要嘛全部成功、要嘛全部失敗，讀的人永遠不會看到半套。
+// 過渡期：放得下（≤ LEGACY_DATA_MAX）時舊欄位 data／backup 照寫，還沒更新的正式版讀得到；放不下就寫空字串。
+// 讀：dataTs ＝ updatedAt → 用段落；updatedAt 比 dataTs 新 → 舊版程式後來又寫過單欄位，用單欄位。
+const CLOUD_CHUNK = 500000;
+const LEGACY_DATA_MAX = 900000;
+let _chunkCounts = { dataParts: 0, backupParts: 0 };   // 這台裝置上次讀/寫到的段數，縮小時用來刪多出來的舊段
+let _saveWarned = false;
+function splitChunks(str, size){ const out=[]; for(let i=0;i<str.length;i+=size) out.push(str.slice(i,i+size)); return out; }
+// 把分段寫進 batch；回傳段數。多出來的舊段一併刪掉（沒刪到的舊段時間戳對不上，讀的時候會被忽略）。
+function stageChunks(batch, userRef, col, packed, ts){
+  const parts = splitChunks(packed, CLOUD_CHUNK);
+  parts.forEach((s,i)=> batch.set(userRef.collection(col).doc(String(i)), { s, i, n: parts.length, ts }));
+  for (let i=parts.length; i<(_chunkCounts[col]||0); i++) batch.delete(userRef.collection(col).doc(String(i)));
+  _chunkCounts[col] = parts.length;
+  return parts.length;
+}
+// 讀回分段：缺段或時間戳對不上 → 回 null（呼叫端只能當「讀不到」，絕不能因此清空資料）
+async function readChunks(userRef, col, n, ts){
+  if (!n) return null;
+  const snap = await userRef.collection(col).get();
+  const map = {}; let seen = 0;
+  snap.forEach(d => { const v = d.data(); seen++; if (v && v.ts === ts && typeof v.s === 'string') map[v.i] = v.s; });
+  _chunkCounts[col] = Math.max(_chunkCounts[col]||0, seen, n);
+  let out = '';
+  for (let i=0; i<n; i++) { if (typeof map[i] !== 'string') return null; out += map[i]; }
+  return out;
+}
+// 新舊格式擇一讀：回傳壓縮字串，兩種都沒有 → null
+async function readCloudPacked(userRef, raw, col, nKey, tsKey, legacyKey, mainTsKey){
+  const n = raw[nKey]||0, cts = raw[tsKey]||'', legacy = raw[legacyKey]||'', mainTs = raw[mainTsKey]||'';
+  const legacyNewer = !!legacy && (!n || mainTs > cts);
+  if (!legacyNewer && n) { const s = await readChunks(userRef, col, n, cts); if (s != null) return s; }
+  return legacy || null;
+}
+
+// 寫入 Firestore（ts 可由 saveLocal 傳入，確保本地與雲端時間戳一致；prePacked＝saveLocal 已壓好的字串，不用再壓一次）
+async function saveToFirestore(ts, prePacked) {
   if (readOnlyMode) return;   // 唯讀：絕不寫雲端
   if (!currentUser || !db) return;
   ts = ts || new Date().toISOString();
-  const packed = await packData(JSON.stringify({clients, nextId})); // 壓縮一次,data 與 backup 共用
+  const packed = prePacked || await packData(JSON.stringify({clients, nextId}));
   const memosStr = JSON.stringify({memos: (typeof memos!=='undefined'?memos:[]), nextMemoId: (typeof nextMemoId!=='undefined'?nextMemoId:1)});
-  _cloudBytes = { data: packed.length, memos: memosStr.length, at: ts };   // 給 ⚙️ 設定顯示用量
+  const userRef = db.collection('users').doc(currentUser.uid);
+  const legacy = packed.length <= LEGACY_DATA_MAX ? packed : '';
+  let dataN = 0;
   try {
-    // merge:true — 只更新這些欄位，不整份覆蓋（保住 backup/backupAt/sessionToken，否則空資料存檔會把備份清掉）
-    await db.collection('users').doc(currentUser.uid).set({
-      data: packed,
+    const b = db.batch();
+    dataN = stageChunks(b, userRef, 'dataParts', packed, ts);
+    // merge:true — 只更新這些欄位，不整份覆蓋（保住 sessionToken 等）
+    b.set(userRef, {
+      data: legacy, dataN, dataTs: ts,
       memos: memosStr,
       customDocs: JSON.stringify((typeof customDocs!=='undefined'&&Array.isArray(customDocs))?customDocs:[]),
       gasUrl: GAS_URL || '',
@@ -812,14 +854,21 @@ async function saveToFirestore(ts) {
       claudeKey: CLAUDE_API_KEY || '',
       updatedAt: ts
     }, { merge: true });
-  } catch(e) { console.error('Firestore save:', e); }
-  // 備份存到「獨立的子文件」backups/latest：各自有自己的 1MB 額度，
-  // 不會跟主資料擠在同一份而撐爆上限導致寫入失敗（舊版就是這樣默默失敗、永遠沒有備份）。
+    await b.commit();
+    _saveWarned = false;
+  } catch(e) {
+    console.error('Firestore save:', e);
+    if (!_saveWarned && typeof showToast === 'function') { _saveWarned = true; showToast('⚠️ 雲端儲存失敗：' + ((e && e.message) || e) + '。請先 💾 下載備份檔'); }
+    return;
+  }
+  _cloudBytes = { data: packed.length, memos: memosStr.length, at: ts, n: dataN };   // 給 ⚙️ 設定顯示用量
+  // 備份存到獨立文件 backups/latest（＋backupParts 分段）：跟主資料分開，主資料壞了還有這份
   if (clients.length > 0) {
     try {
-      await db.collection('users').doc(currentUser.uid)
-        .collection('backups').doc('latest')
-        .set({ backup: packed, backupAt: ts });
+      const b2 = db.batch();
+      const backupN = stageChunks(b2, userRef, 'backupParts', packed, ts);
+      b2.set(userRef.collection('backups').doc('latest'), { backup: legacy, backupN, backupTs: ts, backupAt: ts });
+      await b2.commit();
       backupWarned = false;
     } catch(e) {
       console.error('Firestore backup save:', e);
@@ -830,7 +879,6 @@ async function saveToFirestore(ts) {
     }
   }
 }
-
 let _cloudBytes=null;   // 最近一次寫雲端的大小 {data, memos, at}
 // 載入鎖：取得雲端資料時鎖住畫面
 function showCloudLock(){ const el=document.getElementById('cloudLock'); if(el) el.style.display='flex'; }
@@ -842,18 +890,20 @@ async function restoreBackup() {
   if (!currentUser || !db) { showToast('⚠️ 請先登入'); return; }
   try {
     // 先讀新的獨立備份文件 backups/latest，讀不到再相容舊的（主文件內的 backup 欄）
-    let raw = null;
+    const userRef = db.collection('users').doc(currentUser.uid);
+    let raw = null, packedB = null;
     try {
-      const bdoc = await db.collection('users').doc(currentUser.uid)
-        .collection('backups').doc('latest').get();
-      if (bdoc.exists && bdoc.data().backup) raw = bdoc.data();
+      const bdoc = await userRef.collection('backups').doc('latest').get();
+      if (bdoc.exists && (bdoc.data().backup || bdoc.data().backupN)) raw = bdoc.data();
     } catch(e) { console.error('backup doc read:', e); }
-    if (!raw) {
-      const doc = await db.collection('users').doc(currentUser.uid).get();
-      if (doc.exists && doc.data().backup) raw = doc.data();
+    if (raw) packedB = await readCloudPacked(userRef, raw, 'backupParts', 'backupN', 'backupTs', 'backup', 'backupAt');
+    if (!packedB) {
+      // 相容最早的版本（備份塞在主文件的 backup 欄）
+      const doc = await userRef.get();
+      if (doc.exists && doc.data().backup) { raw = doc.data(); packedB = raw.backup; }
     }
-    if (!raw || !raw.backup) { showToast('⚠️ 目前沒有可用的備份'); return; }
-    const d   = JSON.parse(await unpackData(raw.backup));
+    if (!raw || !packedB) { showToast('⚠️ 目前沒有可用的備份（或備份不完整）'); return; }
+    const d   = JSON.parse(await unpackData(packedB));
     if (!d || !d.clients || d.clients.length === 0) { showToast('⚠️ 備份是空的'); return; }
     const backupAt = raw.backupAt
       ? new Date(raw.backupAt).toLocaleString('zh-TW')
@@ -928,7 +978,8 @@ function restoreFromFile(input) {
 async function loadFromFirestore() {
   if (!currentUser || !db) return false;
   try {
-    const doc = await db.collection('users').doc(currentUser.uid).get();
+    const userRef = db.collection('users').doc(currentUser.uid);
+    const doc = await userRef.get();
     if (doc.exists) {
       const raw = doc.data();
       // 載入 GAS URL 設定
@@ -939,8 +990,9 @@ async function loadFromFirestore() {
       // 載入備忘錄（雲端）
       if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
       // 載入客戶資料
-      if (raw.data) {
-        const d = JSON.parse(await unpackData(raw.data));
+      const packedD = await readCloudPacked(userRef, raw, 'dataParts', 'dataN', 'dataTs', 'data', 'updatedAt');
+      if (packedD) {
+        const d = JSON.parse(await unpackData(packedD));
         if (d) {
           clients = (d.clients||[])
             .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
@@ -964,7 +1016,8 @@ async function loadFromFirestore() {
 async function syncFromFirestoreIfNewer() {
   if (!currentUser || !db) return false;
   try {
-    const doc = await db.collection('users').doc(currentUser.uid).get();
+    const userRef = db.collection('users').doc(currentUser.uid);
+    const doc = await userRef.get();
     if (!doc.exists) return false;
     const raw = doc.data();
 
@@ -986,8 +1039,9 @@ async function syncFromFirestoreIfNewer() {
     if (clients.length > 0 && firestoreTs <= localTs) return false; // 本地已是最新，不需要更新
 
     // Firestore 有更新的資料，覆蓋本地
-    if (!raw.data) return false;
-    const d = JSON.parse(await unpackData(raw.data));
+    const packedD = await readCloudPacked(userRef, raw, 'dataParts', 'dataN', 'dataTs', 'data', 'updatedAt');
+    if (!packedD) return false;
+    const d = JSON.parse(await unpackData(packedD));
     if (!d) return false;
 
     clients = (d.clients||[])
@@ -1002,7 +1056,7 @@ async function syncFromFirestoreIfNewer() {
 
     // 本地快取同步成 Firestore 的時間戳（含 uid，讓 loadLocal 下次能正常讀取）
     const uid = currentUser ? currentUser.uid : '';
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: firestoreTs, uid})); } catch(e){}
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({gz: packedD, nextId, updatedAt: firestoreTs, uid})); } catch(e){}   // 本機快取也存壓縮版（手機 Safari 約 5 MB 上限）
     return true;
 
   } catch(e) { console.error('Firestore background check:', e); return false; }
@@ -1048,14 +1102,19 @@ async function renderCloudUsage(){
     if(!b){
       const packed=await packData(JSON.stringify({clients, nextId}));
       const memosStr=JSON.stringify({memos:(typeof memos!=='undefined'?memos:[]), nextMemoId:(typeof nextMemoId!=='undefined'?nextMemoId:1)});
-      b={data:packed.length, memos:memosStr.length, at:''};
+      b={data:packed.length, memos:memosStr.length, at:'', n:Math.max(1,Math.ceil(packed.length/CLOUD_CHUNK))};
     }
-    const total=b.data+(b.memos||0);   // 主文件＝客戶資料(壓縮)＋備忘錄(未壓縮)；其餘設定欄位很小
-    const kb=Math.round(total/1024), pct=Math.round(total/1048576*100);
-    const color=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--green)';
-    el.innerHTML=`雲端主文件：<b style="color:${color}">${kb} KB</b>／上限 1,024 KB（${pct}%）　客戶 ${clients.length} 筆（含備忘錄 ${Math.round((b.memos||0)/1024)} KB）`
-      +`<div style="height:4px;border-radius:99px;background:var(--s2);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pct)}%;background:${color}"></div></div>`
-      +(pct>=80?'<div style="color:var(--red);margin-top:4px">接近上限：請先下載備份檔，並清掉無效空資料。</div>':'');
+    const n=b.n||Math.max(1,Math.ceil(b.data/CLOUD_CHUNK));
+    const kb=Math.round(b.data/1024);
+    const memoKb=Math.round((b.memos||0)/1024), memoPct=Math.round((b.memos||0)/1048576*100);
+    // 本機快取（localStorage）：手機 Safari 約 5 MB，以字元數保守估 2,500 KB
+    let lkb=0; try{ lkb=Math.round((localStorage.getItem(LOCAL_KEY)||'').length/1024); }catch(e){}
+    const lpct=Math.round(lkb/2500*100);
+    const lcolor=lpct>=80?'var(--red)':lpct>=50?'var(--orange)':'var(--green)';
+    el.innerHTML=`雲端資料：<b>${kb} KB</b>，分 <b>${n}</b> 段存（每段上限 1,024 KB、段數不限）　客戶 ${clients.length} 筆`
+      +(memoPct>=50?`<div style="color:var(--orange);margin-top:2px">備忘錄 ${memoKb} KB／上限 1,024 KB（${memoPct}%）</div>`:'')
+      +`<div style="margin-top:4px">本機快取：<b style="color:${lcolor}">${lkb} KB</b>／約 2,500 KB（${lpct}%）</div>`
+      +`<div style="height:4px;border-radius:99px;background:var(--s2);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,lpct)}%;background:${lcolor}"></div></div>`;
   }catch(e){ el.textContent='雲端用量：無法計算'; }
 }
 // 外觀三選一（淺色／深色／跟隨系統）
@@ -2023,7 +2082,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t145 (手機重開App會記得上次勾的唯讀模式,不再跑去問要不要踢掉電腦;唯讀時聯絡記錄分頁不再顯示半截的新增記錄框;iPhone點搜尋框不再自動放大整頁) 2026.10.14';
+const APP_VERSION = '🧪測試版 t146 (雲端改分段存:客戶資料壓縮後每50萬字一段存到子集合,主文件只記段數,不再卡1MB上限;過渡期放得下時舊欄位照寫讓正式版仍讀得到;本機快取改存壓縮版避開手機Safari約5MB上限;雲端存失敗會跳提示不再默默失敗;設定頁改顯示段數與本機快取用量) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2110,20 +2169,30 @@ function migrateHeat(c) {
   return c;
 }
 
+// 本機快取存壓縮後的字串（gz），跟雲端同一份：937 筆原文 3.2 MB → 壓縮 0.6 MB，避開手機 Safari 約 5 MB 的上限。
+// 壓縮是非同步的，連續叫兩次只送最後一次（_saveSeq），省流量也避免舊的蓋新的。
+let _saveSeq = 0;
 function saveLocal() {
   if (readOnlyMode) return;   // 唯讀：本機快取也不寫
   const ts  = new Date().toISOString();
   const uid = currentUser ? currentUser.uid : '';
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: ts, uid})); } catch(e){}
-  saveToFirestore(ts).catch(e => console.error('Firestore sync:', e)); // 傳入同一個 ts，避免時間戳不一致
+  const json = JSON.stringify({clients, nextId});
+  const seq = ++_saveSeq;
+  packData(json).then(packed => {
+    if (seq !== _saveSeq) return;   // 後面又存了一次，這次作廢
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({gz: packed, nextId, updatedAt: ts, uid})); } catch(e){ console.error('local cache:', e); }
+    return saveToFirestore(ts, packed);   // 同一個 ts、同一份壓縮字串
+  }).catch(e => console.error('Firestore sync:', e));
 }
-function loadLocal() {
+async function loadLocal() {
   try {
     const d = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
     if(d){
       // uid 不存在（舊快取）或帳號不符時，一律不載入
       if (!d.uid || !currentUser || d.uid !== currentUser.uid) return false;
-      clients = (d.clients||[])
+      let list = d.clients, nid = d.nextId;
+      if (d.gz) { const u = JSON.parse(await unpackData(d.gz)); list = u.clients; nid = u.nextId; }   // 新格式：壓縮版
+      clients = (list||[])
         .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
         .map(c => migrateHeat({
           ...c,
@@ -2131,7 +2200,7 @@ function loadLocal() {
           remindTime: normalizeTime(c.remindTime),
           logs: (c.logs||[]).map(l => ({...l, date: normalizeDate(l.date)})),
         }));
-      nextId = d.nextId||1;
+      nextId = nid||1;
       return true;
     }
   } catch(e){}

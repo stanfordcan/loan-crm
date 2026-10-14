@@ -1,6 +1,6 @@
 // 用真實備份檔壓測這次新增/修改的所有邏輯，找 crash 與錯誤
 const fs=require('fs');
-const HTML=fs.readFileSync('C:/Users/USER/OneDrive/桌面/claude/loan-crm/index-test.html','utf8');
+const path=require('path'); const HTML=fs.readFileSync(path.join(__dirname,'..','index-test.html'),'utf8');
 const BK=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const clients=BK.clients; const TODAY='2026-06-22'; let nextId=BK.nextId||9999;
 

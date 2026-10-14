@@ -29,6 +29,7 @@
 ## 改版鐵則
 1. 只改 `index-test.html`，改完 bump `APP_VERSION`（`🧪測試版 tNN (白話說明) YYYY.MM.DD`，tNN 遞增）。
 2. 驗證必跑：`node dev/check-syntax.js index-test.html`＋`node dev/test.js`（21項）。大改動用 `node dev/backup-audit.js <備份.json>` 壓測。
+   動到雲端存讀（saveToFirestore／loadFromFirestore／sync／restoreBackup／saveLocal／loadLocal）必跑 `node dev/t146-sim.js <備份.json>`（假 Firestore 壓 1 MiB 上限與 batch 原子性，27 項）。
    **改了行為就把守它的測試加進 `dev/test.js`**（抽真函式跑，不要另寫一份邏輯）；純畫面行為用瀏覽器實跑驗證，別只看程式碼。
 3. commit 結尾：`Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`。push 後提醒業主 Ctrl+Shift+R（iPhone 用 Safari 無痕）。
 4. 業主說「上正式」才搬：整份 test 複製成 index.html，**只改版本行**成 `YYYY.MM.DD #N`（同日遞增、跨日回 #1）；版本行取代用貪婪 `/const APP_VERSION = '.*';/`（字串內有分號，非貪婪會弄壞檔案）；搬完 `diff` 確認只差那一行。
