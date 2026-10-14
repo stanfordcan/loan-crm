@@ -258,7 +258,7 @@ body.readonly #companyBtn, body.readonly #xlsBtn, body.readonly #tenBtn, body.re
 body.readonly .sbody button, body.readonly .pin-btn.act, body.readonly .doc-x, body.readonly #heatChips, body.readonly #creditChips, body.readonly #docChips,
 body.readonly .memo-mobile-btn{display:none!important}
 body.readonly .hbadge.hb-click{cursor:default}
-body.readonly .sbody input, body.readonly .sbody select, body.readonly .sbody textarea{background:var(--s2)!important;color:var(--t2)}
+body.readonly .sbody input, body.readonly .sbody select, body.readonly .sbody textarea{background:var(--s2)!important;color:var(--t2);pointer-events:none}
 body.readonly #batchChips .heat-chip button{display:none}
 body.readonly .sbody button.dial-btn{display:inline-flex!important}
 body.readonly .debt-x{display:none!important}
@@ -2082,7 +2082,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t146 (雲端改分段存:客戶資料壓縮後每50萬字一段存到子集合,主文件只記段數,不再卡1MB上限;過渡期放得下時舊欄位照寫讓正式版仍讀得到;本機快取改存壓縮版避開手機Safari約5MB上限;雲端存失敗會跳提示不再默默失敗;設定頁改顯示段數與本機快取用量) 2026.10.14';
+const APP_VERSION = '🧪測試版 t147 (唯讀模式手機滑不動的問題:欄位改用唯讀而不是停用,iPhone手指按在欄位上也能捲動) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -5675,7 +5675,8 @@ document.addEventListener('DOMContentLoaded',()=>{ const sb=document.getElementB
 // 唯讀：面板所有輸入欄鎖住（看得到、不能改）；按鈕由 CSS .readonly 隱藏
 function applyReadOnlyToSheet(){
   if(!readOnlyMode) return;
-  document.querySelectorAll('.sbody input,.sbody select,.sbody textarea').forEach(el=>{ el.disabled=true; });
+  // 不用 disabled：iPhone 上按在 disabled 欄位上整頁滑不動。readonly＋CSS pointer-events:none 一樣不能改，但手指能滑
+  document.querySelectorAll('.sbody input,.sbody select,.sbody textarea').forEach(el=>{ el.disabled=false; el.readOnly=true; el.setAttribute('tabindex','-1'); });
 }
 // 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
 function saveBtnLabel(){ return !editId ? '建立客戶' : (window.innerWidth>=900 ? '儲存' : '存並關閉'); }
