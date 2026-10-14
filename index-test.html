@@ -250,6 +250,16 @@ input[type=number]{min-width:0}
 .litem{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px}
 .litem::before{content:'';position:absolute;left:-17px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface)}
 .ldate{color:var(--accent)}
+/* 唯讀模式 */
+.ro-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--obg);color:var(--orange);font-size:12px;font-weight:600;border-bottom:1px solid var(--obd)}
+.ro-bar button{background:var(--surface);border:1px solid var(--obd);color:var(--orange);border-radius:8px;padding:4px 9px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+body.readonly .fab, body.readonly #batchBar, body.readonly #selectModeBtn, body.readonly .sfooter,
+body.readonly #companyBtn, body.readonly #xlsBtn, body.readonly #tenBtn, body.readonly #aiBtn, body.readonly #inboxBtn,
+body.readonly .sbody button, body.readonly .pin-btn.act, body.readonly .doc-x, body.readonly #heatChips, body.readonly #creditChips, body.readonly #docChips,
+body.readonly .memo-mobile-btn{display:none!important}
+body.readonly .hbadge.hb-click{cursor:default}
+body.readonly .sbody input, body.readonly .sbody select, body.readonly .sbody textarea{background:var(--s2)!important;color:var(--t2)}
+body.readonly #batchChips .heat-chip button{display:none}
 /* 持分結算條 */
 .share-banner{margin-top:10px;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;border:1.5px solid var(--border);background:var(--s2);color:var(--text)}
 .share-banner.part{background:var(--obg);border-color:var(--orange);color:var(--orange)}
@@ -387,6 +397,7 @@ input[type=number]{min-width:0}
 .ccard.selected .sel-chk{background:var(--accent);border-color:var(--accent);color:#fff}
 @media(min-width:900px){
   .pc-container .batch-bar{left:0;right:auto;max-width:min(45vw,600px);margin:0}
+  .pc-container .bb-actions{flex-wrap:wrap;overflow:visible}   /* 電腦版放不下就換行，不要被切掉 */
 }
 
 /* ── Dark Mode ────────────────────────────────────────────── */
@@ -516,6 +527,7 @@ try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change'
     <input class="pw-input" id="loginPw" type="password" placeholder="密碼"
       style="margin-top:4px;letter-spacing:0;font-size:15px;text-align:left;padding-left:14px"
       onkeydown="if(event.key==='Enter')doLogin()"/>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);margin-top:12px;cursor:pointer;text-align:left"><input type="checkbox" id="loginReadOnly" style="width:16px;height:16px;accent-color:var(--accent)">👁 唯讀模式登入<span style="font-size:11px;color:var(--t3)">（手機看資料、打電話用；不會踢掉電腦，也不會寫入任何東西）</span></label>
     <button class="pw-btn" id="loginBtn" onclick="doLogin()">登入</button>
     <div class="pw-error" id="loginErr" style="display:none;margin-top:10px"></div>
   </div>
@@ -534,6 +546,8 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 let currentUser = null;
+let readOnlyMode = false;  // 唯讀模式（手機看資料/撥號用）：不搶 session、不寫雲端、畫面不可編輯
+let _roRefreshTimer = null;
 let autoPushTimer  = null; // 定時自動 push 到 Google Sheets
 let mySessionToken = null; // 目前裝置的 session token
 let sessionListener= null; // Firestore session 監聽器
@@ -612,6 +626,28 @@ function startAutoPush() {
   }, 5 * 60 * 1000);
 }
 
+// 唯讀模式：每 3 分鐘從雲端重讀一次；也可按提示列的 🔄
+function startReadOnlyRefresh(){
+  stopReadOnlyRefresh();
+  renderReadOnlyBar();
+  _roRefreshTimer=setInterval(()=>{ readOnlyReload(); }, 3*60*1000);
+}
+function stopReadOnlyRefresh(){ if(_roRefreshTimer){ clearInterval(_roRefreshTimer); _roRefreshTimer=null; } }
+async function readOnlyReload(){
+  try{ const ok=await loadFromFirestore(); if(ok){ if(typeof autoClassify==='function') autoClassify(); render(); } renderReadOnlyBar(); }catch(e){}
+}
+function renderReadOnlyBar(){
+  let bar=document.getElementById('roBar');
+  if(!readOnlyMode){ if(bar) bar.remove(); return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='roBar'; bar.className='ro-bar'; const tb=document.querySelector('.topbar'); if(tb) tb.insertAdjacentElement('afterend', bar); else document.body.prepend(bar); }
+  const d=new Date(), pad=n=>String(n).padStart(2,'0');
+  bar.innerHTML=`👁 唯讀模式　更新 ${pad(d.getHours())}:${pad(d.getMinutes())} <button type="button" onclick="readOnlyReload()" title="重新讀取雲端">🔄</button><span style="flex:1"></span><button type="button" onclick="exitReadOnly()" title="登出後重新登入可取消唯讀">切換可編輯</button>`;
+}
+async function exitReadOnly(){
+  if(!(await uiConfirm('要切換成可編輯，需要重新登入（登入時不要勾唯讀）。現在登出？',{ok:'登出'}))) return;
+  try{ sessionStorage.setItem('crm_readonly','0'); localStorage.setItem('crm_readonly_pref','0'); }catch(e){}
+  auth.signOut();
+}
 // 停止定時 push
 function stopAutoPush() {
   if (autoPushTimer) { clearInterval(autoPushTimer); autoPushTimer = null; }
@@ -624,9 +660,14 @@ auth.onAuthStateChanged(async user => {
     // 先更新帳號標籤，但「不」切換畫面，等 claimSession 確認後再顯示主畫面
     const uEl = document.getElementById('loginUserLabel');
     if (uEl) uEl.textContent = user.email;
-    // 搶佔 session（若其他裝置在線則詢問是否繼續）
-    const claimed = await claimSession(user.uid);
-    if (!claimed) return; // 使用者取消，auth.signOut() 已在 claimSession 內呼叫
+    // 唯讀模式：不搶 session（電腦照常編輯）、不寫雲端
+    readOnlyMode = (sessionStorage.getItem('crm_readonly')==='1');
+    document.body.classList.toggle('readonly', readOnlyMode);
+    if (!readOnlyMode) {
+      // 搶佔 session（若其他裝置在線則詢問是否繼續）
+      const claimed = await claimSession(user.uid);
+      if (!claimed) return; // 使用者取消，auth.signOut() 已在 claimSession 內呼叫
+    }
     // 切換到主畫面
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'flex';
@@ -660,8 +701,9 @@ auth.onAuthStateChanged(async user => {
       if (typeof checkInbox === 'function') checkInbox();   // 檢查AI匯入待審收件匣(紅點)
     }).catch(() => {}).finally(()=>{ clearTimeout(_lockSafety); hideCloudLock(); }); // 拿到雲端資料(或失敗)就解鎖
 
-    // 啟動定時自動 push
-    startAutoPush();
+    // 啟動定時自動 push（唯讀不 push，改成每 3 分鐘重讀雲端）
+    if (readOnlyMode) { startReadOnlyRefresh(); showToast('👁 唯讀模式：只能看、搜尋、撥號；要編輯請用電腦或重新登入取消唯讀'); }
+    else startAutoPush();
   } else {
     // 登出清理：清空記憶體資料，避免下一個帳號看到前一個帳號的資料
     clients = [];
@@ -669,7 +711,7 @@ auth.onAuthStateChanged(async user => {
     if (sessionListener) { sessionListener(); sessionListener = null; }
     mySessionToken = null;
     currentUser = null;
-    stopAutoPush();
+    stopAutoPush(); stopReadOnlyRefresh(); readOnlyMode=false; document.body.classList.remove('readonly'); renderReadOnlyBar();
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
   }
@@ -684,6 +726,9 @@ async function doLogin() {
   errEl.style.display = 'none';
   if (!email || !pw) { errEl.textContent = '請填寫信箱與密碼'; errEl.style.display = 'block'; return; }
   btn.disabled = true; btn.textContent = '登入中…';
+  // 唯讀模式：這次登入不搶 session、不寫雲端；記住這台裝置的偏好
+  const ro=!!(document.getElementById('loginReadOnly')||{}).checked;
+  try{ sessionStorage.setItem('crm_readonly', ro?'1':'0'); localStorage.setItem('crm_readonly_pref', ro?'1':'0'); }catch(e){}
   try {
     await auth.signInWithEmailAndPassword(email, pw);
     localStorage.setItem('crm_fb_last_email', email); // 記住信箱
@@ -708,6 +753,7 @@ async function doLogin() {
     const el = document.getElementById('loginEmail');
     if (el) { el.value = saved; }
   }
+  try{ const ro=document.getElementById('loginReadOnly'); if(ro) ro.checked=localStorage.getItem('crm_readonly_pref')==='1'; }catch(e){}
 })();
 
 // 登出
@@ -741,6 +787,7 @@ async function unpackData(s){
 
 // 寫入 Firestore（ts 可由 saveLocal 傳入，確保本地與雲端時間戳一致）
 async function saveToFirestore(ts) {
+  if (readOnlyMode) return;   // 唯讀：絕不寫雲端
   if (!currentUser || !db) return;
   ts = ts || new Date().toISOString();
   const packed = await packData(JSON.stringify({clients, nextId})); // 壓縮一次,data 與 backup 共用
@@ -783,6 +830,7 @@ function hideCloudLock(){ const el=document.getElementById('cloudLock'); if(el) 
 
 // 從備份還原
 async function restoreBackup() {
+  if(readOnlyMode){ showToast('👁 唯讀模式不能還原'); return; }
   if (!currentUser || !db) { showToast('⚠️ 請先登入'); return; }
   try {
     // 先讀新的獨立備份文件 backups/latest，讀不到再相容舊的（主文件內的 backup 欄）
@@ -839,6 +887,7 @@ function downloadBackup() {
 
 // 從備份檔還原（讀使用者選的 .json 檔）
 function restoreFromFile(input) {
+  if(readOnlyMode){ showToast('👁 唯讀模式不能還原'); input.value=''; return; }
   const file = input.files && input.files[0];
   input.value = '';
   if (!file) return;
@@ -958,6 +1007,7 @@ function applyCloudCustomDocs(str){
 }
 // 儲存 URL 設定到 Firestore（不動客戶資料）
 async function saveUrlSettings() {
+  if (readOnlyMode) return;
   if (!currentUser || !db) return;
   try {
     await db.collection('users').doc(currentUser.uid).set(
@@ -1965,7 +2015,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t142 (選取模式底部列多兩顆:「🗑️ 刪除勾選」整批刪客戶(不加黑名單)、「清除 🔁 記號」把二次匯入記號拿掉;都會先確認) 2026.10.14';
+const APP_VERSION = '🧪測試版 t143 (登入畫面多「👁 唯讀模式登入」:手機勾了之後只能看、搜尋、撥號,不會踢掉電腦的登入、也不會寫任何東西;每3分鐘自動重讀雲端,上方有橘色提示列可手動🔄或切回可編輯;電腦版選取模式的動作列改自動換行不再被切掉) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2053,6 +2103,7 @@ function migrateHeat(c) {
 }
 
 function saveLocal() {
+  if (readOnlyMode) return;   // 唯讀：本機快取也不寫
   const ts  = new Date().toISOString();
   const uid = currentUser ? currentUser.uid : '';
   try { localStorage.setItem(LOCAL_KEY, JSON.stringify({clients, nextId, updatedAt: ts, uid})); } catch(e){}
@@ -2425,6 +2476,7 @@ async function syncData() {
   render();
 }
 async function pushToSheet() {
+  if (readOnlyMode) return;   // 唯讀：不推試算表
   if (!GAS_URL || !currentUser) return;
   const rows=[HDR,...clients.map(toRow)];
   await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'save',token:API_TOKEN,user:currentUser.email,data:rows})});
@@ -5070,6 +5122,7 @@ function render(){
 let _heatPickId=null;
 function openHeatPick(e, id){
   e.stopPropagation();
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
   const panel=document.getElementById('heatPick'); if(!panel) return;
   const c=clients.find(x=>x.id===id); if(!c) return;
   _heatPickId=id;
@@ -5098,6 +5151,7 @@ document.addEventListener('click',e=>{ const p=document.getElementById('heatPick
 
 function togglePin(id, e) {
   e.stopPropagation();
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
   const c = clients.find(x=>x.id===id);
   if(!c) return;
   c.pinned = !c.pinned;
@@ -5214,6 +5268,7 @@ async function applyBatchCategory(){
 
 async function clearRemind(e, id) {
   e.stopPropagation(); // 防止觸發開啟客戶頁面
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
   const c = clients.find(x=>x.id===id);
   if(!c) return;
   c.remind = '';
@@ -5540,6 +5595,11 @@ function updateSheetHeader(){
   if(bar) bar.style.width=(editId?pct:0)+'%';
 }
 document.addEventListener('DOMContentLoaded',()=>{ const sb=document.getElementById('sheetBg'); if(sb) sb.addEventListener('input',()=>{ clearTimeout(window._shTimer); window._shTimer=setTimeout(updateSheetHeader,200); }); });
+// 唯讀：面板所有輸入欄鎖住（看得到、不能改）；按鈕由 CSS .readonly 隱藏
+function applyReadOnlyToSheet(){
+  if(!readOnlyMode) return;
+  document.querySelectorAll('.sbody input,.sbody select,.sbody textarea').forEach(el=>{ el.disabled=true; });
+}
 // 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
 function saveBtnLabel(){ return !editId ? '建立客戶' : (window.innerWidth>=900 ? '儲存' : '存並關閉'); }
 function openAdd(){
@@ -5693,6 +5753,7 @@ function openEdit(id){
   renderCoOwners();
   document.getElementById('sheetBg').classList.add('open');
   updateSheetHeader();
+  applyReadOnlyToSheet();
   // 換人後編輯面板內容回到最上面（否則會停在上一位捲到的位置，例如一直在備註那段）
   document.querySelectorAll('.sbody').forEach(sb=>{ sb.scrollTop=0; });
   highlightActiveCard(true);   // 左邊清單同步標記＋捲到這位
@@ -7149,6 +7210,7 @@ function selectTenClient(id){
 }
 
 async function saveClient(silent){
+  if(readOnlyMode){ if(!silent) showToast('👁 唯讀模式不能儲存'); return; }
   savePropFields();
   const name=document.getElementById('fName').value.trim();
   const phone=document.getElementById('fPhone').value.trim();
@@ -7253,6 +7315,7 @@ async function saveClient(silent){
 // 編輯中自動存草稿（既有客戶，打字停 1.5 秒觸發）
 let _draftSaveTimer = null;
 function scheduleDraftSave(){
+  if(readOnlyMode) return;
   if(!editId){ setSaveStatus('dirty','尚未建立，按「建立客戶」'); return; }
   clearTimeout(_draftSaveTimer);
   setSaveStatus('saving','儲存中…');
@@ -8275,6 +8338,7 @@ async function fixTrustClients(){
   pushToSheet().catch(()=>{});
 }
 async function clearAllData() {
+  if(readOnlyMode){ showToast('👁 唯讀模式不能清除'); return; }
   if(!(await uiConfirm(`🗑️ 清除所有資料\n\n將清除本地與雲端（Firestore）的全部資料。\n備份不受影響，清除後仍可從 ⚙️ 設定 → 從備份還原。\n\n確定清除？`, {danger:true}))) return;
   clients = [];
   nextId  = 1;
