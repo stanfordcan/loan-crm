@@ -175,16 +175,26 @@ ok(debtPhoneTel('（只有名字）')==='' && debtPhoneTel('')==='','沒號碼�
 eval(ext('splitChunks'));
 ok(JSON.stringify(splitChunks('abcdefg',3))==='["abc","def","g"]' && splitChunks('',3).length===0,'splitChunks 切段');
 ok(splitChunks('x'.repeat(1200000),500000).length===3,'120 萬字 → 3 段');
-// t150：公司格式匯出列
-eval(['logsToProcess','companyExportRows'].map(ext).join(String.fromCharCode(10)));
+// t150/t151：公司格式回填
+eval(['logsToProcess','digitsOf','loansToRights','companyExportRows'].map(ext).join(String.fromCharCode(10)));
 {
+  const NL=String.fromCharCode(10);
   const r=companyExportRows([
-    {id:1,name:'甲',phone:'0912',note:'新備註',logs:[{date:'2026-10-14',text:'B'},{date:'2026-10-01',text:'A'}],properties:[{companyRaw:{cols:['電','舊程','舊備','標']}}]},
-    {id:2,name:'乙',phone:'0933',addr:'地址',logs:[],properties:[]}
+    {id:1,name:'甲',phone:'0912-111-222',note:'新備註',heat:'覆訪',censusAddr:'戶籍地',debtPhones:['0988-000-111'],logs:[{date:'2026-10-14',text:'B'},{date:'2026-10-01',text:'A'}],
+      properties:[
+        {addr:'門牌A',area:30,buildShareNum:1,buildShareDen:3,loans:[{n:'國泰',a:600,t:'bank',s:'0001-000'}],companyRaw:{cols:['E'+NL+'甲'+NL+'0912111222','舊程','舊備','標','舊門牌','29坪','所有','舊住','','債','義','擔','0977','1)【銀】原文','權']}},
+        {addr:'門牌B',area:20,loans:[{n:'民間乙',a:100,t:'private',s:'0002-000',manualAdd:true}],companyRaw:null}
+      ]},
+    {id:2,name:'乙',phone:'0933',addr:'地址乙',heat:'新鑫',logs:[],properties:[]}
   ]);
-  ok(r.rows.length===2 && r.rows[0].length===25 && r.rows[1].length===25,'每人 25 欄');
-  ok(r.rows[0][2]==='新備註' && r.rows[0][1]==='1151001 A'+String.fromCharCode(10)+'1151014 B' && r.rows[0][3]==='標','備註與拜訪過程用 CRM 最新、其餘照總檔原值');
-  ok(r.noRaw===1 && r.rows[1][0]==='0933'+String.fromCharCode(10)+'乙' && r.rows[1][4]==='地址','無總檔原值的人只填電話姓名與門牌');
+  ok(r.rows.length===3 && r.rows.every(x=>x.cols.length===25),'一間不動產一列、每列 25 欄');
+  const A=r.rows[0].cols, B=r.rows[1].cols, C=r.rows[2].cols;
+  ok(A[0]==='E'+NL+'甲'+NL+'0912111222' && A[4]==='門牌A' && A[5]==='30坪' && A[7]==='戶籍地','電話原值已含 CRM 電話就不動；門牌/面積/戶籍用 CRM');
+  ok(A[1]==='1151001 A'+NL+'1151014 B' && A[2]==='新備註' && A[12]==='0988-000-111','拜訪過程/備註/債電用 CRM 現在的');
+  ok(A[8]==='10 坪' && A[13]==='1)【銀】原文' && A[3]==='標' && A[6]==='所有','持分面積算出來；他項沒手改照原值；標示/所有權部照原值');
+  ok(B[0]==='甲'+NL+'0912-111-222' && B[4]==='門牌B' && B[13]==='1)【私】 0002-000 民間乙 新臺幣1,000,000元' && B[14]==='1)民間乙','第二間沒原值：用 CRM 湊電話、門牌、他項、權利人');
+  ok(r.rows[0].heat==='覆訪' && r.rows[2].heat==='新鑫' && C[0]==='乙'+NL+'0933' && C[4]==='地址乙' && r.noRaw===2,'分類帶出去；沒不動產的人一列');
+  ok(loansToRights([{n:'國泰',a:600,t:'bank',s:'0001-000',d:'102/02/15',x:true}])==='1)【銀】 民國102年2月15日 0001-000 國泰 新臺幣6,000,000元 （塗銷）','抵押列重組含日期登序金額塗銷');
 }
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

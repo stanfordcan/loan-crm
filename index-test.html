@@ -2085,7 +2085,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t150 (📤公司格式改出Excel檔:照平總檔_新版的版面,25欄寬、兩列標題、微軟正黑體20粗體置中自動換行、細框線,打開不再擠成一坨) 2026.10.14';
+const APP_VERSION = '🧪測試版 t151 (📤公司格式回填:一間不動產一列,電話/門牌/面積/債電/持分面積/備註/拜訪過程用CRM現在的值,他項權利部有手改才重組,其餘照總檔原值,沒原值的用CRM資料湊;工作表照總檔分成覆訪/追很緊/待分類/新鑫/已簽約/無效案件) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4959,22 +4959,81 @@ function loadXlsxStyle(){
   });
   return _xlsxStyleLoading;
 }
-// 把勾選客戶組成 25 欄列（跟舊 CSV 同一套邏輯）
+// 把勾選客戶「回填」成 25 欄：一筆不動產一列（總檔本來就一間房一列）。
+// 規則：CRM 裡有的、會被人改的欄位（電話、拜訪過程、備註、門牌、面積、債電、持分面積、他項權利部有手改時）用 CRM 現在的值；
+// 謄本原文那種 CRM 沒拆開存的欄位（所有權部、債務人、義務人、權利人…）照總檔原值；兩邊都沒有的才用 CRM 資料湊一個看得懂的。
+function digitsOf(s){ return String(s||'').replace(/\D/g,''); }
+function loansToRights(loans){
+  return (loans||[]).map((l,i)=>{
+    const tag=l.t==='bank'?'銀':(l.t==='legal'?'法':'私');
+    const parts=[`${i+1})【${tag}】`];
+    if(l.d){ const m=String(l.d).match(/^(\d+)\/(\d+)\/(\d+)$/); if(m) parts.push(`民國${m[1]}年${+m[2]}月${+m[3]}日`); }
+    if(l.s) parts.push(l.s);
+    if(l.n) parts.push(l.n);
+    if(l.a) parts.push(`新臺幣${(l.a*10000).toLocaleString('en-US')}元`);
+    if(l.x) parts.push('（塗銷）');
+    return parts.join(' ');
+  }).join('\n');
+}
 function companyExportRows(list){
   let noRaw=0; const rows=[];
   list.forEach(c=>{
-    const mainRaw=(c.properties&&c.properties[0]&&c.properties[0].companyRaw) || c.companyRaw || null;
-    let cols=(mainRaw&&Array.isArray(mainRaw.cols))? mainRaw.cols.slice(0,25) : new Array(25).fill('');
-    while(cols.length<25) cols.push('');
-    if(!mainRaw||!Array.isArray(mainRaw.cols)){ noRaw++; if(!cols[0]) cols[0]=[c.phone,c.name].filter(Boolean).join('\n'); if(!cols[4]) cols[4]=c.addr||''; }
-    cols[2]=c.note||cols[2]||'';                    // 備註用 CRM 最新
-    const proc=logsToProcess(c.logs); if(proc) cols[1]=proc; // 拜訪過程用 CRM 最新聯絡記錄
-    rows.push(cols.slice(0,25).map(v=>String(v==null?'':v)));
+    const props=(c.properties&&c.properties.length)?c.properties:[null];
+    props.forEach((p,pi)=>{
+      const raw=(p&&p.companyRaw)||(pi===0?c.companyRaw:null)||null;
+      const hasRaw=!!(raw&&Array.isArray(raw.cols));
+      let cols=hasRaw? raw.cols.slice(0,25).map(v=>String(v==null?'':v)) : new Array(25).fill('');
+      while(cols.length<25) cols.push('');
+      if(!hasRaw) noRaw++;
+      const addr=(p&&p.addr)||(pi===0?(c.addr||''):'');
+      const area=(p&&p.area)||(pi===0?(c.area||0):0);
+      const mainA=(p&&p.mainArea)||0, subA=(p&&p.subArea)||0, comA=(p&&p.commonArea)||0;
+      const bNo=(p&&p.buildNo)||(pi===0?(c.buildNo||''):''), lNo=(p&&p.landNo)||(pi===0?(c.landNo||''):'');
+      const shN=(p&&p.buildShareNum)||c.buildShareNum||0, shD=(p&&p.buildShareDen)||c.buildShareDen||0;
+      const loans=(p&&Array.isArray(p.loans)&&p.loans.length)?p.loans:((pi===0&&Array.isArray(c.loans))?c.loans:[]);
+      // 0 電話：CRM 的電話一定要在；原值裡沒有就補一行
+      if(c.phone){ if(!hasRaw||!cols[0]) cols[0]=[c.name,c.phone].filter(Boolean).join('\n'); else if(!digitsOf(cols[0]).includes(digitsOf(c.phone))) cols[0]=cols[0]+'\n'+c.phone; }
+      else if(!cols[0]) cols[0]=c.name||'';
+      // 1 拜訪過程、2 備註：CRM 最新
+      const proc=logsToProcess(c.logs); if(proc) cols[1]=proc;
+      cols[2]=c.note||cols[2]||'';
+      // 3 建物標示：原值；沒有就用 CRM 湊
+      if(!cols[3]){ cols[3]=[bNo?bNo+' 建號':'', addr, area?`總面積 ${area}坪`+(mainA||subA||comA?` 主建(${mainA}) 附屬(${subA}) 公設(${comA})`:''):''].filter(Boolean).join('\n'); }
+      // 4 門牌、5 面積：CRM 優先
+      if(addr) cols[4]=addr;
+      if(area) cols[5]=`${area}坪`;
+      // 6 所有權部：原值；沒有就湊
+      if(!cols[6]){ cols[6]=[[c.idno,c.name].filter(Boolean).join(' '), c.censusAddr||'', (shN&&shD)?(shN===shD?'全部1分之1':`${shD}分之${shN}`):''].filter(Boolean).join('\n'); }
+      // 7 所有權人住址：CRM 戶籍地址優先
+      if(c.censusAddr) cols[7]=c.censusAddr;
+      // 8 持分面積：有持分就用算的
+      if(area&&shN&&shD&&shN<shD) cols[8]=`${Math.round(area*shN/shD*100)/100} 坪`; else if(!cols[8]&&area) cols[8]=`${area} 坪`;
+      // 11 共同擔保：原值；沒有就湊
+      if(!cols[11]&&(lNo||bNo)) cols[11]=[lNo?`共同擔保地號：${lNo}`:'', bNo?`共同擔保建號：${bNo}`:''].filter(Boolean).join('\n');
+      // 12 債電：CRM 現在的名單（刪過的不會回來）
+      cols[12]=(c.debtPhones||[]).map(x=>String(x||'').trim()).filter(Boolean).join('\n');
+      // 13 他項權利部：原值；有手改／手加／塗銷／新增，或沒原值 → 用 CRM 抵押列重組
+      const touched=loans.some(l=>l.eManual||l.manualAdd||l.added||l.x||l.aChanged);
+      if(loans.length&&(touched||!cols[13])) cols[13]=loansToRights(loans);
+      // 14 權利人：沒原值就列債權人
+      if(!cols[14]&&loans.length) cols[14]=loans.filter(l=>!l.x).map((l,i)=>`${i+1})${l.n||''}`).join('\n');
+      // 22 建物門牌：沒原值就放門牌
+      if(!cols[22]&&addr) cols[22]=addr;
+      rows.push({heat:c.heat||'待分類', cols:cols.slice(0,25)});
+    });
   });
   return {rows,noRaw};
 }
 // 組 xlsx 工作簿（純函式，測試也用）
+const COMPANY_SHEET_ORDER=['覆訪','追很緊','待分類','新鑫','已簽約','無效案件'];
 function buildCompanyWorkbook(X, rows){
+  const wb=X.utils.book_new();
+  const groups={}; rows.forEach(r=>{ const k=(r&&r.heat)||'待分類'; (groups[k]=groups[k]||[]).push(r.cols||r); });
+  const names=[...COMPANY_SHEET_ORDER.filter(h=>groups[h]), ...Object.keys(groups).filter(h=>!COMPANY_SHEET_ORDER.includes(h))];
+  names.forEach(h=>{ X.utils.book_append_sheet(wb, buildCompanySheet(X, groups[h]), h.replace(/[\\/?*\[\]:]/g,'')); });
+  return wb;
+}
+function buildCompanySheet(X, rows){
   const aoa=[COMPANY_EXPORT_CODES, COMPANY_EXPORT_HEADER2, ...rows];
   const ws=X.utils.aoa_to_sheet(aoa);
   ws['!cols']=COMPANY_EXPORT_WIDTHS.map(w=>({width:w}));   // width＝Excel 欄寬原值（wch 會多加約 0.8）
@@ -4988,9 +5047,7 @@ function buildCompanyWorkbook(X, rows){
       ws[addr].s=base;
     }
   }
-  const wb=X.utils.book_new();
-  X.utils.book_append_sheet(wb, ws, '公司格式');
-  return wb;
+  return ws;
 }
 async function ltExportCompany(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
@@ -5002,7 +5059,7 @@ async function ltExportCompany(){
   const wb=buildCompanyWorkbook(X, rows);
   const d=new Date(),pad=n=>String(n).padStart(2,'0');
   X.writeFile(wb, `公司格式_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.xlsx`);
-  showToast(`📤 已匯出 ${list.length} 筆公司格式（Excel）`+(noRaw?`（${noRaw} 筆無總檔原始資料、僅基本欄）`:''));
+  showToast(`📤 已匯出 ${list.length} 人、${rows.length} 列公司格式（Excel，依分類分頁）`+(noRaw?`（${noRaw} 列無總檔原值，用 CRM 資料湊）`:''));
 }
 
 // ── 🖨️ 列印「包裏信件投遞通知單」（A4橫式，一頁4格，自動帶入姓名/地址/流水編號）──
