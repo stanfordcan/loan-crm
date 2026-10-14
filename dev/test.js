@@ -138,12 +138,9 @@ ok(nextDocState('')==='got'&&nextDocState('got')==='skip'&&nextDocState('skip')=
   ok(keep.docs['身分證']==='got'&&keep.docs['權狀']==='skip','合併：文件清單聯集、主已標的不動');
 }
 // t137：XLS 匯入格式自動辨識
-eval(['COMPANY_EXPORT_HEADER','normalizeXlsRows'].map(ext).join('
-
-'));
+eval(ext('normalizeXlsRows'));
 {
-  const exp=normalizeXlsRows([['建物標示
-建號','住址','面積'],['X段01234-000建號','臺北市A路1號','30'],['','','']]);
+  const exp=normalizeXlsRows([['建物標示\n建號','住址','面積'],['X段01234-000建號','臺北市A路1號','30'],['','','']]);
   ok(exp.format==='export'&&exp.count===1&&exp.rows.length===3&&exp.rows[2].length===25&&exp.rows[2][3]==='X段01234-000建號'&&exp.rows[2][4]==='臺北市A路1號','查詢匯出格式：左補3欄、補標題列、25欄、空白列丟掉');
   ok(normalizeXlsRows([['電話','拜訪過程'],['電話','拜訪過程'],['0911','x']]).format==='master','總檔格式照舊');
   ok(normalizeXlsRows([['姓名','電話'],['a','b'],['c','d']]).format==='unknown','不認得的格式→unknown');
