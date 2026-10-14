@@ -1916,7 +1916,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t136 (⚙️設定的雲端用量改成「客戶資料＋備忘錄」合計,更接近 Firestore 真正算的那份文件大小) 2026.10.14';
+const APP_VERSION = '🧪測試版 t137 (XLS 匯入認得「查詢匯出格式」:第一列是建物標示/住址…的檔案直接丟進來,程式自動對齊總檔欄位,不用先貼總檔;預覽會寫偵測到哪種格式;匯入完成跳小結:新增幾人、併入既有哪幾人、略過幾筆,按知道了才問批次) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3243,6 +3243,7 @@ function processCompanyData(raw) {
   }
 
   let added=0, updated=0, skipped=0;
+  const mergedNames=[];   // 併入既有客戶的名字（匯入小結用）
   const _startNextId = nextId; // 匯入前的 id 上限：之後 id≥這個值的就是「本次匯入新增的人」
   const pendingReview = []; // 需要 Claude 審查的模糊案例
   let xinXinBatchDate = ''; // 追蹤新鑫批次日期
@@ -3294,7 +3295,7 @@ function processCompanyData(raw) {
         if(!existing.heatManual && !keepHeats.includes(existing.heat)) existing.heat = '新鑫';
         existing.updatedAt = TODAY;
         curXin = existing;
-        updated++;
+        updated++; mergedNames.push(existing.name||'');
       } else {
         curXin = {
           id: nextId++,
@@ -3522,7 +3523,7 @@ function processCompanyData(raw) {
           prevSameBuilding.debtPhones = mergeDebtPhonesInto(prevSameBuilding, allDebtPhones);
         }
         prevSameBuilding.updatedAt = TODAY;
-        updated++;
+        updated++; mergedNames.push(prevSameBuilding.name||'');
         return;
       }
     }
@@ -3670,7 +3671,7 @@ function processCompanyData(raw) {
       }
       // driveUrl、note、remind、job 等用戶欄位：完全不動
       existing.updatedAt = TODAY;
-      updated++;
+      updated++; mergedNames.push(existing.name||'');
     } else {
       // B：無效案件且「沒有任何電話」（本人電話＋債務人電話都沒有）→ 不新增。
       // 注意：不能看身分證！謄本「所有權部」本來就帶屋主完整身分證號，那不是聯絡方式，
@@ -3741,12 +3742,20 @@ function processCompanyData(raw) {
     saveLocal();
     pushToSheet().catch(()=>{});
     render();
-    showToast(`✅ 總檔：新增 ${added} 筆，更新 ${updated} 筆，略過 ${skipped} 筆${idnoMerged?`，合併同人 ${idnoMerged} 筆`:''}`);
-    // 只有「真的有新增的人」才跳「批次標記」，且視窗只顯示這次新增的人（既有的人用📋名單標批次即可）
-    if(added>0){
-      const nids = new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id));
-      if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 700);
-    }
+    showToast(`✅ 新增 ${added} 筆，併入 ${updated} 筆，略過 ${skipped} 筆${idnoMerged?`，合併同人 ${idnoMerged} 筆`:''}`);
+    // 匯入小結：新增幾人、併入既有哪幾人、略過幾筆；按「知道了」之後才跳批次標記（只列這次新增的人）
+    const uniq=[...new Set(mergedNames.map(n=>String(n||'').trim()).filter(Boolean))];
+    const nameList=uniq.length?`：${uniq.slice(0,15).join('、')}${uniq.length>15?`…等 ${uniq.length} 人`:''}`:'';
+    const summary=`匯入完成
+
+新增 ${added} 人
+併入既有 ${updated} 人${nameList}
+略過 ${skipped} 筆${idnoMerged?`
+同身分證合併 ${idnoMerged} 筆`:''}
+
+既有客戶只補空白欄位，手填的資料不會被蓋。`;
+    const after=()=>{ if(added>0){ const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id)); if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 300); } };
+    if(typeof uiAlert==='function') uiAlert(summary).then(after); else after();
   }
 
   if (pendingReview.length > 0) {
@@ -7638,6 +7647,26 @@ function openBlacklist() {
 }
 function closeBlacklist(){document.getElementById('blBg').classList.remove('open');}
 
+// XLS 匯入支援兩種格式，看第一列標題自動辨識：
+//  A 總檔格式：第 1 格「電話」第 2 格「拜訪過程」，前 2 列標題、25 欄 → 照舊。
+//  B 查詢匯出格式（光特/電傳查詢工具匯出的「建物」表）：第 1 格「建物標示」第 2 格「住址」，只有 1 列標題、
+//    欄位順序＝總檔第 3～19 欄（少了前面 電話/拜訪過程/備註 三欄與後面 5 欄）→ 自動左補 3 空欄、補一列標題、補滿 25 欄。
+// 回傳 {format:'master'|'export'|'unknown', rows, count}；rows 一律是「前 2 列標題、第 3 列起資料」的 25 欄陣列。
+function normalizeXlsRows(raw){
+  const rows=(raw||[]).map(r=>Array.isArray(r)?r:[]);
+  const h=rows[0]||[]; const c0=String(h[0]||'').trim(), c1=String(h[1]||'').trim();
+  const pad=r=>{ const a=r.slice(0,25); while(a.length<25) a.push(''); return a; };
+  if(c0.startsWith('建物標示') && c1.startsWith('住址')){
+    const data=rows.slice(1).filter(r=>r.some(v=>String(v==null?'':v).trim()!==''));
+    const out=[pad([...(typeof COMPANY_EXPORT_HEADER!=='undefined'?COMPANY_EXPORT_HEADER:[])]), pad(['','','',...h]), ...data.map(r=>pad(['','','',...r]))];
+    return {format:'export', rows:out, count:data.length};
+  }
+  if(c0.startsWith('電話') && (c1.startsWith('拜訪') || String((rows[1]||[])[1]||'').includes('拜訪'))){
+    return {format:'master', rows:rows.map(pad), count:Math.max(0,rows.length-2)};
+  }
+  return {format:'unknown', rows:[], count:0};
+}
+let _xlsFormat='';
 function handleXls(file){
   if(!file)return;
   const reader=new FileReader();
@@ -7645,11 +7674,19 @@ function handleXls(file){
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      xlsRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      if(xlsRows.length<3){showToast('⚠️ 檔案內容為空');return;}
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const n=normalizeXlsRows(raw);
       const prev=document.getElementById('imPrev');
       prev.style.display='block';
-      prev.innerHTML=`讀取成功！共 <b>${xlsRows.length-2}</b> 筆資料`;
+      if(n.format==='unknown'){
+        xlsRows=[]; _xlsFormat='';
+        prev.innerHTML=`⚠️ 不認得這個格式。第一列標題要是「電話／拜訪過程…」（總檔）或「建物標示／住址…」（查詢匯出）。<br>這份第一列是：${calEsc(String((raw[0]||[]).slice(0,3).join(' | ')).slice(0,60))}`;
+        document.getElementById('imGo').disabled=true;
+        return;
+      }
+      if(n.count<1){ xlsRows=[]; prev.innerHTML='⚠️ 檔案裡沒有資料列'; document.getElementById('imGo').disabled=true; return; }
+      xlsRows=n.rows; _xlsFormat=n.format;
+      prev.innerHTML=`讀取成功！偵測到：<b>${n.format==='export'?'查詢匯出格式（建物表，已自動對齊總檔欄位）':'總檔格式'}</b>，共 <b>${n.count}</b> 筆資料${wb.SheetNames.length>1?`<br><span style="color:var(--t3)">只會匯入第一個工作表「${calEsc(wb.SheetNames[0])}」</span>`:''}`;
       document.getElementById('imGo').disabled=false;
       document.getElementById('imDrop').querySelector('p').textContent=file.name;
     }catch(err){showToast('⚠️ 無法讀取檔案');}
