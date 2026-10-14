@@ -7,6 +7,7 @@ function ext(n){const s=html.indexOf('function '+n+'(');if(s<0)throw new Error('
 // 全域/stub
 const _t=new Date(); var TODAY=`${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
 var clients=[]; var nextId=1;
+var BATCH_SEP='、';
 var EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed','marital','spouse','loanWant','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
 function saveLocal(){} function render(){} function pushToSheet(){return Promise.resolve();} function closeUrlSettings(){} function showToast(){}
 function calEsc(s){return String(s==null?'':s);}
@@ -152,5 +153,18 @@ ok(JSON.stringify(shareFromOwner('5分之1  20.42 平方公尺'))==='{"num":1,"d
 ok(JSON.stringify(shareFromOwner('持分 10000分之235'))==='{"num":235,"den":10000}','10000分之235 → 235/10000');
 ok(JSON.stringify(shareFromOwner('全部 1 分之 1  26.17 坪'))==='{"num":1,"den":1}','有空白的 1 分之 1');
 ok(JSON.stringify(shareFromOwner('沒有持分字樣'))==='{"num":0,"den":0}','抓不到 → 0/0');
+// t141：多批次
+eval(['batchList','batchJoin','batchAdd','batchSetAll','suggestBatchName'].map(ext).join(String.fromCharCode(10)));
+{
+  ok(JSON.stringify(batchList('A、B,，C ; A'))==='["A","B","C"]','batchList 拆「、,，;」並去重');
+  const c={batch:'新鑫 115/03/18 (5)'};
+  ok(batchAdd(c,'包區 115/10 大安區')===true && c.batch==='新鑫 115/03/18 (5)、包區 115/10 大安區' && c.firstBatch==='新鑫 115/03/18 (5)','batchAdd 加在後面、首次來源記第一個');
+  ok(batchAdd(c,'包區 115/10 大安區')===false && batchList(c).length===2,'batchAdd 重複不再加');
+  batchSetAll(c,'只剩這個'); ok(c.batch==='只剩這個' && c.firstBatch==='新鑫 115/03/18 (5)','batchSetAll 取代但首次來源不變');
+  ok(suggestBatchName('1150318_資料 (5)')==='新鑫 115/03/18 (5)' && suggestBatchName('1150611_資料(6)')==='新鑫 115/06/11 (6)','新鑫批次改名建議');
+  ok(suggestBatchName('115_03 松山區包區')==='包區 115/03 松山區','包區改名建議');
+  ok(suggestBatchName('ACER中人件')==='中人 ACER' && suggestBatchName('kira案件')==='中人 kira','中人改名建議');
+  ok(suggestBatchName('Ashley')==='Ashley','認不得的維持原名');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

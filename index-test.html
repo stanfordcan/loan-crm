@@ -1309,8 +1309,13 @@ async function applyUrlSettings() {
           <datalist id="finTypeOptions"><option value="存摺(近6個月)"><option value="薪資證明"><option value="企業401"><option value="所得清單/扣繳憑單"><option value="勞保明細"><option value="租約"><option value="營業登記"><option value="其他"></datalist>
           <button onclick="addFinProof()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增收入佐證</button>
         </div>
-        <div class="frow"><label>來源批次</label>
-          <input id="fBatch" list="batchListOptions" placeholder="這筆來自哪批名單，例：0614-A名單"/>
+        <div class="frow"><label>來源批次 <span id="firstBatchLbl" style="font-weight:400;color:var(--t3);text-transform:none"></span></label>
+          <input type="hidden" id="fBatch"/>
+          <div id="batchChips" class="heat-chips" style="margin-bottom:6px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="batchAddInput" list="batchListOptions" placeholder="加一個批次，Enter 加入（例：包區 115/10 大安區）" onkeydown="if(event.key==='Enter'){event.preventDefault();addBatchChip();}" style="flex:1;min-width:0"/>
+            <button type="button" onclick="addBatchChip()" style="flex-shrink:0;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">＋</button>
+          </div>
           <datalist id="batchListOptions"></datalist>
         </div>
         </div>
@@ -1554,6 +1559,20 @@ async function applyUrlSettings() {
   </div>
 </div>
 
+<!-- 批次管理：改名／合併 -->
+<div class="imbg" id="batchMgrBg" style="z-index:9600" onclick="if(event.target===this)closeBatchMgr()">
+  <div class="immodal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column">
+    <h3 style="margin-bottom:4px">🏷️ 批次管理</h3>
+    <p style="font-size:12px;color:var(--t3);margin-bottom:10px">左邊是現在的名稱（人數），右邊是改後的名稱，可直接編輯。兩個批次改成同名＝合併。按「套用」才會真的改，改前請先下載備份。</p>
+    <div style="display:flex;gap:8px;margin-bottom:8px"><button type="button" onclick="batchMgrSuggestAll()" style="background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">全部套用建議名稱</button><button type="button" onclick="batchMgrResetAll()" style="background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">全部還原</button></div>
+    <div id="batchMgrList" style="flex:1;overflow-y:auto;min-height:120px;border:1px solid var(--border);border-radius:var(--rs);padding:6px"></div>
+    <div class="imbtns" style="margin-top:12px;flex-shrink:0">
+      <button class="imcancel" onclick="closeBatchMgr()">取消</button>
+      <button class="imgo" onclick="batchMgrApply()">✅ 套用改名</button>
+    </div>
+  </div>
+</div>
+
 <!-- Memo Modal (mobile) -->
 <div class="imbg" id="memoBg">
   <div class="immodal" style="max-width:480px;max-height:80vh;display:flex;flex-direction:column">
@@ -1628,6 +1647,7 @@ async function applyUrlSettings() {
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
+      <button onclick="openBatchMgr()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏷️ 批次管理（改名／合併）<br><span style="font-size:10px;font-weight:400;opacity:.8">列出所有批次與建議名稱，確認後一次改</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
       <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
       <button onclick="var d=document.getElementById('oldDataTools');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.arr').textContent=open?'▴':'▾'" style="width:100%;background:var(--s2);color:var(--t2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
@@ -1826,7 +1846,8 @@ async function applyUrlSettings() {
       <option value="">— 選擇現有批次 —</option>
     </select>
     <label style="font-size:12px;font-weight:600;color:var(--t2);display:block;margin-bottom:4px">或輸入新批次（留空＝清除批次）</label>
-    <input id="ltBatchNew" placeholder="例 0617-A名單" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);margin:0 0 6px;cursor:pointer"><input type="checkbox" id="ltBatchReplace" style="width:14px;height:14px;accent-color:var(--accent)">取代原有批次（不勾＝加在原有批次後面）</label>
+    <input id="ltBatchNew" placeholder="例 包區 115/10 台北市大安區" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
     <div class="imbtns" style="margin-top:16px">
       <button class="imcancel" onclick="closeLtBatch()">取消</button>
       <button onclick="ltBatchApply()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">套用</button>
@@ -1895,6 +1916,10 @@ async function applyUrlSettings() {
     <div style="margin-top:10px">
       <input id="batchTagInput" list="batchListOptions2" placeholder="輸入批次名稱（例 0614-A名單）；留空＝清除勾選客戶的批次" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
       <datalist id="batchListOptions2"></datalist>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer"><input type="checkbox" id="batchTagReplace" style="width:14px;height:14px;accent-color:var(--accent)">取代原有批次（不勾＝加上）</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">分類 <select id="batchTagHeat" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:inherit;background:var(--surface);color:var(--text)"><option value="">不改</option><option>待分類</option><option>覆訪</option><option>追很緊</option><option>新鑫</option><option>已簽約</option><option>無效案件</option></select></label>
+      </div>
     </div>
     <div class="imbtns" style="margin-top:12px;flex-shrink:0">
       <button class="imcancel" onclick="closeBatchTag()">取消</button>
@@ -1938,7 +1963,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t140 (持分顯示:不動產面積卡下方多一條醒目的結算「全戶 50 坪 × 持分 1/3 ＝ 持分 16.67 坪」,持分<1橘底、全部持有綠底;土地改成填全筆坪＋持分,系統算土地持分坪;卡片上有持分的人顯示「持分 1/3」橘標) 2026.10.14';
+const APP_VERSION = '🧪測試版 t141 (一人可多批次:匯入或標批次都是「加上」不蓋掉(可勾取代);卡片最多顯示2個批次＋「+N」;基本卡的來源批次改成籤式可逐個移除、記首次來源;篩選改成包含任一批次;匯入後的批次視窗預設「包區 115/10 檔名」並可選分類,查詢匯出格式預設待分類;⚙️設定新增「批次管理」可一次改名/合併) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2743,6 +2768,9 @@ function foldClientInto(a, b){
   if(a.logs) a.logs.sort((x,y)=>(y.date||'').localeCompare(x.date||''));
   // 財力證明合併
   if(b.finProofs&&b.finProofs.length) a.finProofs=[...(a.finProofs||[]),...b.finProofs];
+  // 批次：聯集
+  if(b.batch) batchList(b).forEach(x=>batchAdd(a,x));
+  if(!a.firstBatch && b.firstBatch) a.firstBatch=b.firstBatch;
   // 二次匯入記錄：合併
   if(b.reimports&&b.reimports.length) a.reimports=[...(a.reimports||[]),...b.reimports];
   // 文件清單：聯集，a 已標的不動
@@ -3356,7 +3384,7 @@ function processCompanyData(raw) {
       if(existing){
         if(!existing.addr && addr) existing.addr = addr;
         // 批次標頭(1150522_資料(N))＝來源批次→放進 batch 欄(空白才補,不覆蓋手動批次);個人備註留在 note
-        if(xinXinBatchDate && !String(existing.batch||'').trim()) existing.batch = xinXinBatchDate;
+        if(xinXinBatchDate) batchAdd(existing, xinXinBatchDate);   // 多批次：加上，不蓋掉
         // 去掉備註開頭可能殘留的批次標頭前綴,只保留個人備註;本次行備註若是新的就附加(不弄丟手寫)
         let personal = String(existing.note||'').replace(/^\s*\d{6,8}_資料\s*\(\s*\d+\s*\)\s*[｜|]?\s*/,'').trim();
         if(note && personal.indexOf(note.slice(0,12))<0) personal = [personal, note].filter(Boolean).join('｜');
@@ -3667,7 +3695,7 @@ function processCompanyData(raw) {
     });
 
     // Get sheet name from last column and determine heat
-    const heat = sheetToHeat(sheetName);
+    const heat = (isXls && !sheetName) ? '待分類' : sheetToHeat(sheetName);   // 查詢匯出格式沒有工作表名稱 → 待分類（以前退回追很緊）
 
     if(isBlacklisted(phone, idno, col4BuildNo||buildNo, name)){ skipped++; return; }
 
@@ -4493,7 +4521,7 @@ function openMapExport(){
   document.getElementById('mapBg').classList.add('open');
 }
 function mapRowMatch(r){ const q=_mapQuery; if(!q) return true; const qd=q.replace(/\D/g,''); return String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||(qd.length>=3&&String(r.phone||'').replace(/\D/g,'').includes(qd))||String(r.addr||'').toLowerCase().includes(q)||String(r.batch||'').toLowerCase().includes(q); }
-function mapPickBatch(b){ if(!b) return; let n=0; _mapRows.forEach(r=>{ if((r.batch||'')===b){ r.checked=true; n++; } }); renderMapList(); showToast(`已勾選批次「${b}」的 ${n} 個地址`); }
+function mapPickBatch(b){ if(!b) return; let n=0; _mapRows.forEach(r=>{ if(batchList(r.batch).includes(b)){ r.checked=true; n++; } }); renderMapList(); showToast(`已勾選批次「${b}」的 ${n} 個地址`); }
 function closeMapExport(){ document.getElementById('mapBg').classList.remove('open'); }
 function buildMapRows(){
   _mapRows=[];
@@ -4582,7 +4610,7 @@ function ltToggleCheck(id,on){ if(on) _ltChecked.add(id); else _ltChecked.delete
 function ltVisible(){
   return clients.filter(c=>{
     if(!_ltCats.has(c.heat||'待分類')) return false;
-    if(_ltBatch){ const b=(c.batch||'').trim(); if(_ltBatch==='__none__'){ if(b) return false; } else if(b!==_ltBatch) return false; }
+    if(_ltBatch){ const l=batchList(c); if(_ltBatch==='__none__'){ if(l.length) return false; } else if(!l.includes(_ltBatch)) return false; }
     if(_ltQuery && !clientMatchesQuery(c,_ltQuery)) return false;
     return true;
   });
@@ -4623,7 +4651,8 @@ function ltBatchApply(){
   const v=(document.getElementById('ltBatchNew').value||'').trim();
   if(!_ltChecked.size){ closeLtBatch(); return; }
   let n=0;
-  clients.forEach(c=>{ if(_ltChecked.has(c.id)){ c.batch=v; c.updatedAt=TODAY; n++; } });
+  const repl=!!(document.getElementById('ltBatchReplace')||{}).checked;
+  clients.forEach(c=>{ if(_ltChecked.has(c.id)){ if(!v||repl) batchSetAll(c,v); else batchAdd(c,v); c.updatedAt=TODAY; n++; } });
   saveLocal(); render(); renderListTool(); closeLtBatch();
   showToast(v?`🏷️ 已標記 ${n} 筆為「${v}」`:`已清除 ${n} 筆的批次`);
   pushToSheet().catch(()=>{});
@@ -5024,7 +5053,7 @@ function render(){
         ${c.serial?`<span class="mi">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
         ${c.companyRaw?`<span class="mi" style="color:var(--green)">🏢總檔</span>`:''}
-        ${c.batch?`<span class="mi" style="color:var(--accent);background:var(--abg);padding:1px 6px;border-radius:99px">🏷️${hl(c.batch,q)}</span>`:''}
+        ${(()=>{ const l=batchList(c); if(!l.length) return ''; return l.slice(0,2).map(b=>`<span class="mi" style="color:var(--accent);background:var(--abg);padding:1px 6px;border-radius:99px">🏷️${hl(b,q)}</span>`).join('')+(l.length>2?`<span class="mi" style="color:var(--accent)" title="${calEsc(l.join('、'))}">+${l.length-2}</span>`:''); })()}
         ${c.logs&&c.logs.length?`<span class="mi">💬${c.logs.length}筆</span>`:''}
       </div>
       ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">🔔${c.remindNote}</div>`:''}
@@ -5393,6 +5422,8 @@ function fillExtraFields(c){
   reorderProofHints();
   tempDocs=(o.docs&&typeof o.docs==='object')?{...o.docs}:{};
   renderDocChips();
+  if(!c){ const f=document.getElementById('fBatch'); if(f) f.value=''; }
+  renderBatchChips();
   updateCloseReasonRow();
   updateSpouseRow();
   // 舊值「有小額／有民間／有當鋪／代書」去掉「有」再畫色籤
@@ -5406,6 +5437,26 @@ function updateSpouseRow(){
   const married=(m.value==='已婚');
   row.style.display=married?'':'none';
   if(!married && sp && sp.value){ sp.value=''; }
+}
+// 來源批次籤：顯示 #fBatch（「、」串接）裡的每一個，✕ 可移除；新增從輸入框 Enter
+function renderBatchChips(){
+  const el=document.getElementById('batchChips'), f=document.getElementById('fBatch'); if(!el||!f) return;
+  const l=batchList(f.value);
+  el.innerHTML=l.length?l.map(b=>`<span class="heat-chip on hc" style="display:inline-flex;align-items:center;gap:4px">🏷️ ${calEsc(b)}<button type="button" onclick="removeBatchChip('${calEsc(b).replace(/'/g,'&#39;')}')" title="移除" style="background:none;border:none;color:inherit;cursor:pointer;font-size:12px;padding:0 2px;line-height:1">✕</button></span>`).join(''):'<span style="font-size:11px;color:var(--t3)">（未標記）</span>';
+  const c=editId?clients.find(x=>x.id===editId):null; const fb=document.getElementById('firstBatchLbl');
+  if(fb) fb.textContent=(c&&c.firstBatch)?`　首次來源：${c.firstBatch}`:'';
+}
+function addBatchChip(){
+  const inp=document.getElementById('batchAddInput'), f=document.getElementById('fBatch'); if(!inp||!f) return;
+  const v=inp.value.trim(); if(!v) return;
+  const l=batchList(f.value); if(!l.includes(v)) l.push(v);
+  f.value=batchJoin(l); inp.value=''; renderBatchChips();
+  f.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function removeBatchChip(b){
+  const f=document.getElementById('fBatch'); if(!f) return;
+  f.value=batchJoin(batchList(f.value).filter(x=>x!==b)); renderBatchChips();
+  f.dispatchEvent(new Event('input',{bubbles:true}));
 }
 // 結案原因只在「無效案件」時出現
 function updateCloseReasonRow(){
@@ -7101,7 +7152,7 @@ async function saveClient(silent){
     docs:{...tempDocs},
     note:document.getElementById('fNote').value.trim(),
     censusAddr:document.getElementById('fCensusAddr').value.trim(),
-    batch:document.getElementById('fBatch').value.trim(),
+    batch:batchJoin(batchList(document.getElementById('fBatch').value)),
     addr:document.getElementById('fAddr').value.trim(),
     area:parseFloat(document.getElementById('fArea').value)||0,
     mainArea:parseFloat(document.getElementById('fMainArea').value)||0,
@@ -7127,6 +7178,7 @@ async function saveClient(silent){
     debtPhones:tempDebtPhones.map(p=>String(p||'').trim()).filter(Boolean),
     updatedAt:TODAY,
   };
+  { const ex=editId?clients.find(x=>x.id===editId):null; data.firstBatch=(ex&&ex.firstBatch)||batchList(data.batch)[0]||''; }
   // 房價評估內容存回「評估面板正在顯示的那一筆」（不是 curPropIdx，兩者不同步時寫錯筆就會互相污染）
   saveEvalFields();
   data.properties=properties.map(p=>({...p}));
@@ -7865,9 +7917,11 @@ function handleXls(file){
 }
 
 let _importSource='';   // 本次匯入來源（XLS 檔名／總檔），processCompanyData 記二次匯入用
+let _lastImportFile='';   // 最近一次 XLS 匯入的檔名（批次視窗預設用）
 async function doImport(){
   if(xlsRows.length<3)return;
-  _importSource='XLS：'+(((document.getElementById('imDrop')||{}).querySelector||(()=>null)).call(document.getElementById('imDrop'),'p')||{}).textContent||'檔案';
+  _lastImportFile=String((((document.getElementById('imDrop')||{}).querySelector||(()=>null)).call(document.getElementById('imDrop'),'p')||{}).textContent||'').replace(/\.xlsx?$/i,'').trim();
+  _importSource='XLS：'+(_lastImportFile||'檔案');
   processCompanyData(xlsRows);
   _importSource='';
   closeImport();
@@ -8265,8 +8319,45 @@ function clearAllCities() {
 // ── 來源批次：篩選 + 標記工具 ──
 let selectedBatches = new Set();
 let _batchTagChecked = new Set();
-function allBatches(){ const s=new Set(); clients.forEach(c=>{ const b=(c.batch||'').trim(); if(b) s.add(b); }); return [...s].sort(); }
-function batchFilterPass(c){ if(selectedBatches.size===0) return true; const b=(c.batch||'').trim()||'（未標記）'; return selectedBatches.has(b); }
+// ── 批次管理視窗 ──
+function openBatchMgr(){
+  const list=allBatches(); const cnt={}; clients.forEach(c=>batchList(c).forEach(b=>cnt[b]=(cnt[b]||0)+1));
+  const el=document.getElementById('batchMgrList'); if(!el) return;
+  el.innerHTML=list.length?list.map((b,i)=>`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--border)"><div style="font-size:12px;color:var(--text);word-break:break-all">${calEsc(b)} <span style="color:var(--t3)">(${cnt[b]||0})</span></div><input class="bm-new" data-old="${calEsc(b).replace(/"/g,'&quot;')}" data-sug="${calEsc(suggestBatchName(b)).replace(/"/g,'&quot;')}" value="${calEsc(b).replace(/"/g,'&quot;')}" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:inherit;background:var(--surface);color:var(--text)"/></div>`).join(''):'<div style="font-size:12px;color:var(--t3);text-align:center;padding:16px">還沒有任何批次</div>';
+  document.getElementById('batchMgrBg').classList.add('open');
+}
+function closeBatchMgr(){ document.getElementById('batchMgrBg').classList.remove('open'); }
+function batchMgrSuggestAll(){ document.querySelectorAll('#batchMgrList .bm-new').forEach(i=>{ i.value=i.dataset.sug; i.style.background=(i.value!==i.dataset.old)?'var(--obg)':'var(--surface)'; }); }
+function batchMgrResetAll(){ document.querySelectorAll('#batchMgrList .bm-new').forEach(i=>{ i.value=i.dataset.old; i.style.background='var(--surface)'; }); }
+async function batchMgrApply(){
+  const map={}; let changes=0;
+  document.querySelectorAll('#batchMgrList .bm-new').forEach(i=>{ const o=i.dataset.old, n=i.value.trim(); if(n && n!==o){ map[o]=n; changes++; } });
+  if(!changes){ showToast('沒有改任何名稱'); return; }
+  const merged=new Set(Object.values(map)).size<Object.values(map).length || Object.values(map).some(n=>allBatches().includes(n) && !map[n]);
+  if(!(await uiConfirm(`要改 ${changes} 個批次名稱${merged?'（其中有合併）':''}，所有客戶身上的批次會一起改。確定？`,{ok:'套用',danger:true}))) return;
+  let people=0;
+  clients.forEach(c=>{ const l=batchList(c); if(!l.length) return; const nl=l.map(b=>map[b]||b); const nj=batchJoin(nl); if(nj!==c.batch){ c.batch=nj; c.updatedAt=TODAY; people++; } if(c.firstBatch && map[c.firstBatch]) c.firstBatch=map[c.firstBatch]; });
+  saveLocal(); render(); if(typeof renderBatchCheckboxes==='function') renderBatchCheckboxes(); closeBatchMgr();
+  showToast(`🏷️ 已改 ${changes} 個批次，影響 ${people} 人`);
+  pushToSheet().catch(()=>{});
+}
+// ── t141 多批次：batch 仍是一格文字，多個用「、」串接；一律用下面這幾個函式讀寫 ──
+const BATCH_SEP='、';
+function batchList(c){ const str=(typeof c==='string')?c:((c&&c.batch)||''); return [...new Set(String(str).split(/[、,，;；]/).map(x=>x.trim()).filter(Boolean))]; }
+function batchJoin(arr){ return [...new Set((arr||[]).map(x=>String(x||'').trim()).filter(Boolean))].join(BATCH_SEP); }
+function batchAdd(c,b){ b=String(b||'').trim(); if(!c||!b) return false; const l=batchList(c); if(l.includes(b)) return false; l.push(b); c.batch=batchJoin(l); if(!c.firstBatch) c.firstBatch=l[0]; return true; }
+function batchSetAll(c,label){ const l=batchList(label); c.batch=batchJoin(l); if(!c.firstBatch && l.length) c.firstBatch=l[0]; }
+// 批次改名建議：新鑫「1150318_資料 (5)」→「新鑫 115/03/18 (5)」（同月多份，保留日）；「115_03 松山區包區」→「包區 115/03 松山區」；「X中人件」→「中人 X」
+function suggestBatchName(b){
+  b=String(b||'').trim(); let m;
+  if((m=b.match(/^(\d{3})(\d{2})(\d{2})_?資料\s*[（(]\s*(\d+)\s*[)）]$/))) return `新鑫 ${m[1]}/${m[2]}/${m[3]} (${m[4]})`;
+  if((m=b.match(/^(\d{3})_(\d{2})\s*(.+?)包區$/))) return `包區 ${m[1]}/${m[2]} ${m[3].trim()}`;
+  if((m=b.match(/^(.+?)中人件$/))) return `中人 ${m[1].trim()}`;
+  if((m=b.match(/^(.+?)案件$/))) return `中人 ${m[1].trim()}`;
+  return b;
+}
+function allBatches(){ const s=new Set(); clients.forEach(c=>batchList(c).forEach(b=>s.add(b))); return [...s].sort(); }
+function batchFilterPass(c){ if(selectedBatches.size===0) return true; const l=batchList(c); if(!l.length) return selectedBatches.has('（未標記）'); return l.some(b=>selectedBatches.has(b)); }
 function refreshBatchDatalist(){
   const opts=allBatches().map(b=>`<option value="${calEsc(b)}"></option>`).join('');
   const dl=document.getElementById('batchListOptions'); if(dl) dl.innerHTML=opts;
@@ -8275,7 +8366,7 @@ function refreshBatchDatalist(){
 function renderBatchCheckboxes(){
   const box=document.getElementById('batchCheckboxes'); if(!box) return;
   const list=allBatches();
-  const hasUnlabeled=clients.some(c=>!(c.batch||'').trim());
+  const hasUnlabeled=clients.some(c=>!batchList(c).length);
   let html=list.map(b=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px;border-radius:6px"><input type="checkbox" value="${calEsc(b)}" ${selectedBatches.has(b)?'checked':''} onchange="onBatchChange()" style="cursor:pointer"/>${calEsc(b)}</label>`).join('');
   if(hasUnlabeled) html+=`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px;border-radius:6px;color:var(--t3)"><input type="checkbox" value="（未標記）" ${selectedBatches.has('（未標記）')?'checked':''} onchange="onBatchChange()" style="cursor:pointer"/>（未標記）</label>`;
   if(!list.length && !hasUnlabeled) html='<div style="font-size:12px;color:var(--t3);text-align:center;padding:10px 0">還沒有任何批次</div>';
@@ -8314,6 +8405,11 @@ function openBatchTagForImport(newIds){
   _importNewIds = newIds || null;   // openBatchTag 之後再設,避免被清掉
   const t=document.getElementById('batchTagTodayOnly');
   if(t){ t.checked=true; }
+  // 預設批次名稱：查詢匯出檔 → 「包區 民國年/月 檔名」；分類預設待分類。都可以改
+  const inp=document.getElementById('batchTagInput'), hs=document.getElementById('batchTagHeat');
+  if(inp){ if(_lastImportFile){ const d=new Date(); inp.value=`包區 ${d.getFullYear()-1911}/${String(d.getMonth()+1).padStart(2,'0')} ${_lastImportFile}`; } else inp.value=''; }
+  if(hs){ hs.value=(_lastImportFile && typeof _xlsFormat!=='undefined' && _xlsFormat==='export')?'待分類':''; }
+  _lastImportFile='';
   renderBatchTagList();
 }
 function batchTagVisible(){
@@ -8349,8 +8445,11 @@ async function batchTagApply(){
   if(!_batchTagChecked.size){ showToast('⚠️ 請先勾選客戶'); return; }
   const label=document.getElementById('batchTagInput').value.trim();
   const n=_batchTagChecked.size;
-  if(!(await uiConfirm(label?`把 ${n} 筆客戶標記為批次「${label}」？`:`清除 ${n} 筆客戶的批次標記？`))) return;
-  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ c.batch=label; c.updatedAt=TODAY; } });
+  const _heatPick=(document.getElementById('batchTagHeat')||{}).value||'';
+  if(!(await uiConfirm((label?`把 ${n} 筆客戶標記為批次「${label}」`:`清除 ${n} 筆客戶的批次標記`)+(_heatPick?`，分類改為「${_heatPick}」`:'')+'？'))) return;
+  const repl=!!(document.getElementById('batchTagReplace')||{}).checked;
+  const heatPick=(document.getElementById('batchTagHeat')||{}).value||'';
+  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ if(!label||repl) batchSetAll(c,label); else batchAdd(c,label); if(heatPick){ c.heat=heatPick; if(heatPick!=='待分類') c.heatManual=true; } c.updatedAt=TODAY; } });
   saveLocal();
   render();
   closeBatchTag();
