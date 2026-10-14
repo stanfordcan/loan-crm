@@ -1113,7 +1113,7 @@ async function renderCloudUsage(){
     const lcolor=lpct>=80?'var(--red)':lpct>=50?'var(--orange)':'var(--green)';
     el.innerHTML=`雲端資料：<b>${kb} KB</b>，分 <b>${n}</b> 段存（每段上限 1,024 KB、段數不限）　客戶 ${clients.length} 筆`
       +(memoPct>=50?`<div style="color:var(--orange);margin-top:2px">備忘錄 ${memoKb} KB／上限 1,024 KB（${memoPct}%）</div>`:'')
-      +`<div style="margin-top:4px">本機快取：<b style="color:${lcolor}">${lkb} KB</b>／約 2,500 KB（${lpct}%）</div>`
+      +`<div style="margin-top:4px">本機快取（壓縮版）：<b style="color:${lcolor}">${lkb} KB</b>／約 2,500 KB（${lpct}%）</div>`
       +`<div style="height:4px;border-radius:99px;background:var(--s2);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,lpct)}%;background:${lcolor}"></div></div>`;
   }catch(e){ el.textContent='雲端用量：無法計算'; }
 }
@@ -2082,7 +2082,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t147 (唯讀模式手機滑不動的問題:欄位改用唯讀而不是停用,iPhone手指按在欄位上也能捲動) 2026.10.14';
+const APP_VERSION = '🧪測試版 t148 (登入時發現本機快取還是舊的未壓縮版,會自動改存壓縮版;設定頁本機快取用量才會正確) 2026.10.14';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2192,6 +2192,12 @@ async function loadLocal() {
       if (!d.uid || !currentUser || d.uid !== currentUser.uid) return false;
       let list = d.clients, nid = d.nextId;
       if (d.gz) { const u = JSON.parse(await unpackData(d.gz)); list = u.clients; nid = u.nextId; }   // 新格式：壓縮版
+      else {
+        // 舊格式（未壓縮原文，937 筆就 3.2 MB）：讀完順手改存壓縮版；時間戳照舊，不影響跟雲端比新舊
+        packData(JSON.stringify({clients:list||[], nextId:nid||1})).then(gz=>{
+          try{ localStorage.setItem(LOCAL_KEY, JSON.stringify({gz, nextId:nid||1, updatedAt:d.updatedAt, uid:d.uid})); }catch(e){}
+        }).catch(()=>{});
+      }
       clients = (list||[])
         .filter(c => c.name && c.name !== '（未知）' && c.name !== '(未知)')
         .map(c => migrateHeat({
