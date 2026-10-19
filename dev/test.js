@@ -234,5 +234,6 @@ ok(floorsFromBuildInfo('A_01_0611_000 松山區延吉段 建號 住家用 012層
 ok(builtYearFromBuildInfo('住家用 012層 88年05月12日 建築完成')==='88' && builtYearFromBuildInfo('109年05月19日 買賣')==='109' && builtYearFromBuildInfo('無')==='','建築完成年抓民國年');
 ok(jobSummary({job:'上班族',company:'某公司',income:'6',incomeType:'薪轉',taxed:'有'})==='上班族（某公司），月收 6 萬，薪轉，有報稅','職業收入整句');
 ok(jobSummary({job:'自營',income:''})==='自營' && jobSummary({})==='','缺的欄位不留逗號');
+ok(jobSummary({company:'統一超商'})==='統一超商' && jobSummary({job:'家管',income:'0'})==='家管','只有公司名不加括號、月收 0 不寫');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
