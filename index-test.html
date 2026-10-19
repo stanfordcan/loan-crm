@@ -33,8 +33,8 @@
 --r:14px;--rs:8px;--sh:0 1px 2px rgba(20,32,56,.05),0 4px 14px rgba(20,32,56,.08);
 --shx:0 10px 26px rgba(20,32,56,.16),0 2px 6px rgba(20,32,56,.09)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:calc(100vh * var(--zi,1))}   /* --zi＝1/縮放，電腦縮放時把 vh 補回整個視窗 */
+.app{max-width:480px;margin:0 auto;min-height:calc(100vh * var(--zi,1));display:flex;flex-direction:column}
 .sticky-top{position:sticky;top:0;z-index:50;background:var(--surface)}
 .hbtn{border:none;border-radius:9px;padding:9px 13px;min-height:36px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
@@ -430,12 +430,12 @@ body.readonly .ro-only{display:block}
 /* ── PC Layout (≥900px) ───────────────────────────────── */
 @media(min-width:900px){
   html,body{height:100%;overflow:hidden}
-  .pc-container{display:flex;height:100vh;overflow:hidden}
+  .pc-container{display:flex;height:calc(100vh * var(--zi,1));overflow:hidden}
 
   /* 左側面板：比例寬度，跟著螢幕縮放 */
   .pc-container .app{
     width:45%;min-width:440px;max-width:600px;
-    flex-shrink:0;height:100vh;overflow-y:auto;
+    flex-shrink:0;height:calc(100vh * var(--zi,1));overflow-y:auto;
     border-right:2px solid var(--border);
     margin:0;min-height:unset;
     background:var(--bg);
@@ -459,7 +459,7 @@ body.readonly .ro-only{display:block}
     position:static!important;flex:1;
     background:transparent!important;
     display:flex!important;
-    align-items:stretch;height:100vh;
+    align-items:stretch;height:calc(100vh * var(--zi,1));
     overflow:hidden;z-index:1;
   }
   .pc-container .sbg:not(.open) .sheet{display:none}
@@ -528,6 +528,7 @@ function applyZoom(){
   if(/Mobi|Android|iPhone/i.test(navigator.userAgent)) return;
   const z=getZoomSetting();
   document.documentElement.style.zoom = z===100 ? '' : (z/100);
+  document.documentElement.style.setProperty('--zi', z===100 ? '1' : String(100/z));   // 100vh 會跟著縮，用這個補回整個視窗高
 }
 function setZoom(z){
   try{ localStorage.setItem(ZOOM_KEY,String(z)); }catch(e){}
@@ -2111,7 +2112,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t152 (設定頁多「畫面縮放(電腦)」75/80/90/100%,筆電螢幕小版面擠在一起時縮小整頁;只記這台電腦,手機不受影響) 2026.10.19';
+const APP_VERSION = '🧪測試版 t153 (修縮放後畫面下方留白一截:縮小時整頁高度補回整個視窗) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
