@@ -2133,7 +2133,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t156 (雲端資料夾路徑顯示:新格式建的會顯示「民國日期_客戶名_住址」,舊建的照舊顯示地址) 2026.10.19';
+const APP_VERSION = '🧪測試版 t157 (老闆建議第5項:案源評估報告照範本重排,空行位置固定;銀行/法人逐家一行帶已確認日期或待確認、私人合計萬/分;房價評估頁新增好賣價、總價範圍自動算、客戶需求拆成金額/分/是否含清償前胎;客戶年紀用基本頁生日算) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -6164,6 +6164,10 @@ function renderPriceEval(c) {
           <div class="frow" style="margin:0"><label>住宅行情（萬/坪）</label><input type="number" id="ev_unitprice" value="${e.unitprice||''}" placeholder="80" oninput="calcTotal()"/></div>
           <div class="frow" style="margin:0"><label>住宅估值（萬）</label><input type="number" id="ev_house_val" placeholder="自動計算" readonly style="background:var(--s2)"/></div>
         </div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label>好賣價（萬/坪）</label><input type="number" id="ev_unitprice_lo" value="${e.unitpriceLo||''}" placeholder="比行情低的快賣價" oninput="calcTotal()"/></div>
+          <div class="frow" style="margin:0"><label>總價範圍（萬）</label><input id="ev_total_range" placeholder="自動計算" readonly style="background:var(--s2)"/></div>
+        </div>
         <div class="fg2" id="ev_park_val_row" style="margin-top:8px;display:none">
           <div class="frow" style="margin:0"><label>車位估值（萬）</label><input type="number" id="ev_park_val" value="${e.parkval||c.parkVal||''}" placeholder="例：100" oninput="calcTotal()"/></div>
           <div class="frow" style="margin:0"><label style="color:var(--accent);font-weight:700">估算總價（萬）</label><input type="number" id="ev_total" placeholder="自動計算" readonly style="background:var(--abg);font-weight:700;color:var(--accent)"/></div>
@@ -6177,7 +6181,12 @@ function renderPriceEval(c) {
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">👤 客戶資訊</div>
         <div class="frow" style="margin-bottom:8px"><label>職業／收入</label><input id="ev_job" value="${e.job||c.job||''}" placeholder="例：上班族，月收5萬"/></div>
         <div class="frow" style="margin-bottom:8px"><label>借款用途</label><input id="ev_purpose" value="${c.loanPurpose||''}" placeholder="例：週轉、整合債務"/></div>
-        <div class="frow" style="margin-bottom:8px"><label>客戶需求</label><input id="ev_need" value="${e.need||''}" placeholder="例：需借500萬，1分以內"/></div>
+        <div class="fg2" style="margin-bottom:8px">
+          <div class="frow" style="margin:0"><label>需求金額（萬）</label><input type="number" id="ev_need_amt" value="${e.needAmt||''}" placeholder="例：300"/></div>
+          <div class="frow" style="margin:0"><label>利率（分）</label><input type="number" step="0.1" id="ev_need_rate" value="${e.needRate||''}" placeholder="例：2"/></div>
+        </div>
+        <div class="frow" style="margin-bottom:8px"><label>是否含清償前胎</label><select id="ev_need_clear"><option value="">未填</option><option value="含清償前胎"${e.needClear==='含清償前胎'?' selected':''}>含清償前胎</option><option value="不含清償前胎"${e.needClear==='不含清償前胎'?' selected':''}>不含清償前胎</option></select></div>
+        <input type="hidden" id="ev_need" value="${calEsc(e.need||'')}"/>
         <div class="frow" style="margin-bottom:0"><label>備註（中人、注意事項）</label><textarea id="ev_note" style="height:70px" placeholder="例：中人需退2%，客戶態度保守">${e.evalNote||''}</textarea></div>
       </div>
 
@@ -6267,8 +6276,8 @@ function calcTotal(){
   if(hv) hv.value = houseVal || '';
 
   const hasPark = (document.getElementById('ev_parking')?.value || '無') !== '無';
+  const parkVal = hasPark ? (parseFloat(document.getElementById('ev_park_val')?.value) || 0) : 0;
   if(hasPark){
-    const parkVal = parseFloat(document.getElementById('ev_park_val')?.value) || 0;
     const total = houseVal + parkVal;
     const t = document.getElementById('ev_total');
     if(t) t.value = total || '';
@@ -6276,6 +6285,69 @@ function calcTotal(){
     const t = document.getElementById('ev_total_noPark');
     if(t) t.value = houseVal || '';
   }
+  const lo = parseFloat(document.getElementById('ev_unitprice_lo')?.value) || 0;
+  const tr = document.getElementById('ev_total_range');
+  if(tr) tr.value = priceRangeStr(lo, unit, area, parkVal).total;
+}
+// 行情／總價範圍文字：好賣價～行情價（萬/坪）、各乘建坪再加車位
+function fmtWan(n){ return n ? Math.round(n).toLocaleString('en-US') : ''; }
+function priceRangeStr(lo, hi, area, parkVal){
+  const a=lo&&area?lo*area+(parkVal||0):0, b=hi&&area?hi*area+(parkVal||0):0;
+  const unit = lo&&hi ? `${lo}～${hi}` : (hi||lo||'');
+  const total = a&&b ? `${fmtWan(a)}～${fmtWan(b)}` : (fmtWan(b||a));
+  return {unit, total};
+}
+// 門牌 → 「台北市 中山區」
+function regionFromAddr(addr){
+  const m=String(addr||'').match(/^\s*([一-鿿]{2,3}[市縣])\s*([一-鿿]{1,3}[區鄉鎮市])/);
+  return m ? `${m[1]} ${m[2]}` : '';
+}
+// 客戶年紀：用基本頁的出生年月日（民國）
+function clientAgeStr(c){
+  const y=parseInt(c&&c.birthY)||0; if(!y) return '';
+  const m=parseInt(c.birthM)||1, d=parseInt(c.birthD)||1;
+  const t=new Date(); let age=t.getFullYear()-(y+1911);
+  if(t.getMonth()+1<m||(t.getMonth()+1===m&&t.getDate()<d)) age--;
+  return (age>0&&age<120) ? `${age} 歲` : '';
+}
+// 案源評估：純文字排版（空行位置照老闆定的範本，一行都不能動）
+function evalReportText(d){
+  const L=[];
+  L.push(`客戶名稱：${d.name||''}`);
+  L.push(`身分證字號：${d.idno||''}`);
+  L.push('');
+  L.push(`區域：${d.region||''}`);
+  L.push(`地段：${d.section||''}`);
+  L.push(`地號：${d.landNo||''}`);
+  L.push(`土地：${d.landArea||''}`);
+  L.push(`土地使用分區：${d.landzone||''}`);
+  L.push('');
+  L.push(`建號：${d.buildNo||''}`);
+  L.push(`地址：${d.addr||''}`);
+  L.push(`社區名稱：${d.community||''}`);
+  L.push(`建物：${d.building||''}`);
+  L.push(`車位：${d.parking||''}`);
+  L.push(`總樓層：${d.floors||''}`);
+  L.push(`屋齡：${d.age||''}`);
+  L.push('');
+  L.push(`土增稅：${d.tax||''}`);
+  (d.loanLines||[]).forEach(x=>L.push(x));
+  L.push(`私人：${d.privateLine||''}`);
+  L.push('');
+  L.push(`屋況：${d.condition||''}`);
+  L.push(`抗性：${d.resistance||''}`);
+  L.push(`凶宅查詢：${d.jinzhai||''}`);
+  L.push('');
+  L.push(`行情：${d.unitRange||''}`);
+  L.push(`總價：${d.totalRange||''}`);
+  L.push('');
+  L.push(`客戶職業、收入：${d.job||''}`);
+  L.push(`客戶年紀：${d.clientAge||''}`);
+  L.push(`借款用途：${d.purpose||''}`);
+  L.push('');
+  L.push(`客戶需求：${d.need||''}`);
+  L.push(`備註：${d.note||''}`);
+  return L.join('\n');
 }
 
 function generateReport(clientId) {
@@ -6315,45 +6387,46 @@ function generateReport(clientId) {
   const taxSelfWan = gn('ev_tax_self')     || Math.round(gn('ev_landtax_self')   / 10000) || 0;
   const taxCount   = g('ev_tax_count') || '1';
   const taxStr = (taxGenWan || taxSelfWan)
-    ? `一般 ${taxGenWan}萬、自用 ${taxSelfWan}萬＜共${taxCount}筆＞`
+    ? `一般 ${taxGenWan} 萬、自用 ${taxSelfWan} 萬＜共 ${taxCount} 筆＞`
     : '—';
 
-  // 貸款狀況：逐筆列債權人（金額為實貸估值 e，可能已被手動調整過）
-  const curLoans = (properties[curPropIdx] && properties[curPropIdx].loans) || [];
-  const loanLines = curLoans.length ? curLoans.map(l=>{
+  // 貸款：銀行／法人逐家一行（金額＝實貸估值 e，可能手動調過），後面標已確認（日期）或待確認；民間合計一行；塗銷的不列
+  const curLoans = ((properties[curPropIdx] && properties[curPropIdx].loans) || []).filter(l=>!l.x);
+  const loanLines = curLoans.filter(l=>l.t!=='private').map(l=>{
     const est = getLoanE(l);
-    const typeLabel = l.t==='bank'?'銀行':l.t==='legal'?'法人':'民間';
-    return `${typeLabel}：${l.n||'—'}　${est}萬${l.a?`（抵押設定${l.a}萬）`:''}`;
-  }).join('\n') : '貸款：—';
-  const rateLine = curLoans.some(l=>l.t==='private') ? `\n民間利率：${g('ev_rate')||'—'}分` : '';
+    const tag = (l.confirmed&&l.confirmed.date) ? `（已確認 ${rocShort(l.confirmed.date)}）` : '（待確認）';
+    return `${l.n||'銀行'}：${est} 萬${tag}`;
+  });
+  const privSum = curLoans.filter(l=>l.t==='private').reduce((t,l)=>t+(getLoanE(l)||0),0);
+  const privateLine = privSum ? `${privSum} 萬${g('ev_rate')?`／${g('ev_rate')} 分`:''}` : '';
 
-  const report =
-`地段：${g('ev_district')} ${g('ev_section')}
-地號：${landNoStr}
-土地使用分區：${g('ev_landzone')||'—'}
-建號：${g('ev_buildno')||'—'}
-地址：${g('ev_addr')||'—'}
-社區名稱：${g('ev_community')||'—'}
-建物：${g('ev_buildarea')}坪（${parking}）
-土地：${landAreaStr}
-總樓層：${g('ev_floors')||'—'}層
-屋齡：${g('ev_age')||'—'}年
-土增稅：${taxStr}
-${loanLines}${rateLine}
-屋況：${g('ev_condition')||'—'}
-抗性：${g('ev_resistance')||'—'}
-凶宅查詢：${g('ev_jinzhai')||'—'}
-住宅行情：約 ${g('ev_unitprice')||'—'}萬／坪
-估算總價：約 ${totalVal||'—'}萬${hasParkRpt?`（住宅${g('ev_house_val')}萬 + 車位${g('ev_park_val')||'?'}萬）`:''}
+  const areaNum = gn('ev_buildarea');
+  const parkIncluded = hasParkRpt && g('ev_park_title') !== '獨立';
+  const pr = priceRangeStr(gn('ev_unitprice_lo'), gn('ev_unitprice'), areaNum, hasParkRpt ? gn('ev_park_val') : 0);
+  const needTxt = (g('ev_need_amt')||g('ev_need_rate')||g('ev_need_clear'))
+    ? [g('ev_need_amt')?`${g('ev_need_amt')} 萬`:'', g('ev_need_rate')?`${g('ev_need_rate')} 分`:''].filter(Boolean).join(' ') + (g('ev_need_clear')?`（${g('ev_need_clear')}）`:'')
+    : (g('ev_need')||'');
 
-客戶職業／收入：${g('ev_job')||'—'}
-借款用途：${g('ev_purpose')||'—'}
-客戶需求：${g('ev_need')||'—'}
-備註：${g('ev_note')||'—'}`;
+  const report = evalReportText({
+    name: c.name||'', idno: c.idno||'',
+    region: regionFromAddr(g('ev_addr')||c.addr) || g('ev_district'),
+    section: g('ev_section'), landNo: landNoStr==='—'?'':landNoStr, landArea: landAreaStr==='—'?'':landAreaStr.replace(/坪/g,' 坪').replace(/\s+坪/g,' 坪'),
+    landzone: g('ev_landzone'),
+    buildNo: g('ev_buildno'), addr: g('ev_addr'), community: g('ev_community'),
+    building: areaNum ? `${areaNum} 坪${parkIncluded?'（含車位）':''}` : '',
+    parking: hasParkRpt ? `${g('ev_parkarea')} 坪` : '無',
+    floors: g('ev_floors') ? `${g('ev_floors')} 層` : '', age: g('ev_age') ? `${g('ev_age')} 年` : '',
+    tax: taxStr==='—'?'':taxStr,
+    loanLines, privateLine,
+    condition: g('ev_condition'), resistance: g('ev_resistance'), jinzhai: g('ev_jinzhai'),
+    unitRange: pr.unit ? `約 ${pr.unit} 萬/坪` : '', totalRange: pr.total ? `約 ${pr.total} 萬` : '',
+    job: g('ev_job'), clientAge: clientAgeStr(c), purpose: g('ev_purpose'),
+    need: needTxt, note: g('ev_note'),
+  });
 
   const win = window.open('', '_blank');
   win.document.write(`
-    <html><head><meta charset="UTF-8"><title>案件評估表 - ${c.name}</title>
+    <html><head><meta charset="UTF-8"><title>案源評估 - ${c.name}</title>
     <style>
       body{font-family:'Noto Sans TC',sans-serif;padding:30px;max-width:600px;margin:0 auto;color:var(--text);line-height:2}
       h3{margin-bottom:16px;font-size:16px}
@@ -6367,7 +6440,7 @@ ${loanLines}${rateLine}
         <button class="btn" style="background:#2B5BE2;color:#fff" onclick="window.print()">🖨️ 列印 / 儲存PDF</button>
         <button class="btn" style="background:#1D8C5E;color:#fff" onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent).then(()=>alert('已複製！'))">📋 複製文字</button>
       </div>
-      <h3>【案件評估表】${c.name}　${c.phone}</h3>
+      <h3>【案源評估】${c.name}　${c.phone}</h3>
       <pre>${report}</pre>
     </body></html>
   `);
@@ -7215,7 +7288,8 @@ function collectEvalData(){
     floors:v('ev_floors'), age:v('ev_age'),
     taxGeneral:v('ev_tax_general'), taxSelf:v('ev_tax_self'), taxCount:v('ev_tax_count'),
     condition:v('ev_condition'), resistance:v('ev_resistance'), jinzhai:v('ev_jinzhai'),
-    unitprice:v('ev_unitprice'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
+    unitprice:v('ev_unitprice'), unitpriceLo:v('ev_unitprice_lo'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
+    needAmt:v('ev_need_amt'), needRate:v('ev_need_rate'), needClear:v('ev_need_clear'),
     evalNote:v('ev_note'), aiEvalBasis:v('ev_ai_basis'),
   };
 }

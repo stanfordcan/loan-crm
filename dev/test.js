@@ -211,5 +211,22 @@ eval(['logKindTag'].map(ext).join(String.fromCharCode(10)));
   const r=logsToProcess([{date:'2026-10-19',text:'到現場',kind:'site'},{date:'2026-10-18',text:'電話',kind:'phone'},{date:'2026-10-17',text:'來公司',kind:'office'},{date:'2026-10-16',text:'舊的'}]);
   ok(r==='1151016 舊的'+NL+'1151017 【公】來公司'+NL+'1151018 【電】電話'+NL+'1151019 【現】到現場','有類型的加【現】【電】【公】，舊的沒類型照舊');
 }
+// t157：案源評估排版
+eval(['fmtWan','priceRangeStr','regionFromAddr','evalReportText'].map(ext).join(String.fromCharCode(10)));
+{
+  const NL=String.fromCharCode(10);
+  ok(regionFromAddr('台北市中山區建國北路二段92號12樓')==='台北市 中山區' && regionFromAddr('新北市三芝區X路')==='新北市 三芝區' && regionFromAddr('')==='','門牌抓區域');
+  const pr=priceRangeStr(60,65,36.37,0);
+  ok(pr.unit==='60～65' && pr.total==='2,182～2,364','行情與總價範圍');
+  ok(priceRangeStr(0,65,36.37,100).total==='2,464' && priceRangeStr(0,65,36.37,100).unit===65,'只有行情價就單一數字，車位加進總價');
+  const txt=evalReportText({name:'張聖平',idno:'A1',region:'台北市 中山區',section:'建國段',landNo:'0123-000',landArea:'12.5 坪',landzone:'住三',buildNo:'54',addr:'地址',community:'社區',building:'36.37 坪（含車位）',parking:'8.2 坪',floors:'12 層',age:'25 年',tax:'一般 35 萬、自用 12 萬＜共 2 筆＞',loanLines:['土地銀行：800 萬（已確認 115/10/19）','玉山銀行：300 萬（待確認）','新鑫：150 萬（待確認）'],privateLine:'200 萬／2.5 分',condition:'',resistance:'',jinzhai:'無',unitRange:'約 60～65 萬/坪',totalRange:'約 2,180～2,360 萬',job:'上班族',clientAge:'52 歲',purpose:'周轉',need:'300 萬 2 分（含清償前胎）',note:''});
+  const lines=txt.split(NL);
+  ok(lines.length===36,'共 36 行（含空行；三家銀行＋私人）','got '+lines.length);
+  ok(lines[0]==='客戶名稱：張聖平' && lines[1]==='身分證字號：A1' && lines[2]==='','前兩行＋空行');
+  ok(lines[8]==='' && lines[9]==='建號：54' && lines[16]==='' && lines[17].startsWith('土增稅'),'分區後空行、屋齡後空行');
+  ok(lines[18]==='土地銀行：800 萬（已確認 115/10/19）' && lines[21]==='私人：200 萬／2.5 分' && lines[22]==='','銀行逐行、私人、空行');
+  ok(lines[23]==='屋況：' && lines[26]==='' && lines[27]==='行情：約 60～65 萬/坪' && lines[29]==='','屋況三行、空行、行情總價、空行');
+  ok(lines[30]==='客戶職業、收入：上班族' && lines[31]==='客戶年紀：52 歲' && lines[32]==='借款用途：周轉' && lines[33]==='' && lines[34]==='客戶需求：300 萬 2 分（含清償前胎）' && lines[35]==='備註：','職業三行、空行、需求備註');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
