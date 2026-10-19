@@ -212,6 +212,23 @@ input[type=number]{min-width:0}
 .ldate{font-size:11px;color:var(--t3);margin-bottom:3px;font-weight:600}
 .ltext{font-size:13px;line-height:1.5;padding-right:26px}
 .ldel{float:right;background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;margin-top:-1px}
+/* 聯絡記錄類型：現場（綠）／電話（藍）／來公司（紫）／其他（灰） */
+.lkind{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.lk-site .lkind{background:var(--gbg);color:var(--green)}
+.lk-phone .lkind{background:var(--abg);color:var(--accent)}
+.lk-office .lkind{background:rgba(139,92,246,.16);color:#8b5cf6}
+.lk-other .lkind{background:var(--s2);color:var(--t3)}
+.litem.lk-site::before{background:var(--green)}
+.litem.lk-office::before{background:#8b5cf6}
+.litem.lk-other::before{background:var(--t3)}
+.ltext{cursor:text}
+.lk-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.lk-chip{border:1.5px solid var(--border);background:var(--s2);color:var(--t2);border-radius:99px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.lk-chip.on{border-color:var(--accent);background:var(--abg);color:var(--accent)}
+.le-box input,.le-box textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;color:var(--text);margin-bottom:6px}
+.le-box textarea{min-height:64px;resize:vertical}
+.le-btn{border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+body.readonly .ltext{cursor:default}
 /* Form section headers */
 .form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
 /* ── 編輯面板改版：淡底、白卡分區、白底細框輸入、區段圖示 ── */
@@ -1644,6 +1661,7 @@ async function applyUrlSettings() {
           <div class="log-list" id="logList"></div>
           <div class="add-log" style="margin-top:10px">
             <label>➕ 新增通話記錄</label>
+            <div id="logKindChips" class="lk-chips"></div>
             <div class="alrow">
               <input type="date" id="fLogDate"/>
               <input id="fLogText" placeholder="通話內容摘要…（Enter 直接加入）" onkeydown="if(event.key==='Enter'){event.preventDefault();addLog();}"/>
@@ -2115,7 +2133,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t154 (老闆建議第一批:抵押列手改金額自動標「✔ 日期 已確認」、沒改的顯示「待確認」可點一下確認;提醒日期填了時間預設11:30;使用分區🗺️查詢鈕搬到不動產頁籤、門牌旁多📍地圖;雲端子資料夾改名「民國日期_客戶名_住址」) 2026.10.19';
+const APP_VERSION = '🧪測試版 t155 (老闆建議第二批:聯絡記錄點文字就能改內容、日期、類型;新增時可選類型 🏠現場拜訪(綠)/📞電話(藍)/🏢來公司(紫)/📝其他(灰),時間軸圓點與卡片跟著變色;匯出總檔拜訪過程會帶【現】【電】【公】) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4975,7 +4993,8 @@ function logsToProcess(logs){
     const m=String(l.date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     const d=m?String(parseInt(m[1])-1911)+m[2]+m[3]:'';
     const t=l.time?String(l.time).replace(':',''):'';
-    return [d,t].filter(Boolean).join(' ')+(l.text?((d||t?' ':'')+l.text):'');
+    const tag=(typeof logKindTag==='function'&&l.kind)?logKindTag(l.kind):'';
+    return [d,t].filter(Boolean).join(' ')+(l.text?((d||t?' ':'')+tag+l.text):'');
   }).map(s=>s.trim()).filter(Boolean).join('\n');
 }
 const COMPANY_EXPORT_HEADER=['電話','拜訪過程','備註','建物標示','門牌','面積','建物所有權部','所有權人住址','持分面積','債務人及債務額比例','設定義務人','共同擔保地號、建號','債務人電話','他項權利部','權利人','權利人住址','設定權利範圍','債權額比例','限制登記事項','流抵約定','顏色','登記門牌','建物門牌','其他門牌','金主門牌'];
@@ -5307,7 +5326,7 @@ function render(){
         ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}
         ${(()=>{const sp=(c.properties||[]).find(p=>p.buildShareNum>0&&p.buildShareDen>0&&p.buildShareNum<p.buildShareDen)||((c.buildShareNum>0&&c.buildShareDen>0&&c.buildShareNum<c.buildShareDen)?c:null);return sp?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px;font-weight:700">持分 ${sp.buildShareNum}／${sp.buildShareDen}</span>`:'';})()}${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯 想借${c.loanWant}萬</span>`:''}${(c.reimports&&c.reimports.length)?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
       </div>`:''}
-      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${logKindLabel(lastLog.kind||'phone').slice(0,2)}${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
     </div>`;
     }
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
@@ -5334,7 +5353,7 @@ function render(){
       </div>
       ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">🔔${c.remindNote}</div>`:''}
       ${c.addr?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍${hl(c.addr||'',q)}</div>`:''}
-      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${logKindLabel(lastLog.kind||'phone').slice(0,2)}${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
     </div>`;
   }).join('')+(total>list.length?`<button type="button" class="load-more" id="loadMoreBtn" onclick="loadMoreCards()">顯示更多（還有 ${total-list.length} 筆）</button>`:'');
   watchLoadMore();
@@ -5967,7 +5986,7 @@ function openEdit(id){
   _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
   fillExtraFields(c);
-  tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
+  _logEdit=null; tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
   _evalRenderedIdx=-1;   // 換客戶了，舊的渲染索引作廢，避免把上一位的評估內容寫進來
@@ -6460,17 +6479,60 @@ function sSTabTo(i){
   document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===i));
 }
 
+// 記錄類型：site 現場拜訪／phone 電話／office 來公司洽談／other 其他；舊記錄沒 kind 就當電話顯示（不改資料）
+const LOG_KINDS=[['site','🏠 現場拜訪','現'],['phone','📞 電話','電'],['office','🏢 來公司','公'],['other','📝 其他','']];
+let curLogKind='phone';
+let _logEdit=null;   // {i, kind} 正在編輯的那筆
+function logKindLabel(k){ const f=LOG_KINDS.find(x=>x[0]===k); return f?f[1]:'📞 電話'; }
+function logKindTag(k){ const f=LOG_KINDS.find(x=>x[0]===k); return f&&f[2]?`【${f[2]}】`:''; }
+function renderLogKindChips(){
+  const el=document.getElementById('logKindChips'); if(!el) return;
+  el.innerHTML=LOG_KINDS.map(([k,l])=>`<button type="button" class="lk-chip${curLogKind===k?' on':''}" onclick="curLogKind='${k}';renderLogKindChips()">${l}</button>`).join('');
+}
 function renderLogs(){
   const el=document.getElementById('logList');
+  renderLogKindChips();
   // 由下往上：最新的在最下面（靠近輸入框）。反轉顯示但保留原索引給刪除用
   el.innerHTML=tempLogs.length
-    ?tempLogs.map((l,i)=>({l,i})).reverse().map(({l,i})=>`<div class="litem">
+    ?tempLogs.map((l,i)=>({l,i})).reverse().map(({l,i})=>{
+      const kind=l.kind||'phone';
+      if(_logEdit&&_logEdit.i===i){
+        return `<div class="litem lk-${_logEdit.kind} le-box">
+          <div class="lk-chips">${LOG_KINDS.map(([k,lb])=>`<button type="button" class="lk-chip${_logEdit.kind===k?' on':''}" onclick="_logEdit.kind='${k}';renderLogs()">${lb}</button>`).join('')}</div>
+          <input type="date" id="leDate" value="${calEsc(l.date||'')}"/>
+          <textarea id="leText">${calEsc(l.text||'')}</textarea>
+          <div style="display:flex;gap:6px;justify-content:flex-end"><button type="button" class="le-btn" style="background:var(--s2);color:var(--t2)" onclick="cancelLogEdit()">取消</button><button type="button" class="le-btn" style="background:var(--accent);color:#fff" onclick="saveLogEdit(${i})">儲存</button></div>
+        </div>`;
+      }
+      return `<div class="litem lk-${kind}">
         <button class="ldel" onclick="removeLog(${i})">✕</button>
-        <div class="ldate">${l.date}</div>
-        <div class="ltext">${l.text}</div>
-      </div>`).join('')
+        <div class="ldate">${l.date}${l.time?' '+l.time:''}<span class="lkind">${logKindLabel(kind)}</span></div>
+        <div class="ltext" onclick="editLog(${i})" title="點一下修改">${l.text}</div>
+      </div>`;
+    }).join('')
     :'<p style="font-size:12px;color:var(--t3);text-align:center;padding:20px 0">尚無聯絡記錄</p>';
+  if(_logEdit){ const t=document.getElementById('leText'); if(t){ t.focus(); } return; }
   const sb=el.closest('.sbody'); if(sb) sb.scrollTop = sb.scrollHeight; // 捲到最底（輸入框）
+}
+function editLog(i){
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
+  const l=tempLogs[i]; if(!l) return;
+  _logEdit={i, kind:l.kind||'phone'};
+  renderLogs();
+}
+function cancelLogEdit(){ _logEdit=null; renderLogs(); }
+function saveLogEdit(i){
+  const l=tempLogs[i]; if(!l||!_logEdit) return;
+  const d=(document.getElementById('leDate')||{}).value||l.date, t=((document.getElementById('leText')||{}).value||'').trim();
+  if(!t){ uiAlert('記錄內容不能空白'); return; }
+  // 改過內容＝原本那行不要再被匯入帶回來（跟刪除同一套規矩）
+  if(editId&&(d!==l.date||t!==l.text)){
+    const c=clients.find(x=>x.id===editId);
+    if(c){ if(!c.deletedLogKeys) c.deletedLogKeys=[]; const key=(l.date||'')+(l.text||'').slice(0,20); if(!c.deletedLogKeys.includes(key)) c.deletedLogKeys.push(key); }
+  }
+  l.date=d; l.text=t; l.kind=_logEdit.kind;
+  _logEdit=null; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  renderLogs();
 }
 // ── 債電（可手動編輯）───────────────────────────────────────
 // 刪掉/改掉的號碼會記進該客戶的 deletedDebtPhones（正規化後的號碼），之後總檔更新永不再帶回來
@@ -6517,7 +6579,7 @@ function addLog(){
   const d=document.getElementById('fLogDate').value;
   const t=document.getElementById('fLogText').value.trim();
   if(!d||!t){uiAlert('請填寫日期和記錄內容');return;}
-  tempLogs.unshift({date:d,text:t});
+  tempLogs.unshift({date:d,text:t,kind:curLogKind});
   document.getElementById('fLogText').value='';
   formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
   renderLogs();

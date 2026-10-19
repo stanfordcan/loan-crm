@@ -203,5 +203,13 @@ ok(driveSubFolderName('王小明','','松山區','延吉段三小段','0685-000'
 ok(driveSubFolderName('王小明','','','','','2026-10-19')==='','門牌和地號都沒有 → 空字串');
 ok(driveSubFolderName('A/B','台北市*路?1號','','','','2026-01-05')==='1150105_AB_台北市路1號','檔名不能用的符號去掉');
 ok(rocShort('2026-10-19')==='115/10/19','民國短日期');
+// t155：拜訪過程帶記錄類型
+var LOG_KINDS=[['site','🏠 現場拜訪','現'],['phone','📞 電話','電'],['office','🏢 來公司','公'],['other','📝 其他','']];
+eval(['logKindTag'].map(ext).join(String.fromCharCode(10)));
+{
+  const NL=String.fromCharCode(10);
+  const r=logsToProcess([{date:'2026-10-19',text:'到現場',kind:'site'},{date:'2026-10-18',text:'電話',kind:'phone'},{date:'2026-10-17',text:'來公司',kind:'office'},{date:'2026-10-16',text:'舊的'}]);
+  ok(r==='1151016 舊的'+NL+'1151017 【公】來公司'+NL+'1151018 【電】電話'+NL+'1151019 【現】到現場','有類型的加【現】【電】【公】，舊的沒類型照舊');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
