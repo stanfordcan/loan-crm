@@ -265,6 +265,7 @@ body.readonly .debt-x{display:none!important}
 body.readonly .add-log{display:none!important}
 .ro-only{display:none}
 body.readonly .ro-only{display:block}
+@media(max-width:899px){ .pc-only{display:none!important} }   /* 只在電腦版顯示（縮放設定等） */
 .dial-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;background:var(--gbg);border:1px solid var(--gbd);border-radius:var(--rs);color:var(--green);cursor:pointer;font-size:16px;line-height:1;font-family:inherit}
 .dial-btn:active{transform:scale(.94)}
 /* 持分結算條 */
@@ -519,6 +520,21 @@ function setTheme(s){
   if(typeof renderThemePicker==='function') renderThemePicker();
 }
 applyTheme();
+// 畫面縮放（電腦）：筆電螢幕小時整頁縮到 75～100%，版面才不會擠在一起。只記這台裝置；手機不套。
+const ZOOM_KEY='crm_zoom';
+const ZOOM_OPTS=[75,80,90,100];
+function getZoomSetting(){ try{ const z=parseInt(localStorage.getItem(ZOOM_KEY)); return ZOOM_OPTS.includes(z)?z:100; }catch(e){ return 100; } }
+function applyZoom(){
+  if(/Mobi|Android|iPhone/i.test(navigator.userAgent)) return;
+  const z=getZoomSetting();
+  document.documentElement.style.zoom = z===100 ? '' : (z/100);
+}
+function setZoom(z){
+  try{ localStorage.setItem(ZOOM_KEY,String(z)); }catch(e){}
+  applyZoom();
+  if(typeof renderZoomPicker==='function') renderZoomPicker();
+}
+applyZoom();
 try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(getThemeSetting()==='auto') applyTheme(); }); }catch(e){}
 </script>
 </head>
@@ -1085,7 +1101,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
-  renderThemePicker(); renderCardModePicker();
+  renderThemePicker(); renderCardModePicker(); if(typeof renderZoomPicker==='function') renderZoomPicker();
   // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
   const info=document.getElementById('settingsAccountInfo');
   if(info){
@@ -1125,6 +1141,13 @@ function renderThemePicker(){
   const cur=getThemeSetting();
   el.innerHTML=[['light','☀️ 淺色'],['dark','🌙 深色'],['auto','🔄 跟隨系統']].map(([k,l])=>
     `<button onclick="setTheme('${k}')" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===k?'var(--accent)':'var(--border)'};background:${cur===k?'var(--abg)':'var(--s2)'};color:${cur===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
+}
+function renderZoomPicker(){
+  const el=document.getElementById('zoomPicker'); if(!el) return;
+  const cur=getZoomSetting();
+  el.innerHTML=ZOOM_OPTS.map(z=>
+    `<button onclick="setZoom(${z})" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===z?'var(--accent)':'var(--border)'};background:${cur===z?'var(--abg)':'var(--s2)'};color:${cur===z?'var(--accent)':'var(--t2)'}">${z}%</button>`
   ).join('');
 }
 function closeUrlSettings() {
@@ -1790,6 +1813,9 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🌓 外觀</div>
       <div id="themePicker" style="display:flex;gap:6px"></div>
       <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
+      <div class="pc-only" style="font-size:12px;font-weight:600;color:var(--t2);margin:14px 0 8px">🔍 畫面縮放（電腦）</div>
+      <div id="zoomPicker" class="pc-only" style="display:flex;gap:6px"></div>
+      <div class="pc-only" style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">筆電螢幕小、版面擠在一起時縮到 75～90%。只記這台電腦，手機不受影響。</div>
     </div>
     <!-- 帳號：登出、清除全部（從工具列搬來，危險動作不放在日常按鈕旁邊） -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
@@ -2085,7 +2111,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t151 (📤公司格式回填:一間不動產一列,電話/門牌/面積/債電/持分面積/備註/拜訪過程用CRM現在的值,他項權利部有手改才重組,其餘照總檔原值,沒原值的用CRM資料湊;工作表照總檔分成覆訪/追很緊/待分類/新鑫/已簽約/無效案件) 2026.10.14';
+const APP_VERSION = '🧪測試版 t152 (設定頁多「畫面縮放(電腦)」75/80/90/100%,筆電螢幕小版面擠在一起時縮小整頁;只記這台電腦,手機不受影響) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
