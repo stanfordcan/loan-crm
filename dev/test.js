@@ -235,5 +235,21 @@ ok(builtYearFromBuildInfo('住家用 012層 88年05月12日 建築完成')==='88
 ok(jobSummary({job:'上班族',company:'某公司',income:'6',incomeType:'薪轉',taxed:'有'})==='上班族（某公司），月收 6 萬，薪轉，有報稅','職業收入整句');
 ok(jobSummary({job:'自營',income:''})==='自營' && jobSummary({})==='','缺的欄位不留逗號');
 ok(jobSummary({company:'統一超商'})==='統一超商' && jobSummary({job:'家管',income:'0'})==='家管','只有公司名不加括號、月收 0 不寫');
+// t162：久未聯絡
+{
+  var TODAY='2026-10-19'; var curTime=''; var localStorage={_s:{},getItem(k){return k in this._s?this._s[k]:null;},setItem(k,v){this._s[k]=String(v);}};
+  var STALE_KEY='crm_stale_days';
+  eval(['staleDays','lastLogDate','daysSince','isMuted','staleBase','isStale','isNever'].map(ext).join(String.fromCharCode(10)));
+  const L=(d)=>({date:d,text:'x'});
+  ok(isStale({heat:'覆訪',logs:[L('2026-08-01'),L('2026-07-01')]})===true,'最後一筆 79 天前 → 久未聯絡');
+  ok(isStale({heat:'覆訪',logs:[L('2026-10-01')]})===false,'18 天前 → 不算');
+  ok(isStale({heat:'覆訪',logs:[L('2026-08-01')],remind:'2026-11-01'})===false,'有未來提醒 → 不算');
+  ok(isStale({heat:'覆訪',logs:[L('2026-08-01')],remind:'2026-10-01'})===true,'提醒已過期 → 還是算');
+  ok(isStale({heat:'已簽約',logs:[L('2026-08-01')]})===false && isStale({heat:'無效案件',logs:[L('2026-01-01')]})===false,'已簽約／無效不算');
+  ok(isStale({heat:'覆訪',logs:[L('2026-08-01')],staleMuteUntil:'2026-11-18'})===false && isStale({heat:'覆訪',logs:[L('2026-08-01')],staleMuteUntil:'2026-10-01'})===true,'暫停中不算、到期回來');
+  ok(isNever({heat:'新鑫',logs:[]})===true && isNever({heat:'新鑫',logs:[L('2026-08-01')]})===false && isNever({heat:'無效案件',logs:[]})===false,'從未聯絡：沒記錄且非結案');
+  localStorage.setItem(STALE_KEY,'90');
+  ok(isStale({heat:'覆訪',logs:[L('2026-08-01')]})===false && isStale({heat:'覆訪',logs:[L('2026-06-01')]})===true,'改成 90 天後 79 天不算、140 天算');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

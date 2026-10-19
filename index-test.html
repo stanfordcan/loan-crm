@@ -141,6 +141,15 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .cmeta{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:5px;align-items:center}
 /* 卡片資訊分三級：金額(決策用)最重 → 標記次之 → 身分證/批次/筆數退到背景 */
 .mi{font-size:11px;color:var(--t3)}
+/* 久未聯絡 */
+.stale-tag{font-weight:700;padding:1px 6px;border-radius:99px}
+.stale-tag.o{color:var(--orange);background:var(--obg)}
+.stale-tag.r{color:var(--red);background:var(--rbg)}
+.stale-tag.m{color:var(--t3);background:var(--s2)}
+.stale-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;padding:9px 12px;border-radius:12px;background:var(--obg);border:1px solid var(--obd);font-size:12px;color:var(--orange);font-weight:600}
+.stale-bar button{background:var(--surface);border:1px solid var(--obd);color:var(--orange);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.mute-btn{background:none;border:1px dashed var(--border);color:var(--t3);border-radius:99px;padding:1px 7px;font-size:11px;cursor:pointer;font-family:inherit}
+body.readonly .mute-btn{display:none}
 .mi-amt{font-size:12px;font-weight:600;color:var(--text);letter-spacing:-.2px}
 .mi-amt.warn{color:var(--orange)}
 .mi-amt.danger{color:var(--red)}
@@ -1122,7 +1131,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
-  renderThemePicker(); renderCardModePicker(); if(typeof renderZoomPicker==='function') renderZoomPicker();
+  renderThemePicker(); renderCardModePicker(); if(typeof renderZoomPicker==='function') renderZoomPicker(); if(typeof renderStaleDaysPicker==='function') renderStaleDaysPicker();
   // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
   const info=document.getElementById('settingsAccountInfo');
   if(info){
@@ -1162,6 +1171,13 @@ function renderThemePicker(){
   const cur=getThemeSetting();
   el.innerHTML=[['light','☀️ 淺色'],['dark','🌙 深色'],['auto','🔄 跟隨系統']].map(([k,l])=>
     `<button onclick="setTheme('${k}')" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===k?'var(--accent)':'var(--border)'};background:${cur===k?'var(--abg)':'var(--s2)'};color:${cur===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
+}
+function renderStaleDaysPicker(){
+  const el=document.getElementById('staleDaysPicker'); if(!el) return;
+  const cur=staleDays();
+  el.innerHTML=[30,60,90].map(n=>
+    `<button onclick="setStaleDays(${n})" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===n?'var(--accent)':'var(--border)'};background:${cur===n?'var(--abg)':'var(--s2)'};color:${cur===n?'var(--accent)':'var(--t2)'}">${n} 天</button>`
   ).join('');
 }
 function renderZoomPicker(){
@@ -1232,6 +1248,7 @@ async function applyUrlSettings() {
     <div style="position:relative;flex-shrink:0">
       <button id="cityFilterBtn" onclick="toggleCityFilter()" title="排序／縣市／批次" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;min-height:38px">⇅<span class="listtool-txt"> 調整</span><span id="cityFilterCount"></span></button>
       <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:60;max-height:70vh;overflow-y:auto">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:10px;cursor:pointer"><input type="checkbox" id="noRemindChk" onchange="curTime=this.checked?'noremind':'';saveViewState();render()"> 📋 只看未排程（沒有提醒日）</label>
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:10px;cursor:pointer"><input type="checkbox" id="onlyReimportChk" onchange="onlyReimport=this.checked;render()" style="width:15px;height:15px;accent-color:var(--accent)">🔁 只看二次匯入的人</label>
         <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">排序</div>
         <select id="sortSelect" onchange="saveViewState();render()" style="width:100%;box-sizing:border-box;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
@@ -1843,6 +1860,9 @@ async function applyUrlSettings() {
       <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
       <div class="pc-only" style="font-size:12px;font-weight:600;color:var(--t2);margin:14px 0 8px">🔍 畫面縮放（電腦）</div>
       <div id="zoomPicker" class="pc-only" style="display:flex;gap:6px"></div>
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin:14px 0 8px">⏳ 久未聯絡：幾天沒新記錄算</div>
+      <div id="staleDaysPicker" style="display:flex;gap:6px"></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">聯絡過、超過這個天數沒新聯絡記錄、沒排提醒、不是已簽約／無效的人，會進頂部「久未聯絡」。只記這台裝置。</div>
       <div class="pc-only" style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">筆電螢幕小、版面擠在一起時縮到 75～90%。只記這台電腦，手機不受影響。</div>
     </div>
     <!-- 帳號：登出、清除全部（從工具列搬來，危險動作不放在日常按鈕旁邊） -->
@@ -2139,7 +2159,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t161 (車位非獨立權狀:坪數不扣、單價已反映、不另估車位;只有獨立權狀才另加車位估值) 2026.10.19';
+const APP_VERSION = '🧪測試版 t162 (老闆建議第6項 久未聯絡:頂部「未排程」改成「久未聯絡」=聯絡過、超過N天(設定頁30/60/90)沒新記錄、沒排提醒、非結案;點進去最久沒碰的在上面,卡片橘/紅字「⏳ N 天沒聯絡」;「從未聯絡」另一群預設收起可展開;卡片「⏸ 暫不追」30/60/90天到期自動回來、新增記錄自動解除;未排程改到調整面板勾選) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4377,13 +4397,14 @@ function updateStats(){
   const fullTotal   = clients.length;
 
   const todayN = clients.filter(c=>c.remind===TODAY).length;
+  const staleN = clients.filter(isStale).length, neverN = clients.filter(isNever).length;
   // 統計卡可點：點了就只看那一類（跟分類疊加），再點一次取消。總計數字改放在分類下拉的「全部 (N)」
   const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
     <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span><i class="spi">⚠️ </i>逾期</span></div>
     <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span><i class="spi">📞 </i>今日</span></div>
     <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span><i class="spi">📅 </i>本週</span></div>
-    <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span><i class="spi">📋 </i>未排程</span></div>
+    <div class="spill ${staleN?'warn':''}${on('stale')}" onclick="setTimeFilter('stale')" title="聯絡過但超過 ${staleDays()} 天沒新記錄：${staleN} 人；從未聯絡 ${neverN} 人（點進去可展開）"><b>${staleN}</b><span><i class="spi">⏳ </i>久未聯絡</span></div>
   `;
   // ☰ 上的紅點：待審收件匣有東西
   const dot=document.getElementById('menuDot'), ib=document.getElementById('inboxBtn');
@@ -4567,6 +4588,26 @@ function updateTabs(){
 // ── 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程 ──
 // 跟熱度分頁疊加（例如「追很緊」＋「逾期」）。再點一次同一張卡＝取消。
 let curTime='';
+let showNever=false;   // 久未聯絡檢視：是否展開「從未聯絡」那群
+// ── 久未聯絡（2026/10/19 業主＋老闆定）──
+// 規則：聯絡過、最後一筆記錄距今 ≥ N 天（設定頁 30/60/90）、沒有未來的提醒、不是已簽約／無效案件、沒在「暫不追」期間。
+// 從未聯絡（一筆記錄都沒有）另外一群，在久未聯絡檢視裡預設收起。
+const STALE_KEY='crm_stale_days';
+function staleDays(){ try{ const n=parseInt(localStorage.getItem(STALE_KEY)); return [30,60,90].includes(n)?n:30; }catch(e){ return 30; } }
+function setStaleDays(n){ try{ localStorage.setItem(STALE_KEY,String(n)); }catch(e){} if(typeof renderStaleDaysPicker==='function') renderStaleDaysPicker(); render(); }
+function lastLogDate(c){ return (c&&c.logs||[]).reduce((m,l)=>(l&&l.date&&l.date>m)?l.date:m,''); }
+function daysSince(d){ return Math.floor((new Date(TODAY)-new Date(d))/86400000); }
+function isMuted(c){ return !!(c&&c.staleMuteUntil&&c.staleMuteUntil>TODAY); }
+function staleBase(c){ return c && !['已簽約','無效案件'].includes(c.heat) && !(c.remind&&c.remind>=TODAY) && !isMuted(c); }
+function isStale(c){ if(!staleBase(c)) return false; const d=lastLogDate(c); return !!d && daysSince(d)>=staleDays(); }
+function isNever(c){ return staleBase(c) && !lastLogDate(c); }
+function staleTag(c){
+  if(isMuted(c)) return `<span class="mi stale-tag m" title="暫不追，到期自動回到久未聯絡">⏸ 暫停到 ${String(c.staleMuteUntil).slice(5)}</span>`;
+  if(isStale(c)){ const d=daysSince(lastLogDate(c)); return `<span class="mi stale-tag ${d>=90?'r':'o'}">⏳ ${d} 天沒聯絡</span>`; }
+  if(curTime==='stale' && isNever(c)) return `<span class="mi stale-tag m">從未聯絡</span>`;
+  return '';
+}
+function muteBtn(c){ return (!selectMode && (isStale(c)||isMuted(c)||(curTime==='stale'&&isNever(c)))) ? `<button type="button" class="mute-btn" onclick="openMutePick(event,${c.id})" title="暫時不追，到期自動回來">${isMuted(c)?'⏸ 改期':'⏸ 暫不追'}</button>` : ''; }
 let onlyReimport=false;   // 調整面板：只看有 🔁 二次匯入記號的人
 function weekEndStr(){ const d=new Date(); d.setDate(d.getDate()+7); return localDateStr(d); }
 function applyListFilters(list){
@@ -4576,6 +4617,7 @@ function applyListFilters(list){
   else if(curTime==='over') list=list.filter(c=>c.remind&&c.remind<TODAY&&!inactive.includes(c.heat));
   else if(curTime==='week'){ const we=weekEndStr(); list=list.filter(c=>c.remind&&c.remind>=TODAY&&c.remind<=we); }
   else if(curTime==='noremind') list=list.filter(c=>!c.remind&&!inactive.includes(c.heat));
+  else if(curTime==='stale') list=list.filter(c=>isStale(c)||(showNever&&isNever(c)));
   if(typeof onlyReimport!=='undefined' && onlyReimport) list=list.filter(c=>c.reimports&&c.reimports.length);
   return list;
 }
@@ -4589,7 +4631,7 @@ function loadViewState(){
     const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(!v) return;
     const okTabs=['all','覆訪','追很緊','新鑫','待分類','已簽約','無效案件'];
     if(okTabs.includes(v.tab)) curTab=v.tab;
-    if(['','over','today','week','noremind'].includes(v.time||'')) curTime=v.time||'';
+    if(['','over','today','week','noremind','stale'].includes(v.time||'')) curTime=v.time||'';
     const s=document.getElementById('sortSelect');
     if(s && v.sort && [...s.options].some(o=>o.value===v.sort)) s.value=v.sort;
   }catch(e){}
@@ -4694,7 +4736,7 @@ function setTimeFilter(t){
   curTime=(curTime===t)?'':t;
   saveViewState();
   render();
-  if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
+  if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程',stale:'久未聯絡'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
 }
 function setTab(t){
   const same=(t===curTab);
@@ -5278,6 +5320,13 @@ function render(){
   list.sort((a,b)=>{
     // 置頂優先
     if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    if(curTime==='stale'){
+      // 久未聯絡檢視：先久未聯絡（最久沒碰的在最上面），再從未聯絡（照批次、新增時間）
+      const sa=isStale(a)?0:1, sb=isStale(b)?0:1; if(sa!==sb) return sa-sb;
+      if(sa===0){ return lastLogDate(a).localeCompare(lastLogDate(b)); }
+      const ba=a.firstBatch||(batchList(a)[0]||''), bb=b.firstBatch||(batchList(b)[0]||''); if(ba!==bb) return ba.localeCompare(bb);
+      return (a.createdAt||'').localeCompare(b.createdAt||'');
+    }
     if(sortBy==='heat'){
       const hd=(hOrd[a.heat]??9)-(hOrd[b.heat]??9);
       if(hd!==0) return hd;
@@ -5321,11 +5370,14 @@ function render(){
   if(!list.length){wrap.innerHTML=recentRowHtml(q)+`<div class="empty">🔍 查無資料</div>`;return;}
   const sheetIsOpen=isSheetOpen();   // 編輯面板開著才標「正在看的那位」
   // 篩選條件變了就從頭算分段；沒變（例如存檔後重畫）維持已載入的張數
-  const listKey=[curTab,curTime,onlyReimport?'R':'',q,sortBy,[...selectedCities].join(','),(typeof selectedBatches!=='undefined'?[...selectedBatches].join(','):'')].join('|');
+  const listKey=[curTab,curTime,showNever?'N':'',onlyReimport?'R':'',q,sortBy,[...selectedCities].join(','),(typeof selectedBatches!=='undefined'?[...selectedBatches].join(','):'')].join('|');
   if(listKey!==_listKey){ _listKey=listKey; _listLimit=LIST_PAGE; }
   const total=list.length;
   if(total>_listLimit) list=list.slice(0,_listLimit);
-  wrap.innerHTML=recentRowHtml(q)+list.map(c=>{
+  const staleBar = curTime==='stale'
+    ? `<div class="stale-bar">⏳ 久未聯絡 <b>${clients.filter(isStale).length}</b> 人（超過 ${staleDays()} 天沒新記錄，最久的在最上面）<span style="flex:1"></span>從未聯絡 <b>${clients.filter(isNever).length}</b> 人 <button type="button" onclick="showNever=!showNever;render()">${showNever?'收起':'展開'}</button></div>`
+    : '';
+  wrap.innerHTML=staleBar+recentRowHtml(q)+list.map(c=>{
     let st=remSt(c.remind);
     // 今天的提醒，但時間已過 → 視為逾期
     if(st==='today'&&c.remindTime){
@@ -5354,8 +5406,8 @@ function render(){
         </div>
         <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
       </div>
-      ${(c.remind||tot||(c.reimports&&c.reimports.length)||(c.properties||[]).some(p=>p.buildShareNum>0&&p.buildShareDen>p.buildShareNum))?`<div class="cmeta" style="margin-top:6px">
-        ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}
+      ${(c.remind||tot||(c.reimports&&c.reimports.length)||staleTag(c)||(c.properties||[]).some(p=>p.buildShareNum>0&&p.buildShareDen>p.buildShareNum))?`<div class="cmeta" style="margin-top:6px">
+        ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}${staleTag(c)}${muteBtn(c)}
         ${(()=>{const sp=(c.properties||[]).find(p=>p.buildShareNum>0&&p.buildShareDen>0&&p.buildShareNum<p.buildShareDen)||((c.buildShareNum>0&&c.buildShareDen>0&&c.buildShareNum<c.buildShareDen)?c:null);return sp?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px;font-weight:700">持分 ${sp.buildShareNum}／${sp.buildShareDen}</span>`:'';})()}${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯 想借${c.loanWant}萬</span>`:''}${(c.reimports&&c.reimports.length)?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
       </div>`:''}
       ${lastLog?`<div class="clog"><span style="color:var(--t3)">${logKindLabel(lastLog.kind||'phone').slice(0,2)}${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
@@ -5372,7 +5424,7 @@ function render(){
         </div>
       </div>
       <div class="cmeta">
-        ${c.remind?remChip(c.remind,c.remindTime):''}
+        ${c.remind?remChip(c.remind,c.remindTime):''}${staleTag(c)}${muteBtn(c)}
         ${(lt=>`${lt.bank?`<span class="mi-amt">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi-amt">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
         ${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯想借${c.loanWant}萬</span>`:''}
         ${(c.reimports&&c.reimports.length)?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
@@ -5408,7 +5460,34 @@ function openHeatPick(e, id){
   panel.style.top=top+'px';
   panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';
 }
-function closeHeatPick(){ _heatPickId=null; const p=document.getElementById('heatPick'); if(p) p.style.display='none'; }
+// 暫不追：30／60／90 天後自動回到久未聯絡；新增一筆聯絡記錄也會自動解除
+let _mutePickId=null;
+function openMutePick(e, id){
+  e.stopPropagation();
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
+  const panel=document.getElementById('heatPick'); if(!panel) return;
+  const c=clients.find(x=>x.id===id); if(!c) return;
+  _mutePickId=id; _heatPickId=null;
+  const opts=[[30,'30 天'],[60,'60 天'],[90,'90 天']];
+  panel.innerHTML=`<div class="hp-title">${dispName(c)}：暫不追</div>`+opts.map(([d,l])=>`<button type="button" class="hp-item" onclick="applyMutePick(${d})">⏸ ${l}後再提醒</button>`).join('')
+    +(isMuted(c)?`<button type="button" class="hp-item" onclick="applyMutePick(0)">▶ 取消暫停</button>`:'')
+    +`<button type="button" class="hp-item" onclick="applyMutePick(-1)">🚫 改成無效案件</button>`;
+  panel.style.display='flex';
+  const r=e.currentTarget.getBoundingClientRect();
+  const w=panel.offsetWidth||180, h=panel.offsetHeight||200;
+  let top=r.bottom+6; if(top+h>window.innerHeight-8) top=Math.max(8, r.top-h-6);
+  panel.style.top=top+'px';
+  panel.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+}
+function applyMutePick(days){
+  const c=clients.find(x=>x.id===_mutePickId); closeHeatPick(); _mutePickId=null;
+  if(!c) return;
+  if(days===-1){ c.heat='無效案件'; c.heatManual=true; c.staleMuteUntil=''; showToast(`🚫 「${dispName(c)}」改成無效案件`); }
+  else if(days===0){ c.staleMuteUntil=''; showToast('▶ 已取消暫停'); }
+  else { const d=new Date(TODAY); d.setDate(d.getDate()+days); c.staleMuteUntil=localDateStr(d); showToast(`⏸ 「${dispName(c)}」暫不追到 ${c.staleMuteUntil.slice(5)}`); }
+  c.updatedAt=TODAY; saveLocal(); render();
+}
+function closeHeatPick(){ _heatPickId=null; _mutePickId=null; const p=document.getElementById('heatPick'); if(p) p.style.display='none'; }
 function applyHeatPick(h){
   const c=clients.find(x=>x.id===_heatPickId); closeHeatPick();
   if(!c || c.heat===h) return;
@@ -6683,6 +6762,7 @@ function addLog(){
   const t=document.getElementById('fLogText').value.trim();
   if(!d||!t){uiAlert('請填寫日期和記錄內容');return;}
   tempLogs.unshift({date:d,text:t,kind:curLogKind});
+  if(editId){ const cc=clients.find(x=>x.id===editId); if(cc&&cc.staleMuteUntil) cc.staleMuteUntil=''; }   // 有聯絡了，暫不追自動解除
   document.getElementById('fLogText').value='';
   formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
   renderLogs();
