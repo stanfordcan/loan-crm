@@ -29,6 +29,8 @@ function addrForGeo(raw, district){
   let s=normalizeAddr(raw).replace(/\s+/g,'').replace(/台/g,'臺');
   const notes=[];
   if(!s) return {q:'',level:'無地址',notes:['空白']};
+  // 「14、14之1、14之2號」「13、15號」這種好幾個門牌共用一個「號」→ 取第一個並補上號
+  if(/\d+(?:之\d+)?(?:[、，,]\d+(?:之\d+)?)+號/.test(s)){ s=s.replace(/(\d+(?:之\d+)?)(?:[、，,]\d+(?:之\d+)?)+號/,'$1號'); notes.push('多個門牌共用號，取第一個'); }
   if(/[、／/]|號.*號/.test(s)) notes.push('一格多個地址，只取第一個');
   s=s.split(/[、／/]/)[0];
   if(/地號|小段|段\d+地號|^\S+段\d/.test(s) && !/號/.test(s.replace(/地號/g,''))) return {q:s,level:'不準',notes:['是地號不是門牌']};
