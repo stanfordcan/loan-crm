@@ -1839,6 +1839,7 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
       <button onclick="openBatchMgr()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏷️ 批次管理（改名／合併）<br><span style="font-size:10px;font-weight:400;opacity:.8">列出所有批次與建議名稱，確認後一次改</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="cleanupDuplicateProps()" style="width:100%;background:var(--obg);color:var(--orange);border:1px solid var(--obd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏚️ 合併重複的不動產<br><span style="font-size:10px;font-weight:400;opacity:.8">同一人底下同建號、或門牌只差全形半形／中文數字的，併成一張（先列清單再確認）</span></button>
       <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
       <button onclick="var d=document.getElementById('oldDataTools');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.arr').textContent=open?'▴':'▾'" style="width:100%;background:var(--s2);color:var(--t2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
         <span>🧰 舊資料整理（一次性）</span><span class="arr" style="font-size:11px">▾</span>
@@ -2159,7 +2160,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t163 (總檔更新小結修正:新增人數算真的留下來的(同一人併掉的另外註明)、抵押新增/塗銷筆數改算這一次真的發生的,連按幾次不會再出現一樣的塗銷2筆) 2026.10.20';
+const APP_VERSION = '🧪測試版 t164 (重複不動產:比對門牌前先把全形/半形/中文樓層統一,建號比對改看這間自己的建號(舊資料只有共同擔保清單時要門牌也對才算同一間);設定頁多「合併重複的不動產」先列清單再確認;每次匯入完自動併同建號/同門牌的重複卡並寫進小結) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3463,13 +3464,75 @@ function ownBuildKeyFromBuildInfo(text){
   return m ? m[1]+'|'+normBuildNo(m[2]) : '';
 }
 function samePropertyCard(p, incBuild, incSection, incAddrCore){
-  const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
-  if(incBuild && pBuild){
-    if(incBuild!==pBuild) return false;
-    const ps=String(p.purpose||'').replace(/\s/g,''), is=String(incSection||'').replace(/\s/g,'');
-    return !(ps && is && ps!==is);
+  const pOwn = normBuildNo(p.col4BuildNo);                                                   // 這間自己的建號
+  const pList = String(p.buildNo||'').split(/[、,，;；\s]+/).map(normBuildNo).filter(Boolean);  // 共同擔保建號清單（舊資料常只有這個）
+  const ps=String(p.purpose||'').replace(/\s/g,''), is=String(incSection||'').replace(/\s/g,'');
+  const sectionOk = !(ps && is && ps!==is);
+  const addrSame = !!(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore));
+  if(incBuild && pOwn) return incBuild===pOwn && sectionOk;                                  // 兩邊都有自己的建號：建號說了算
+  if(incBuild && pList.length){                                                               // 舊資料只有清單：清單含這個建號＋門牌也對才算同一間（同棟不同戶的清單一樣，不能只看清單）
+    if(!pList.includes(incBuild)) return false;
+    return addrSame || (!p.addr && sectionOk);
   }
-  return !!(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore));
+  return addrSame;
+}
+// 兩張不動產卡是不是同一間（整理工具用）：都有自己的建號就比建號；否則門牌正規化後要「完全一樣」（不用前綴比對，5樓 跟 5樓之1 不能併）
+function propIdOf(p){ const c=normBuildNo(p.col4BuildNo); if(c) return c; const v=String(p.buildNo||''); return /[、,，;；]/.test(v)?'':normBuildNo(v); }   // 自己的建號：col4，不然單一建號；清單不算
+function propListOf(p){ return String(p.buildNo||'').split(/[、,，;；]+/).map(normBuildNo).filter(Boolean); }
+function samePropPair(a,b){
+  const ao=propIdOf(a), bo=propIdOf(b);
+  if(ao&&bo) return ao===bo;                                   // 兩張都有自己的建號：建號說了算（同門牌不同戶不會併）
+  const aa=addrCore(a.addr), ba=addrCore(b.addr);
+  if(!(aa&&ba&&aa===ba)) return false;                         // 門牌正規化後要完全一樣
+  const la=propListOf(a), lb=propListOf(b);                    // 門牌一樣、有一張只有共同擔保清單（舊資料）：清單要含另一張的建號
+  // 同門牌不同戶（整棟、2015/2016 兩戶同址）清單會一樣，再看抵押列：兩張各有自己的登序且對不上 → 是不同戶，不併
+  const seqs=p=>new Set((p.loans||[]).map(l=>String(l.s||'').trim()).filter(Boolean));
+  const loansOk=(()=>{ const sa=seqs(a), sb=seqs(b); if(!sa.size||!sb.size) return true; const [small,big]=sa.size<=sb.size?[sa,sb]:[sb,sa]; return [...small].every(x=>big.has(x)); })();
+  const bothLoans=seqs(a).size>0 && seqs(b).size>0;
+  // 清單有好幾個建號、兩張又都有抵押列 → 分不出是同一戶還是同址另一戶，不併（下次總檔更新會把自己的建號補上，就分得出來了）
+  if(ao && lb.length) return lb.includes(ao) && loansOk && !(lb.length>1 && bothLoans);
+  if(bo && la.length) return la.includes(bo) && loansOk && !(la.length>1 && bothLoans);
+  if(la.length && lb.length) return la.join(',')===lb.join(',') && loansOk;
+  return loansOk;
+}
+// 把 other 併進 keep：欄位只補空白、抵押列依登序或名稱＋金額去重後合併、版本紀錄接起來，然後 other 作廢
+function foldPropInto(keep, other){
+  mergePropInto(keep, other);
+  const kl=keep.loans||[]; const keyNA=l=>`${String(l.n||'').trim()}|${l.a||0}|${l.t||''}`;
+  (other.loans||[]).forEach(l=>{ const hit=kl.some(k=>(l.s&&k.s&&k.s===l.s)||keyNA(k)===keyNA(l)); if(!hit) kl.push({...l}); });
+  keep.loans=kl; const t=loansToTotals(kl); keep.bank=t.bank; keep.legal=t.legal; keep.private=t.private;
+  keep.rawHistory=[...(keep.rawHistory||[]), ...(other.rawHistory||[])];
+  if(other.companyRaw){ const o=other.companyRaw; if(!keep.companyRaw) keep.companyRaw=o; else keep.rawHistory.push({at:o.importedAt||'', src:o.importedSrc||'', cols:o.cols||null, owner:o.owner||'', rights:o.rights||'', buildInfo:o.buildInfo||''}); }
+  if(keep.rawHistory.length>10) keep.rawHistory=keep.rawHistory.slice(-10);
+  if(!keep.col4BuildNo && other.col4BuildNo) keep.col4BuildNo=other.col4BuildNo;
+  if(!keep.evalData && other.evalData) keep.evalData=other.evalData;
+  if(!keep.driveUrl && other.driveUrl) keep.driveUrl=other.driveUrl;
+  if(!keep.community && other.community) keep.community=other.community;
+  ['floors','builtYear','landzone'].forEach(k=>{ if(!keep[k] && other[k]) keep[k]=other[k]; });
+}
+// 合併同一人底下重複的不動產卡。dryRun=true 只算不改。回傳 {clients:n, props:n, names:[]}
+function mergeDuplicateProperties(dryRun){
+  let nClients=0, nProps=0; const names=[];
+  clients.forEach(c=>{
+    const props=c.properties||[]; if(props.length<2) return;
+    const used=new Set(), dropped=new Set(); let merged=0;
+    for(let i=0;i<props.length;i++){
+      if(used.has(i)) continue;
+      for(let j=i+1;j<props.length;j++){
+        if(used.has(j)) continue;
+        if(!samePropPair(props[i],props[j])) continue;
+        // 留比較完整的那張：有自己的建號 ＞ 抵押列多 ＞ 匯入時間新
+        const score=p=>(normBuildNo(p.col4BuildNo)?100:0)+((p.loans||[]).length*10)+(String((p.companyRaw||{}).importedAt||'')>String((props[i].companyRaw||{}).importedAt||'')?1:0);
+        const keepIdx = score(props[j])>score(props[i]) ? j : i, dropIdx = keepIdx===i ? j : i;
+        if(!dryRun) foldPropInto(props[keepIdx], props[dropIdx]);
+        used.add(dropIdx); dropped.add(dropIdx); merged++;
+        if(keepIdx===j){ used.add(i); break; }   // i 被併進 j，i 這輪結束
+      }
+    }
+    if(merged){ nClients++; nProps+=merged; names.push(`${c.name||'(無名)'}（${props.length}→${props.length-merged}）`);
+      if(!dryRun){ c.properties=props.filter((_,k)=>!dropped.has(k)); } }   // 作廢的卡拿掉
+  });
+  return {clients:nClients, props:nProps, names};
 }
 // 公司戶所有權人：所有權部一行「8碼統編 公司名」(例:80661538 捷迪實業有限公司)。回傳 {taxId,name},抓不到回 null。
 // 只在「沒有任何個人身分證格式」時才用(個人＋公司共有時仍以個人為客戶,維持原行為)。
@@ -4119,6 +4182,7 @@ function processCompanyData(raw) {
     });
     autoClassify();
     ensureSerials();   // 新匯入的人補上流水編號(客戶ID)
+    const dedupe=mergeDuplicateProperties(false);   // 匯入完順手把同建號／同門牌的重複卡併掉（舊資料全形半形那種）
     saveLocal();
     pushToSheet().catch(()=>{});
     render();
@@ -4134,7 +4198,8 @@ function processCompanyData(raw) {
     loanAddedN=allLoans.filter(l=>l.added&&l.added.run===runId).length;
     const mergedAway=Math.max(0, added-netNew);
     const loanLine=(loanAddedN||loanCancelledN||propAddedN||rawChangedN)?`\n不動產：新增 ${propAddedN} 間、謄本內容有變 ${rawChangedN} 間（抵押新增 ${loanAddedN} 筆、塗銷 ${loanCancelledN} 筆）`:'';
-    const summary=`匯入完成\n\n新增 ${netNew} 人${mergedAway?`（另 ${mergedAway} 筆與既有同一人，已併入）`:''}\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
+    const dedupeLine=dedupe.props?`\n合併重複不動產 ${dedupe.props} 張（${dedupe.names.slice(0,5).join('、')}${dedupe.names.length>5?'…':''}）`:'';
+    const summary=`匯入完成\n\n新增 ${netNew} 人${mergedAway?`（另 ${mergedAway} 筆與既有同一人，已併入）`:''}\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}${dedupeLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
     const after=()=>{ if(netNew>0){ const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id)); if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 300); } };
     if(typeof uiAlert==='function') uiAlert(summary).then(after); else after();
   }
@@ -7987,7 +8052,7 @@ function normBuildNo(s){
 function normAddr(s){ return String(s||'').replace(/\s/g,'').replace(/台/g,'臺').slice(0,12); }
 // 地址核心：去掉縣市區鄉鎮前綴，只留街路門牌（兩邊格式不同也能對上）
 function addrCore(s){
-  const v=String(s||'').replace(/\s/g,'').replace(/台/g,'臺');
+  const v=normalizeAddr(s).replace(/\s/g,'').replace(/台/g,'臺');   // 「２０４號五樓之２」和「204號5樓之2」要算同一個
   const idx=Math.max(v.lastIndexOf('區'),v.lastIndexOf('鄉'),v.lastIndexOf('鎮'));
   return idx>=0 ? v.slice(idx+1) : v;
 }
@@ -8261,7 +8326,7 @@ function recordToProps(rec){
 
 // 把匯入不動產 src 的資料補進既有不動產 dst 的「空格」，有值的不覆蓋
 function mergePropInto(dst, src){
-  ['addr','district','landzone','purpose','buildNo','landNo','community','floors','builtYear'].forEach(k=>{
+  ['addr','district','landzone','purpose','buildNo','landNo','community','floors','builtYear','col4BuildNo'].forEach(k=>{   // col4BuildNo＝這間自己的建號，舊卡沒有就補上，之後才分得出同址不同戶
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
   // 注意：土增稅不放這裡。放進來的話金額會先被複製，下面「土增稅」那段的 !dst.landtaxNormal 條件就失效，旗標永遠帶不過去
@@ -8764,6 +8829,18 @@ async function cleanupDirtyData(){
 
 // 🧹 一鍵清除「無效案件＋沒有任何電話」的資料
 // 注意：不看身分證！謄本所有權部本來就帶屋主身分證號，那不是聯絡方式，看了會清不掉。
+async function cleanupDuplicateProps(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=mergeDuplicateProperties(true);
+  if(!r.props){ showToast('✅ 沒有重複的不動產'); return; }
+  const preview=r.names.slice(0,15).join('、');
+  if(!(await uiConfirm(`找到 ${r.clients} 人、${r.props} 張重複的不動產卡：\n\n${preview}${r.names.length>15?' …等':''}\n\n會留比較完整的那張，另一張的資料只補空白、抵押列去重後合併、舊謄本留進版本紀錄。確定合併？`))) return;
+  const done=mergeDuplicateProperties(false);
+  saveLocal(); render();
+  showToast(`🏚️ 已合併 ${done.clients} 人、${done.props} 張重複不動產`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
 async function cleanupInvalidEmpty(){
   const targets=clients.filter(c=>{
     if((c.heat||'')!=='無效案件') return false;

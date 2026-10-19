@@ -251,5 +251,24 @@ ok(jobSummary({company:'統一超商'})==='統一超商' && jobSummary({job:'家
   localStorage.setItem(STALE_KEY,'90');
   ok(isStale({heat:'覆訪',logs:[L('2026-08-01')]})===false && isStale({heat:'覆訪',logs:[L('2026-06-01')]})===true,'改成 90 天後 79 天不算、140 天算');
 }
+// t164：重複不動產判斷
+eval(['normBuildNo','addrCore','addrHit','samePropertyCard','propIdOf','propListOf','samePropPair'].map(ext).join(String.fromCharCode(10)));
+{
+  const inc=normBuildNo('A_01_0655_11508-000'), core=addrCore('臺北市松山區民生東路五段204號5樓之2');
+  const oldCard={addr:'臺北市松山區民生東路五段２０４號五樓之２',buildNo:'11171-000、11508-000、11510-000、18382-000',col4BuildNo:'',purpose:'民生段'};
+  ok(samePropertyCard(oldCard,inc,'民生段',core)===true,'舊卡只有共同擔保清單＋全形門牌 → 同一間（黃國洲）');
+  const otherUnit={addr:'臺北市松山區民生東路五段204號5樓之1',buildNo:'11171、11508、11510、18382',col4BuildNo:'',purpose:'民生段'};
+  ok(samePropertyCard(otherUnit,inc,'民生段',core)===false,'同棟不同戶（5樓之1）清單一樣但門牌不同 → 不是同一間');
+  ok(samePropertyCard({addr:'x',col4BuildNo:'A_01_0655_11508-000',purpose:'民生段'},inc,'民生段',core)===true && samePropertyCard({addr:'x',col4BuildNo:'A_01_0655_11510-000',purpose:'民生段'},inc,'民生段',core)===false,'兩邊都有自己的建號：建號說了算');
+  ok(addrCore('台北市大安區安和路二段６０號四樓')===addrCore('臺北市大安區安和路二段60號4樓'),'門牌核心：全形／中文樓層／台臺統一');
+  ok(samePropPair({addr:'臺北市松山區民生東路五段２０４號五樓之２'},{addr:'臺北市松山區民生東路五段204號5樓之2'})===true,'整理工具：門牌正規化後一樣 → 重複');
+  ok(samePropPair({addr:'臺北市松山區民生東路五段204號5樓'},{addr:'臺北市松山區民生東路五段204號5樓之1'})===false,'整理工具：5樓 跟 5樓之1 不併');
+  ok(samePropPair({addr:'同址',buildNo:'457'},{addr:'同址',col4BuildNo:'F_07_0851_0458-0000'})===false,'整理工具：同門牌但各自建號不同（457 vs 458）不併');
+  ok(samePropPair({addr:'同址',buildNo:'2015、2016',loans:[{s:'0001-000'}]},{addr:'同址',col4BuildNo:'F_03_0493_02016-000',buildNo:'2015、2016',loans:[{s:'0003-000'}]})===false,'整理工具：同址兩戶、清單一樣但登序對不上 → 不併');
+  ok(samePropPair({addr:'同址',buildNo:'2015、2016',loans:[]},{addr:'同址',col4BuildNo:'F_03_0493_02016-000',buildNo:'2015、2016',loans:[{s:'0003-000'}]})===true,'整理工具：其中一張沒抵押列 → 可併');
+  ok(samePropPair({addr:'同址',buildNo:'2015、2016',loans:[{s:'0003-000'}]},{addr:'同址',col4BuildNo:'F_03_0493_02016-000',buildNo:'2015、2016',loans:[{s:'0003-000'}]})===false,'整理工具：清單多個建號、兩張都有抵押列（登序還一樣） → 分不出，不併');
+  ok(samePropPair({addr:'臺北市松山區民生東路五段２０４號五樓之２',buildNo:'11171-000、11508-000'},{addr:'臺北市松山區民生東路五段204號5樓之2',col4BuildNo:'A_01_0655_11508-000'})===true,'整理工具：舊卡只有清單且含對方建號 → 併');
+  ok(samePropPair({col4BuildNo:'A_01_0655_11508-000',addr:'a'},{col4BuildNo:'A_01_0655_11508-000',addr:'b'})===true && samePropPair({col4BuildNo:'A_01_0655_11508-000',addr:'a'},{col4BuildNo:'A_01_0655_11510-000',addr:'a'})===false,'整理工具：有自己的建號就比建號');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

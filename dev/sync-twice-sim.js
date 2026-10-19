@@ -39,8 +39,11 @@ tryRun(ctx=>{
       console.log(`— ${n} —`, JSON.stringify(info,null,1).slice(0,1500));
     });
   };
-  run("processCompanyData(__rows)"); snap('第 1 次');
-  run("processCompanyData(__rows)"); snap('第 2 次');
-  run("processCompanyData(__rows)"); snap('第 3 次');
+  const propSnap=()=>run("Object.fromEntries(clients.map(c=>[c.id,(c.properties||[]).map(p=>p.addr+'|'+(p.col4BuildNo||'')+'|'+(p.buildNo||''))]))");
+  let prevP=propSnap();
+  const diffProps=(label)=>{ const now=propSnap(); const out=[]; Object.keys(now).forEach(id=>{ const b=prevP[id]||[], a=now[id]; if(a.length>b.length){ const c=run("clients.find(x=>x.id==="+id+")"); out.push(c.name+'：原有 ['+b.join(' ／ ')+'] → 新增 ['+a.filter(x=>!b.includes(x)).join(' ／ ')+']'); } }); prevP=now; if(out.length){ console.log('【'+label+' 新增的不動產卡】'); out.forEach(x=>console.log('  '+x)); } };
+  run("processCompanyData(__rows)"); snap('第 1 次'); diffProps('第 1 次');
+  run("processCompanyData(__rows)"); snap('第 2 次'); diffProps('第 2 次');
+  run("processCompanyData(__rows)"); snap('第 3 次'); diffProps('第 3 次');
   console.log('\n客戶數', before, '→', run("clients.length"));
 });
