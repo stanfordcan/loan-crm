@@ -1487,6 +1487,7 @@ async function applyUrlSettings() {
         <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">🎯</span>借款需求</div>
         <div class="fg2">
           <div class="frow"><label>想借金額（萬）</label><input id="fLoanWant" type="number" inputmode="decimal" placeholder="例：300"/></div>
+          <div class="frow"><label>利率（分）</label><input id="fLoanRate" type="number" step="0.1" inputmode="decimal" placeholder="例：2"/></div>
           <div class="frow"><label>希望撥款</label>
             <select id="fLoanWhen"><option value="">— 未填 —</option><option>急（3 天內）</option><option>一週內</option><option>一個月內</option><option>不急</option></select>
           </div>
@@ -1566,6 +1567,11 @@ async function applyUrlSettings() {
             <div class="fg2">
               <div class="frow cmp"><label>使用分區</label><div style="display:flex;gap:6px"><input id="fLandzone" placeholder="例：住三" style="flex:1;min-width:0" oninput="syncToEval('ev_landzone', this.value)"/><button type="button" class="inl-btn" onclick="openLandZoneQuery()" title="開內政部使用分區查詢網站，並先把地段地號複製好">🗺️ 查詢</button></div></div>
               <div class="frow cmp"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value);renderCoOwners()"/></div>
+            </div>
+            <div class="fg3">
+              <div class="frow cmp"><label>社區名稱</label><div style="display:flex;gap:6px"><input id="fCommunity" placeholder="社區或大樓名稱" style="flex:1;min-width:0" oninput="syncToEval('ev_community', this.value)"/><button type="button" class="inl-btn" onclick="googleCommunity()" title="用門牌 Google 一下，通常就查得到社區名">🔍 Google</button></div></div>
+              <div class="frow cmp"><label>總樓層</label><input type="number" id="fFloors" placeholder="例：12" oninput="syncFloorsToEval()"/></div>
+              <div class="frow cmp"><label>建築完成年（民國）</label><input type="number" id="fBuiltYear" placeholder="例：88" oninput="syncBuiltYearToEval()"/></div>
             </div>
             <div id="coOwnerBox" style="display:none;background:var(--obg);border:1px solid var(--orange);border-radius:var(--rs);padding:8px 11px;margin-bottom:8px;font-size:12px;color:var(--orange)"></div>
             <label style="display:block;font-size:10px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">地號</label>
@@ -2133,7 +2139,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t157 (老闆建議第5項:案源評估報告照範本重排,空行位置固定;銀行/法人逐家一行帶已確認日期或待確認、私人合計萬/分;房價評估頁新增好賣價、總價範圍自動算、客戶需求拆成金額/分/是否含清償前胎;客戶年紀用基本頁生日算) 2026.10.19';
+const APP_VERSION = '🧪測試版 t158 (案源評估補來源:不動產頁新增 社區名稱(+🔍Google)/總樓層/建築完成年,匯入自動抓;車位坪>0就當有車位;土增稅改元;客戶職業收入自動組成「上班族(公司),月收N萬,薪轉,有報稅」;基本頁借款需求加利率(分),評估頁需求金額/利率預設帶基本頁) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3472,6 +3478,27 @@ function extractDebtPhones(raw){
   return out;
 }
 
+// 建物標示 → 總樓層（「12層」）、建築完成年（民國「88年05月」）
+function floorsFromBuildInfo(bi){ const m=String(bi||'').match(/0*(\d+)層/); return m?String(parseInt(m[1])):''; }
+function builtYearFromBuildInfo(bi){ const m=String(bi||'').match(/(?:^|[^\d])(\d{2,3})年\s*\d{1,2}月/); return m?String(parseInt(m[1])):''; }
+// 基本頁 → 「上班族（某公司），月收 6 萬，薪轉，有報稅」
+function jobSummary(c){
+  if(!c) return '';
+  const parts=[];
+  const job=String(c.job||'').trim(), co=String(c.company||'').trim();
+  if(job||co) parts.push(job+(co?`（${co}）`:''));
+  if(c.income) parts.push(`月收 ${c.income} 萬`);
+  if(c.incomeType) parts.push(String(c.incomeType));
+  if(c.taxed==='有') parts.push('有報稅');
+  return parts.join('，');
+}
+function googleCommunity(){
+  const addr=(document.getElementById('fAddr')?.value||'').trim();
+  if(!addr){ showToast('⚠️ 先填門牌地址'); return; }
+  window.open('https://www.google.com/search?q='+encodeURIComponent(addr+' 社區'), '_blank');
+}
+function syncFloorsToEval(){ const v=(document.getElementById('fFloors')?.value||'').trim(); if(v) syncToEval('ev_floors', v); }
+function syncBuiltYearToEval(){ const y=parseInt(document.getElementById('fBuiltYear')?.value)||0; if(y) syncToEval('ev_age', new Date().getFullYear()-(y+1911)); }
 function processCompanyData(raw) {
   if(!raw||raw.length<3){showToast('⚠️ 總檔沒有資料');return;}
 
@@ -4042,6 +4069,7 @@ function processCompanyData(raw) {
           loanEstimated: (bank>0||legal>0)?true:undefined,
           privateConfirmed: priv>0?false:undefined,
           purpose: sectionName, buildNo, col4BuildNo, col7Name, driveUrl: '', landNo: landNos,
+          floors: floorsFromBuildInfo(buildInfo), builtYear: builtYearFromBuildInfo(buildInfo),
           logs: logs.slice(0,3),
           companyRaw,
           createdAt: TODAY, updatedAt: TODAY,
@@ -4149,6 +4177,7 @@ function processCompanyData(raw) {
             buildShareNum: shareFromOwner((f.companyRaw||{}).owner).num, buildShareDen: shareFromOwner((f.companyRaw||{}).owner).den,
             loans: (f.loans&&f.loans.length) ? f.loans : undefined,
             purpose: f.sectionName, buildNo: f.buildNo, col4BuildNo: f.col4BuildNo, col7Name: f.col7Name, driveUrl:'', landNo: f.landNos,
+            floors: floorsFromBuildInfo((f.companyRaw||{}).buildInfo), builtYear: builtYearFromBuildInfo((f.companyRaw||{}).buildInfo),
             logs: logs.slice(0,3),
             companyRaw: f.companyRaw,
             createdAt: TODAY, updatedAt: TODAY,
@@ -5639,14 +5668,9 @@ function syncToEval(targetId, val) {
   if(el) el.value = val;
 }
 function syncLandtax(field, val){
-  const wan = val ? Math.round(parseFloat(val)/10000) || '' : '';
-  if(field==='normal'){
-    syncToEval('ev_landtax_normal', val);
-    syncToEval('ev_tax_general', wan);
-  } else {
-    syncToEval('ev_landtax_self', val);
-    syncToEval('ev_tax_self', wan);
-  }
+  // 評估頁的土增稅現在也是「元」，直接同步
+  if(field==='normal'){ syncToEval('ev_landtax_normal', val); syncToEval('ev_tax_general', val); }
+  else { syncToEval('ev_landtax_self', val); syncToEval('ev_tax_self', val); }
 }
 function extractDistrict(addr){
   return addr.match(/[一-鿿]+[市縣]([一-鿿]+[區鄉鎮市])/)?.[1] || '';
@@ -5690,7 +5714,7 @@ function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.heig
 // ── Sheet modal ───────────────────────────────────────────
 // ── t126 新欄位：聯絡／工作家庭／借款需求／信用／文件清單／結案原因 ──
 // 這張清單是「新欄位不會被任何同步/合併洗掉」的單一來源：foldClientInto、試算表富欄位往返都用它
-const EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed','marital','spouse','loanWant','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
+const EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed','marital','spouse','loanWant','loanRate','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
 const DOC_LIST=['身分證','第二證件(健保卡/駕照)','存摺(近6個月)','薪資證明','企業401','所得清單/扣繳憑單','自然人憑證','印鑑證明','印鑑章','權狀','土地建物謄本','戶籍謄本','原貸款對帳單','房屋稅單','聯徵報告'];
 let tempDocs={};   // {文件名: 'got'|'skip'}；沒鍵＝未收
 function nextDocState(cur){ return cur==='got' ? 'skip' : cur==='skip' ? '' : 'got'; }   // 未收→已收→不需要→未收
@@ -6020,7 +6044,7 @@ function closeSheet(){
 // 房價評估頁的資料來源：不動產相關欄位「只認正在評估的那一筆」。
 // 以前用 {...客戶, ...這筆不動產} 直接合併，這筆缺的欄位會被客戶層級(＝第一筆不動產留下的舊值)補上，
 // 結果多筆案件會互相污染（例如土地持分那筆顯示出另一間的建號/地址/社區/坪數）。
-const EVAL_PROP_KEYS=['addr','district','landzone','purpose','buildNo','col4BuildNo','landNo',
+const EVAL_PROP_KEYS=['addr','district','landzone','purpose','buildNo','col4BuildNo','landNo','community','floors','builtYear',
   'area','mainArea','subArea','commonArea','landArea','parkArea','parkType','parkTitle','parkVal',
   'buildShare','buildShareNum','buildShareDen','bank','legal','private','loans','loansManual',
   'extraLoans','extraLands','landtaxNormal','landtaxSelf','landtaxCalced',
@@ -6073,11 +6097,12 @@ function renderPriceEval(c) {
   const district  = e.district  || c.district || districtDerived;
   const section   = e.section   || sectionDerived;
   const area      = e.buildarea || areaDerived;
-  const floorDisp = e.floors    || floorDisplayDerived;
-  const age       = (e.age !== undefined && e.age !== '') ? e.age : ageDerived;
+  const floorDisp = e.floors    || (c.floors ? (clientFloor ? `${clientFloor}／${c.floors}` : String(c.floors)) : floorDisplayDerived);
+  const ageFromYear = c.builtYear ? (new Date().getFullYear() - (parseInt(c.builtYear)+1911)) : '';
+  const age       = (e.age !== undefined && e.age !== '') ? e.age : (ageFromYear || ageDerived);
 
   // 記住目前車位資料，渲染後還原並觸發計算
-  const savedParking  = e.parking  || c.parkType  || '無';
+  const savedParking  = e.parking  || ((c.parkType&&c.parkType!=='無') ? c.parkType : ((parseFloat(c.parkArea)>0) ? '平面' : '無'));   // 車位坪 > 0 就當有車位
   const savedParkArea = c.parkArea  || '';
   const savedParkTitle= e.parkTitle || c.parkTitle || '非獨立';
 
@@ -6100,7 +6125,7 @@ function renderPriceEval(c) {
         </div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>建號</label><input id="ev_buildno" value="${e.buildno||c.buildNo||''}" placeholder=""/></div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>地址</label><input id="ev_addr" value="${e.addr||addr}" placeholder="門牌地址"/></div>
-        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>社區名稱</label><input id="ev_community" value="${e.community||''}" placeholder="社區或大樓名稱"/></div>
+        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>社區名稱</label><input id="ev_community" value="${e.community||c.community||''}" placeholder="社區或大樓名稱" oninput="syncToEval('fCommunity', this.value)"/></div>
         <div class="fg2" style="margin-top:8px">
           <div class="frow" style="margin:0">
             <label>建物（坪）</label>
@@ -6134,8 +6159,8 @@ function renderPriceEval(c) {
       <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">💰 土增稅</div>
         <div class="fg2">
-          <div class="frow" style="margin:0"><label>一般（萬）</label><input type="number" id="ev_tax_general" value="${(e.taxGeneral!=null&&e.taxGeneral!=='')?e.taxGeneral:(c.landtaxCalced?Math.round((c.landtaxNormal||0)/10000):(c.landtaxNormal?Math.round(c.landtaxNormal/10000):''))}" placeholder=""/></div>
-          <div class="frow" style="margin:0"><label>自用（萬）</label><input type="number" id="ev_tax_self" value="${(e.taxSelf!=null&&e.taxSelf!=='')?e.taxSelf:(c.landtaxCalced?Math.round((c.landtaxSelf||0)/10000):(c.landtaxSelf?Math.round(c.landtaxSelf/10000):''))}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>一般（元）</label><input type="number" id="ev_tax_general" value="${(e.taxGeneralYuan!=null&&e.taxGeneralYuan!=='')?e.taxGeneralYuan:((e.taxGeneral!=null&&e.taxGeneral!=='')?Math.round(e.taxGeneral*10000):(c.landtaxCalced?(c.landtaxNormal||0):(c.landtaxNormal||'')))}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>自用（元）</label><input type="number" id="ev_tax_self" value="${(e.taxSelfYuan!=null&&e.taxSelfYuan!=='')?e.taxSelfYuan:((e.taxSelf!=null&&e.taxSelf!=='')?Math.round(e.taxSelf*10000):(c.landtaxCalced?(c.landtaxSelf||0):(c.landtaxSelf||'')))}" placeholder=""/></div>
         </div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>筆數</label><input type="number" id="ev_tax_count" value="${e.taxCount||([c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).length)||''}" placeholder="1"/></div>
       </div>
@@ -6179,11 +6204,11 @@ function renderPriceEval(c) {
 
       <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">👤 客戶資訊</div>
-        <div class="frow" style="margin-bottom:8px"><label>職業／收入</label><input id="ev_job" value="${e.job||c.job||''}" placeholder="例：上班族，月收5萬"/></div>
+        <div class="frow" style="margin-bottom:8px"><label>職業／收入</label><input id="ev_job" value="${e.job||jobSummary(c)||''}" placeholder="例：上班族，月收5萬"/></div>
         <div class="frow" style="margin-bottom:8px"><label>借款用途</label><input id="ev_purpose" value="${c.loanPurpose||''}" placeholder="例：週轉、整合債務"/></div>
         <div class="fg2" style="margin-bottom:8px">
-          <div class="frow" style="margin:0"><label>需求金額（萬）</label><input type="number" id="ev_need_amt" value="${e.needAmt||''}" placeholder="例：300"/></div>
-          <div class="frow" style="margin:0"><label>利率（分）</label><input type="number" step="0.1" id="ev_need_rate" value="${e.needRate||''}" placeholder="例：2"/></div>
+          <div class="frow" style="margin:0"><label>需求金額（萬）</label><input type="number" id="ev_need_amt" value="${e.needAmt||c.loanWant||''}" placeholder="例：300"/></div>
+          <div class="frow" style="margin:0"><label>利率（分）</label><input type="number" step="0.1" id="ev_need_rate" value="${e.needRate||c.loanRate||''}" placeholder="例：2"/></div>
         </div>
         <div class="frow" style="margin-bottom:8px"><label>是否含清償前胎</label><select id="ev_need_clear"><option value="">未填</option><option value="含清償前胎"${e.needClear==='含清償前胎'?' selected':''}>含清償前胎</option><option value="不含清償前胎"${e.needClear==='不含清償前胎'?' selected':''}>不含清償前胎</option></select></div>
         <input type="hidden" id="ev_need" value="${calEsc(e.need||'')}"/>
@@ -6357,7 +6382,7 @@ function generateReport(clientId) {
   const g = id => document.getElementById(id)?.value || '';
   const gn = id => parseFloat(document.getElementById(id)?.value) || 0;
 
-  const hasParkRpt = g('ev_parking') !== '無' && g('ev_parkarea');
+  const hasParkRpt = (g('ev_parking') !== '無' || gn('ev_parkarea') > 0) && gn('ev_parkarea') > 0;   // 車位坪 > 0 就當有車位
   const parkTitleRpt = g('ev_park_title') === '獨立' ? '獨立權狀' : '非獨立權狀';
   const parkValRpt = g('ev_park_val') ? `，估值${g('ev_park_val')}萬` : '';
   const parking = g('ev_parking') === '無' ? '無車位'
@@ -6383,11 +6408,11 @@ function generateReport(clientId) {
   }
 
   // 土增稅：優先讀「萬」欄，若空則 fallback 讀「元」欄自動換算
-  const taxGenWan  = gn('ev_tax_general')  || Math.round(gn('ev_landtax_normal') / 10000) || 0;
-  const taxSelfWan = gn('ev_tax_self')     || Math.round(gn('ev_landtax_self')   / 10000) || 0;
+  const taxGenWan  = gn('ev_tax_general')  || gn('ev_landtax_normal') || 0;   // 現在都是「元」（變數名沿用）
+  const taxSelfWan = gn('ev_tax_self')     || gn('ev_landtax_self')   || 0;
   const taxCount   = g('ev_tax_count') || '1';
   const taxStr = (taxGenWan || taxSelfWan)
-    ? `一般 ${taxGenWan} 萬、自用 ${taxSelfWan} 萬＜共 ${taxCount} 筆＞`
+    ? `一般 ${fmtWan(taxGenWan)} 元、自用 ${fmtWan(taxSelfWan)} 元＜共 ${taxCount} 筆＞`
     : '—';
 
   // 貸款：銀行／法人逐家一行（金額＝實貸估值 e，可能手動調過），後面標已確認（日期）或待確認；民間合計一行；塗銷的不列
@@ -6413,9 +6438,10 @@ function generateReport(clientId) {
     section: g('ev_section'), landNo: landNoStr==='—'?'':landNoStr, landArea: landAreaStr==='—'?'':landAreaStr.replace(/坪/g,' 坪').replace(/\s+坪/g,' 坪'),
     landzone: g('ev_landzone'),
     buildNo: g('ev_buildno'), addr: g('ev_addr'), community: g('ev_community'),
-    building: areaNum ? `${areaNum} 坪${parkIncluded?'（含車位）':''}` : '',
+    building: (()=>{ const tot=parseFloat(document.getElementById('fArea')?.value)||areaNum; return tot ? `${tot} 坪${parkIncluded?'（含車位）':''}` : ''; })(),   // 報告寫全戶面積（含車位時標註），估價仍用扣掉車位的坪
     parking: hasParkRpt ? `${g('ev_parkarea')} 坪` : '無',
-    floors: g('ev_floors') ? `${g('ev_floors')} 層` : '', age: g('ev_age') ? `${g('ev_age')} 年` : '',
+    floors: (()=>{ const f=String(g('ev_floors')||'').trim(); if(!f) return ''; const parts=f.split(/[／/]/); return `${parts[parts.length-1].trim()} 層`; })(),   // 「所在／總」只取總樓層
+    age: g('ev_age') ? `${g('ev_age')} 年` : '',
     tax: taxStr==='—'?'':taxStr,
     loanLines, privateLine,
     condition: g('ev_condition'), resistance: g('ev_resistance'), jinzhai: g('ev_jinzhai'),
@@ -6957,7 +6983,7 @@ let properties = [];
 let curPropIdx = 0;
 
 function emptyProperty(n){
-  return {pid:Date.now()+n,label:`不動產${n+1}`,addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',
+  return {pid:Date.now()+n,label:`不動產${n+1}`,addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',community:'',floors:'',builtYear:'',
     area:0,mainArea:0,subArea:0,commonArea:0,parkArea:0,landArea:0,landFull:0,landShareNum:0,landShareDen:0,
     buildShareNum:0,buildShareDen:0,
     bank:0,legal:0,private:0,extraLoans:[],extraLands:[],driveUrl:'',
@@ -6988,7 +7014,7 @@ function migrateProperties(c){
     area:c.area||0,mainArea:c.mainArea||0,subArea:c.subArea||0,commonArea:c.commonArea||0,
     parkArea:c.parkArea||0,landArea:c.landArea||0,buildShareNum:c.buildShareNum||0,buildShareDen:c.buildShareDen||0,bank:c.bank||0,legal:c.legal||0,private:c.private||0,
     loans:c.loans||undefined, loansManual:c.loansManual||undefined,
-    extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',
+    extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',community:c.community||'',floors:c.floors||'',builtYear:c.builtYear||'',
     parkType:c.parkType||'無',parkTitle:c.parkTitle||'非獨立',parkVal:c.parkVal||0,
     landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
     loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed,
@@ -7035,6 +7061,9 @@ function savePropFields(){
   p.purpose=document.getElementById('fPurpose')?.value.trim()||'';
   p.buildNo=document.getElementById('fBuildNo')?.value.trim()||'';
   p.landNo=document.getElementById('fLandNo')?.value.trim()||'';
+  p.community=document.getElementById('fCommunity')?.value.trim()||'';
+  p.floors=document.getElementById('fFloors')?.value.trim()||'';
+  p.builtYear=document.getElementById('fBuiltYear')?.value.trim()||'';
   p.area=parseFloat(document.getElementById('fArea')?.value)||0;
   p.mainArea=parseFloat(document.getElementById('fMainArea')?.value)||0;
   p.subArea=parseFloat(document.getElementById('fSubArea')?.value)||0;
@@ -7076,6 +7105,9 @@ function loadPropFields(idx){
   document.getElementById('fPurpose').value=p.purpose||'';
   document.getElementById('fBuildNo').value=p.buildNo||'';
   document.getElementById('fLandNo').value=p.landNo||'';
+  document.getElementById('fCommunity').value=p.community||'';
+  document.getElementById('fFloors').value=p.floors||'';
+  document.getElementById('fBuiltYear').value=p.builtYear||'';
   const ca=(p.mainArea||0)+(p.subArea||0)+(p.commonArea||0);
   document.getElementById('fArea').value=p.area||(ca>0?Math.round(ca*100)/100:'');
   document.getElementById('fMainArea').value=p.mainArea||'';
@@ -7286,7 +7318,7 @@ function collectEvalData(){
     buildarea:v('ev_buildarea'), landarea:v('ev_landarea'),
     parking:v('ev_parking','無'), parkTitle:v('ev_park_title','非獨立'), parkval:v('ev_park_val'),
     floors:v('ev_floors'), age:v('ev_age'),
-    taxGeneral:v('ev_tax_general'), taxSelf:v('ev_tax_self'), taxCount:v('ev_tax_count'),
+    taxGeneralYuan:v('ev_tax_general'), taxSelfYuan:v('ev_tax_self'), taxCount:v('ev_tax_count'),
     condition:v('ev_condition'), resistance:v('ev_resistance'), jinzhai:v('ev_jinzhai'),
     unitprice:v('ev_unitprice'), unitpriceLo:v('ev_unitprice_lo'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
     needAmt:v('ev_need_amt'), needRate:v('ev_need_rate'), needClear:v('ev_need_clear'),
@@ -7636,7 +7668,7 @@ async function saveClient(silent){
     // t126 新欄位（客戶層級）
     phone2:gv('fPhone2'), contactTime:gv('fContactTime'),
     company:gv('fCompany'), income:gv('fIncome'), incomeType:gv('fIncomeType'), taxed:gv('fTaxed'), marital:gv('fMarital'), spouse:gv('fSpouse'),
-    loanWant:gv('fLoanWant'), loanUse:gv('fLoanUse'), loanWhen:gv('fLoanWhen'),
+    loanWant:gv('fLoanWant'), loanRate:gv('fLoanRate'), loanUse:gv('fLoanUse'), loanWhen:gv('fLoanWhen'),
     creditBank:gv('fCreditBank'), creditPrivate:gv('fCreditPrivate'), creditBounce:gv('fCreditBounce'),
     closeReason:gv('fCloseReason'), closeNote:gv('fCloseNote'),
     docs:{...tempDocs},
@@ -8141,7 +8173,7 @@ function recordToProps(rec){
 
 // 把匯入不動產 src 的資料補進既有不動產 dst 的「空格」，有值的不覆蓋
 function mergePropInto(dst, src){
-  ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
+  ['addr','district','landzone','purpose','buildNo','landNo','community','floors','builtYear'].forEach(k=>{
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
   // 注意：土增稅不放這裡。放進來的話金額會先被複製，下面「土增稅」那段的 !dst.landtaxNormal 條件就失效，旗標永遠帶不過去

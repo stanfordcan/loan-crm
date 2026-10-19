@@ -228,5 +228,11 @@ eval(['fmtWan','priceRangeStr','regionFromAddr','evalReportText'].map(ext).join(
   ok(lines[23]==='屋況：' && lines[26]==='' && lines[27]==='行情：約 60～65 萬/坪' && lines[29]==='','屋況三行、空行、行情總價、空行');
   ok(lines[30]==='客戶職業、收入：上班族' && lines[31]==='客戶年紀：52 歲' && lines[32]==='借款用途：周轉' && lines[33]==='' && lines[34]==='客戶需求：300 萬 2 分（含清償前胎）' && lines[35]==='備註：','職業三行、空行、需求備註');
 }
+// t158：建物標示抓樓層／完成年、職業收入組句
+eval(['floorsFromBuildInfo','builtYearFromBuildInfo','jobSummary'].map(ext).join(String.fromCharCode(10)));
+ok(floorsFromBuildInfo('A_01_0611_000 松山區延吉段 建號 住家用 012層 總面積（36.37坪） 88年05月12日')==='12' && floorsFromBuildInfo('')==='','總樓層 012層 → 12');
+ok(builtYearFromBuildInfo('住家用 012層 88年05月12日 建築完成')==='88' && builtYearFromBuildInfo('109年05月19日 買賣')==='109' && builtYearFromBuildInfo('無')==='','建築完成年抓民國年');
+ok(jobSummary({job:'上班族',company:'某公司',income:'6',incomeType:'薪轉',taxed:'有'})==='上班族（某公司），月收 6 萬，薪轉，有報稅','職業收入整句');
+ok(jobSummary({job:'自營',income:''})==='自營' && jobSummary({})==='','缺的欄位不留逗號');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
