@@ -33,8 +33,8 @@
 --r:14px;--rs:8px;--sh:0 1px 2px rgba(20,32,56,.05),0 4px 14px rgba(20,32,56,.08);
 --shx:0 10px 26px rgba(20,32,56,.16),0 2px 6px rgba(20,32,56,.09)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:calc(100vh * var(--zi,1))}   /* --zi＝1/縮放，電腦縮放時把 vh 補回整個視窗 */
+.app{max-width:480px;margin:0 auto;min-height:calc(100vh * var(--zi,1));display:flex;flex-direction:column}
 .sticky-top{position:sticky;top:0;z-index:50;background:var(--surface)}
 .hbtn{border:none;border-radius:9px;padding:9px 13px;min-height:36px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.07);transition:filter .15s,transform .1s}
 .hbtn:hover{filter:brightness(.95)}
@@ -265,6 +265,7 @@ body.readonly .debt-x{display:none!important}
 body.readonly .add-log{display:none!important}
 .ro-only{display:none}
 body.readonly .ro-only{display:block}
+@media(max-width:899px){ .pc-only{display:none!important} }   /* 只在電腦版顯示（縮放設定等） */
 .dial-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;background:var(--gbg);border:1px solid var(--gbd);border-radius:var(--rs);color:var(--green);cursor:pointer;font-size:16px;line-height:1;font-family:inherit}
 .dial-btn:active{transform:scale(.94)}
 /* 持分結算條 */
@@ -429,12 +430,12 @@ body.readonly .ro-only{display:block}
 /* ── PC Layout (≥900px) ───────────────────────────────── */
 @media(min-width:900px){
   html,body{height:100%;overflow:hidden}
-  .pc-container{display:flex;height:100vh;overflow:hidden}
+  .pc-container{display:flex;height:calc(100vh * var(--zi,1));overflow:hidden}
 
   /* 左側面板：比例寬度，跟著螢幕縮放 */
   .pc-container .app{
     width:45%;min-width:440px;max-width:600px;
-    flex-shrink:0;height:100vh;overflow-y:auto;
+    flex-shrink:0;height:calc(100vh * var(--zi,1));overflow-y:auto;
     border-right:2px solid var(--border);
     margin:0;min-height:unset;
     background:var(--bg);
@@ -458,7 +459,7 @@ body.readonly .ro-only{display:block}
     position:static!important;flex:1;
     background:transparent!important;
     display:flex!important;
-    align-items:stretch;height:100vh;
+    align-items:stretch;height:calc(100vh * var(--zi,1));
     overflow:hidden;z-index:1;
   }
   .pc-container .sbg:not(.open) .sheet{display:none}
@@ -519,6 +520,22 @@ function setTheme(s){
   if(typeof renderThemePicker==='function') renderThemePicker();
 }
 applyTheme();
+// 畫面縮放（電腦）：筆電螢幕小時整頁縮到 75～100%，版面才不會擠在一起。只記這台裝置；手機不套。
+const ZOOM_KEY='crm_zoom';
+const ZOOM_OPTS=[75,80,90,100];
+function getZoomSetting(){ try{ const z=parseInt(localStorage.getItem(ZOOM_KEY)); return ZOOM_OPTS.includes(z)?z:100; }catch(e){ return 100; } }
+function applyZoom(){
+  if(/Mobi|Android|iPhone/i.test(navigator.userAgent)) return;
+  const z=getZoomSetting();
+  document.documentElement.style.zoom = z===100 ? '' : (z/100);
+  document.documentElement.style.setProperty('--zi', z===100 ? '1' : String(100/z));   // 100vh 會跟著縮，用這個補回整個視窗高
+}
+function setZoom(z){
+  try{ localStorage.setItem(ZOOM_KEY,String(z)); }catch(e){}
+  applyZoom();
+  if(typeof renderZoomPicker==='function') renderZoomPicker();
+}
+applyZoom();
 try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(getThemeSetting()==='auto') applyTheme(); }); }catch(e){}
 </script>
 </head>
@@ -1085,7 +1102,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
-  renderThemePicker(); renderCardModePicker();
+  renderThemePicker(); renderCardModePicker(); if(typeof renderZoomPicker==='function') renderZoomPicker();
   // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
   const info=document.getElementById('settingsAccountInfo');
   if(info){
@@ -1125,6 +1142,13 @@ function renderThemePicker(){
   const cur=getThemeSetting();
   el.innerHTML=[['light','☀️ 淺色'],['dark','🌙 深色'],['auto','🔄 跟隨系統']].map(([k,l])=>
     `<button onclick="setTheme('${k}')" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===k?'var(--accent)':'var(--border)'};background:${cur===k?'var(--abg)':'var(--s2)'};color:${cur===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
+}
+function renderZoomPicker(){
+  const el=document.getElementById('zoomPicker'); if(!el) return;
+  const cur=getZoomSetting();
+  el.innerHTML=ZOOM_OPTS.map(z=>
+    `<button onclick="setZoom(${z})" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===z?'var(--accent)':'var(--border)'};background:${cur===z?'var(--abg)':'var(--s2)'};color:${cur===z?'var(--accent)':'var(--t2)'}">${z}%</button>`
   ).join('');
 }
 function closeUrlSettings() {
@@ -1244,7 +1268,7 @@ async function applyUrlSettings() {
   </div>
   <div class="bb-row bb-actions">
     <button class="bb-btn" onclick="withSel(ltTagBatch)" title="為勾選的客戶設定來源批次">🏷️ 標批次</button>
-    <button class="bb-btn" onclick="withSel(ltExportCompany)" title="匯出公司格式（25欄）CSV">📤 公司格式</button>
+    <button class="bb-btn" onclick="withSel(ltExportCompany)" title="匯出公司格式（25欄）Excel，版面照總檔">📤 公司格式</button>
     <button class="bb-btn" onclick="withSel(ltExportNoticeData)" title="匯出通知單資料">📬 通知單</button>
     <button class="bb-btn" onclick="withSel(ltPrintNotice)" title="列印投遞通知單">🖨️ 列印</button>
     <button class="bb-btn" onclick="withSel(mapFromSelection)" title="地圖名單 CSV（給 Google 我的地圖），只預勾目前選取的人">🗺️ 地圖</button>
@@ -1790,6 +1814,9 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🌓 外觀</div>
       <div id="themePicker" style="display:flex;gap:6px"></div>
       <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
+      <div class="pc-only" style="font-size:12px;font-weight:600;color:var(--t2);margin:14px 0 8px">🔍 畫面縮放（電腦）</div>
+      <div id="zoomPicker" class="pc-only" style="display:flex;gap:6px"></div>
+      <div class="pc-only" style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">筆電螢幕小、版面擠在一起時縮到 75～90%。只記這台電腦，手機不受影響。</div>
     </div>
     <!-- 帳號：登出、清除全部（從工具列搬來，危險動作不放在日常按鈕旁邊） -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
@@ -2085,7 +2112,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.10.14 #2';
+const APP_VERSION = '2026.10.19 #1';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4940,29 +4967,126 @@ function logsToProcess(logs){
   }).map(s=>s.trim()).filter(Boolean).join('\n');
 }
 const COMPANY_EXPORT_HEADER=['電話','拜訪過程','備註','建物標示','門牌','面積','建物所有權部','所有權人住址','持分面積','債務人及債務額比例','設定義務人','共同擔保地號、建號','債務人電話','他項權利部','權利人','權利人住址','設定權利範圍','債權額比例','限制登記事項','流抵約定','顏色','登記門牌','建物門牌','其他門牌','金主門牌'];
-function ltExportCompany(){
+// 公司格式匯出改出 .xlsx，照「平總檔_新版.xlsx」的版面：25 欄寬、兩列標題（代號列＋全名列）、微軟正黑體 20 粗體、置中、自動換行、細框線。
+// 樣式要用 xlsx-js-style（SheetJS 社群版寫不出字型／換行），只在匯出時才載入，載完放到 XLSX_STYLE，不動原本讀檔用的 XLSX。
+const COMPANY_EXPORT_CODES=['電','程','備','標','址','坪','名','戶','持','金','義','擔','債電','他','權','住','範','比','限','流','色','登牌','建牌','其牌','金牌'];
+const COMPANY_EXPORT_HEADER2=['電話','拜訪過程','備註','建物標示\n建號/門牌/建築完成日 主要用途/層數 總面積','門牌','面積','建物所有權部\n統一編號 所有權人/地址/持分 面積/登記日期 原因','所有權人住址','持分面積','債務人及債務額比例','設定義務人','共同擔保地號、建號','債務人電話','他項權利部（銀行、民間）\n設定日期、登記次序、他項權利人、擔保債權總金額','權利人','權利人住址','設定權利範圍','債權額比例','（限制登記事項）','(流抵約定)','顏色','登記門牌','建物門牌','其他門牌','金主門牌'];
+const COMPANY_EXPORT_WIDTHS=[26.8,72.2,14.6,66.6,23.7,12.1,41.4,25.8,12.1,22.9,22.1,56.3,44.3,62.8,31.6,28.7,16.7,18.7,26.3,11.2,11.4,14.6,14.8,11.2,11.2];
+let _xlsxStyleLoading=null;
+function loadXlsxStyle(){
+  if(window.XLSX_STYLE) return Promise.resolve(window.XLSX_STYLE);
+  if(_xlsxStyleLoading) return _xlsxStyleLoading;
+  _xlsxStyleLoading=new Promise((res,rej)=>{
+    const keep=window.XLSX;   // 讀檔用的原版先留著，載完換回來
+    const sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    sc.onload=()=>{ window.XLSX_STYLE=window.XLSX; window.XLSX=keep; res(window.XLSX_STYLE); };
+    sc.onerror=()=>{ window.XLSX=keep; _xlsxStyleLoading=null; rej(new Error('xlsx-js-style 載入失敗')); };
+    document.head.appendChild(sc);
+  });
+  return _xlsxStyleLoading;
+}
+// 把勾選客戶「回填」成 25 欄：一筆不動產一列（總檔本來就一間房一列）。
+// 規則：CRM 裡有的、會被人改的欄位（電話、拜訪過程、備註、門牌、面積、債電、持分面積、他項權利部有手改時）用 CRM 現在的值；
+// 謄本原文那種 CRM 沒拆開存的欄位（所有權部、債務人、義務人、權利人…）照總檔原值；兩邊都沒有的才用 CRM 資料湊一個看得懂的。
+function digitsOf(s){ return String(s||'').replace(/\D/g,''); }
+function loansToRights(loans){
+  return (loans||[]).map((l,i)=>{
+    const tag=l.t==='bank'?'銀':(l.t==='legal'?'法':'私');
+    const parts=[`${i+1})【${tag}】`];
+    if(l.d){ const m=String(l.d).match(/^(\d+)\/(\d+)\/(\d+)$/); if(m) parts.push(`民國${m[1]}年${+m[2]}月${+m[3]}日`); }
+    if(l.s) parts.push(l.s);
+    if(l.n) parts.push(l.n);
+    if(l.a) parts.push(`新臺幣${(l.a*10000).toLocaleString('en-US')}元`);
+    if(l.x) parts.push('（塗銷）');
+    return parts.join(' ');
+  }).join('\n');
+}
+function companyExportRows(list){
+  let noRaw=0; const rows=[];
+  list.forEach(c=>{
+    const props=(c.properties&&c.properties.length)?c.properties:[null];
+    props.forEach((p,pi)=>{
+      const raw=(p&&p.companyRaw)||(pi===0?c.companyRaw:null)||null;
+      const hasRaw=!!(raw&&Array.isArray(raw.cols));
+      let cols=hasRaw? raw.cols.slice(0,25).map(v=>String(v==null?'':v)) : new Array(25).fill('');
+      while(cols.length<25) cols.push('');
+      if(!hasRaw) noRaw++;
+      const addr=(p&&p.addr)||(pi===0?(c.addr||''):'');
+      const area=(p&&p.area)||(pi===0?(c.area||0):0);
+      const mainA=(p&&p.mainArea)||0, subA=(p&&p.subArea)||0, comA=(p&&p.commonArea)||0;
+      const bNo=(p&&p.buildNo)||(pi===0?(c.buildNo||''):''), lNo=(p&&p.landNo)||(pi===0?(c.landNo||''):'');
+      const shN=(p&&p.buildShareNum)||c.buildShareNum||0, shD=(p&&p.buildShareDen)||c.buildShareDen||0;
+      const loans=(p&&Array.isArray(p.loans)&&p.loans.length)?p.loans:((pi===0&&Array.isArray(c.loans))?c.loans:[]);
+      // 0 電話：CRM 的電話一定要在；原值裡沒有就補一行
+      if(c.phone){ if(!hasRaw||!cols[0]) cols[0]=[c.name,c.phone].filter(Boolean).join('\n'); else if(!digitsOf(cols[0]).includes(digitsOf(c.phone))) cols[0]=cols[0]+'\n'+c.phone; }
+      else if(!cols[0]) cols[0]=c.name||'';
+      // 1 拜訪過程、2 備註：CRM 最新
+      const proc=logsToProcess(c.logs); if(proc) cols[1]=proc;
+      cols[2]=c.note||cols[2]||'';
+      // 3 建物標示：原值；沒有就用 CRM 湊
+      if(!cols[3]){ cols[3]=[bNo?bNo+' 建號':'', addr, area?`總面積 ${area}坪`+(mainA||subA||comA?` 主建(${mainA}) 附屬(${subA}) 公設(${comA})`:''):''].filter(Boolean).join('\n'); }
+      // 4 門牌、5 面積：CRM 優先
+      if(addr) cols[4]=addr;
+      if(area) cols[5]=`${area}坪`;
+      // 6 所有權部：原值；沒有就湊
+      if(!cols[6]){ cols[6]=[[c.idno,c.name].filter(Boolean).join(' '), c.censusAddr||'', (shN&&shD)?(shN===shD?'全部1分之1':`${shD}分之${shN}`):''].filter(Boolean).join('\n'); }
+      // 7 所有權人住址：CRM 戶籍地址優先
+      if(c.censusAddr) cols[7]=c.censusAddr;
+      // 8 持分面積：有持分就用算的
+      if(area&&shN&&shD&&shN<shD) cols[8]=`${Math.round(area*shN/shD*100)/100} 坪`; else if(!cols[8]&&area) cols[8]=`${area} 坪`;
+      // 11 共同擔保：原值；沒有就湊
+      if(!cols[11]&&(lNo||bNo)) cols[11]=[lNo?`共同擔保地號：${lNo}`:'', bNo?`共同擔保建號：${bNo}`:''].filter(Boolean).join('\n');
+      // 12 債電：CRM 現在的名單（刪過的不會回來）
+      cols[12]=(c.debtPhones||[]).map(x=>String(x||'').trim()).filter(Boolean).join('\n');
+      // 13 他項權利部：原值；有手改／手加／塗銷／新增，或沒原值 → 用 CRM 抵押列重組
+      const touched=loans.some(l=>l.eManual||l.manualAdd||l.added||l.x||l.aChanged);
+      if(loans.length&&(touched||!cols[13])) cols[13]=loansToRights(loans);
+      // 14 權利人：沒原值就列債權人
+      if(!cols[14]&&loans.length) cols[14]=loans.filter(l=>!l.x).map((l,i)=>`${i+1})${l.n||''}`).join('\n');
+      // 22 建物門牌：沒原值就放門牌
+      if(!cols[22]&&addr) cols[22]=addr;
+      rows.push({heat:c.heat||'待分類', cols:cols.slice(0,25)});
+    });
+  });
+  return {rows,noRaw};
+}
+// 組 xlsx 工作簿（純函式，測試也用）
+const COMPANY_SHEET_ORDER=['覆訪','追很緊','待分類','新鑫','已簽約','無效案件'];
+function buildCompanyWorkbook(X, rows){
+  const wb=X.utils.book_new();
+  const groups={}; rows.forEach(r=>{ const k=(r&&r.heat)||'待分類'; (groups[k]=groups[k]||[]).push(r.cols||r); });
+  const names=[...COMPANY_SHEET_ORDER.filter(h=>groups[h]), ...Object.keys(groups).filter(h=>!COMPANY_SHEET_ORDER.includes(h))];
+  names.forEach(h=>{ X.utils.book_append_sheet(wb, buildCompanySheet(X, groups[h]), h.replace(/[\\/?*\[\]:]/g,'')); });
+  return wb;
+}
+function buildCompanySheet(X, rows){
+  const aoa=[COMPANY_EXPORT_CODES, COMPANY_EXPORT_HEADER2, ...rows];
+  const ws=X.utils.aoa_to_sheet(aoa);
+  ws['!cols']=COMPANY_EXPORT_WIDTHS.map(w=>({width:w}));   // width＝Excel 欄寬原值（wch 會多加約 0.8）
+  const border={style:'thin',color:{rgb:'000000'}};
+  const base={font:{name:'Microsoft JhengHei',sz:20,bold:true},alignment:{horizontal:'center',vertical:'top',wrapText:true},border:{top:border,bottom:border,left:border,right:border}};
+  const range=X.utils.decode_range(ws['!ref']);
+  for(let r=range.s.r;r<=range.e.r;r++){
+    for(let c=0;c<25;c++){
+      const addr=X.utils.encode_cell({r,c});
+      if(!ws[addr]) ws[addr]={t:'s',v:''};
+      ws[addr].s=base;
+    }
+  }
+  return ws;
+}
+async function ltExportCompany(){
   const list=clients.filter(c=>_ltChecked.has(c.id));
   if(!list.length){ showToast('⚠️ 請先勾選客戶'); return; }
-  const esc=v=>{ const s=String(v==null?'':v).replace(/"/g,'""'); return /[",\n\r]/.test(s)?'"'+s+'"':s; };
-  const lines=[COMPANY_EXPORT_HEADER.join(',')];
-  let noRaw=0;
-  list.forEach(c=>{
-    const mainRaw=(c.properties&&c.properties[0]&&c.properties[0].companyRaw) || c.companyRaw || null;
-    let cols=(mainRaw&&Array.isArray(mainRaw.cols))? mainRaw.cols.slice(0,25) : new Array(25).fill('');
-    while(cols.length<25) cols.push('');
-    if(!mainRaw||!Array.isArray(mainRaw.cols)){ noRaw++; if(!cols[0]) cols[0]=[c.phone,c.name].filter(Boolean).join('\n'); if(!cols[4]) cols[4]=c.addr||''; }
-    cols[2]=c.note||cols[2]||'';                    // 備註用 CRM 最新
-    const proc=logsToProcess(c.logs); if(proc) cols[1]=proc; // 拜訪過程用 CRM 最新聯絡記錄
-    lines.push(cols.slice(0,25).map(esc).join(','));
-  });
-  const csv='﻿'+lines.join('\r\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
+  let X;
+  try{ showToast('⏳ 準備匯出…'); X=await loadXlsxStyle(); }
+  catch(e){ showToast('⚠️ 匯出工具載入失敗，請確認網路後再試'); return; }
+  const {rows,noRaw}=companyExportRows(list);
+  const wb=buildCompanyWorkbook(X, rows);
   const d=new Date(),pad=n=>String(n).padStart(2,'0');
-  const a=document.createElement('a'); a.href=url; a.download=`公司格式_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.csv`;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },1000);
-  showToast(`📤 已匯出 ${list.length} 筆公司格式`+(noRaw?`（${noRaw} 筆無總檔原始資料、僅基本欄）`:''));
+  X.writeFile(wb, `公司格式_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.xlsx`);
+  showToast(`📤 已匯出 ${list.length} 人、${rows.length} 列公司格式（Excel，依分類分頁）`+(noRaw?`（${noRaw} 列無總檔原值，用 CRM 資料湊）`:''));
 }
 
 // ── 🖨️ 列印「包裏信件投遞通知單」（A4橫式，一頁4格，自動帶入姓名/地址/流水編號）──
