@@ -2159,7 +2159,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t162 (老闆建議第6項 久未聯絡:頂部「未排程」改成「久未聯絡」=聯絡過、超過N天(設定頁30/60/90)沒新記錄、沒排提醒、非結案;點進去最久沒碰的在上面,卡片橘/紅字「⏳ N 天沒聯絡」;「從未聯絡」另一群預設收起可展開;卡片「⏸ 暫不追」30/60/90天到期自動回來、新增記錄自動解除;未排程改到調整面板勾選) 2026.10.19';
+const APP_VERSION = '🧪測試版 t163 (總檔更新小結修正:新增人數算真的留下來的(同一人併掉的另外註明)、抵押新增/塗銷筆數改算這一次真的發生的,連按幾次不會再出現一樣的塗銷2筆) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3347,10 +3347,10 @@ function smartMergeLoans(p, incoming, src, date, opts){
       if(m.n && l.n && !isPlaceholderLoanName(l.n) && String(m.n).trim()!==String(l.n).trim() && l.s) l.nameWarn=String(m.n).trim();   // 同登序不同名 → 提醒確認
     } else if(!l.x){
       // 這版謄本沒有這筆：有登序的可靠判斷為塗銷；沒登序的只在新版解析可靠（有登序）時才標
-      if(!opts.noCancel && (l.s || incHasSeq)){ l.x={date,src}; cancelled++; }
+      if(!opts.noCancel && (l.s || incHasSeq)){ l.x={date,src,run:opts.run||''}; cancelled++; }
     }
   });
-  inc.forEach((x,i)=>{ if(used.has(i)) return; p.loans.push({...x, added:{date,src}}); added++; });
+  inc.forEach((x,i)=>{ if(used.has(i)) return; p.loans.push({...x, added:{date,src,run:opts.run||''}}); added++; });
   const t=loansToTotals(p.loans); p.bank=t.bank; p.legal=t.legal; p.private=t.private;
   return {added,cancelled,changed};
 }
@@ -3990,7 +3990,7 @@ function processCompanyData(raw) {
           companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
           dup.companyRaw=companyRaw;
           // 抵押列：依登序聰明合併（既有/手改不動、新增標記、塗銷反灰不計入）
-          const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun});
+          const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun, run:runId});
           loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
           mergePropInto(dup, np);
           if(kinds.length && !sameRun){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:''].filter(Boolean).join('、'); markReimport(existing, isXls?'二次匯入':'總檔更新：'+kinds.join('、')+'有變', d); }
@@ -4126,9 +4126,16 @@ function processCompanyData(raw) {
     // 匯入小結：新增幾人、併入既有哪幾人、略過幾筆；按「知道了」之後才跳批次標記（只列這次新增的人）
     const uniq=[...new Set(mergedNames.map(n=>String(n||'').trim()).filter(Boolean))];
     const nameList=uniq.length?`：${uniq.slice(0,15).join('、')}${uniq.length>15?`…等 ${uniq.length} 人`:''}`:'';
+    // 小結用跑完後的實際狀態算，不用途中累加：同一間在同一次匯入有多列時，前一列標塗銷、後一列又取消，累加會多算；
+    // 新建的人若跟既有同身分證，會在 consolidateByIdno 併掉，累加也會多算
+    const netNew=clients.filter(c=>c.id>=_startNextId).length;
+    const allLoans=clients.flatMap(c=>(c.properties||[]).flatMap(p=>p.loans||[]));
+    loanCancelledN=allLoans.filter(l=>l.x&&l.x.run===runId).length;
+    loanAddedN=allLoans.filter(l=>l.added&&l.added.run===runId).length;
+    const mergedAway=Math.max(0, added-netNew);
     const loanLine=(loanAddedN||loanCancelledN||propAddedN||rawChangedN)?`\n不動產：新增 ${propAddedN} 間、謄本內容有變 ${rawChangedN} 間（抵押新增 ${loanAddedN} 筆、塗銷 ${loanCancelledN} 筆）`:'';
-    const summary=`匯入完成\n\n新增 ${added} 人\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
-    const after=()=>{ if(added>0){ const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id)); if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 300); } };
+    const summary=`匯入完成\n\n新增 ${netNew} 人${mergedAway?`（另 ${mergedAway} 筆與既有同一人，已併入）`:''}\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
+    const after=()=>{ if(netNew>0){ const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id)); if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 300); } };
     if(typeof uiAlert==='function') uiAlert(summary).then(after); else after();
   }
 
