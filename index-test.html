@@ -2133,7 +2133,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t155 (老闆建議第二批:聯絡記錄點文字就能改內容、日期、類型;新增時可選類型 🏠現場拜訪(綠)/📞電話(藍)/🏢來公司(紫)/📝其他(灰),時間軸圓點與卡片跟著變色;匯出總檔拜訪過程會帶【現】【電】【公】) 2026.10.19';
+const APP_VERSION = '🧪測試版 t156 (雲端資料夾路徑顯示:新格式建的會顯示「民國日期_客戶名_住址」,舊建的照舊顯示地址) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2665,6 +2665,7 @@ async function createDriveFolder(){
     const data = await jsonpFetch(COMPANY_URL+'?action=createFolder&token='+API_TOKEN+'&client='+encodeURIComponent(name)+'&addr='+encodeURIComponent(addr||sub)+'&sub='+encodeURIComponent(sub));
     if(data&&data.status==='ok'&&data.url){
       document.getElementById('fDriveUrl').value=data.url;
+      if(properties[curPropIdx]) properties[curPropIdx].driveSub=sub;   // 記下實際建的子資料夾名，路徑才顯示得對
       document.getElementById('btnOpenDrive').style.display='';
       btn.textContent='✅ 已建立';
       updateDrivePath();
@@ -2764,7 +2765,9 @@ function updateDrivePath(){
   const url = document.getElementById('fDriveUrl')?.value || '';
   const name = (document.getElementById('fName')?.value || '').trim();
   const addr = (document.getElementById('fAddr')?.value || '').trim();
-  if(url){ el.textContent = '客戶資料 / ' + (name||'此客戶') + (addr? ' / '+addr : ''); el.style.color = 'var(--green)'; }
+  // 顯示的是本機推算的路徑，不是去雲端讀的：新格式建的會記 driveSub（民國日期_客戶名_住址），舊的照舊顯示地址
+  const sub = (properties[curPropIdx]||{}).driveSub || '';
+  if(url){ el.textContent = '客戶資料 / ' + (name||'此客戶') + ' / ' + (sub || addr || ''); el.style.color = 'var(--green)'; }
   else   { el.textContent = '尚未建立'; el.style.color = 'var(--t3)'; }
 }
 
