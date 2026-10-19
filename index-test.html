@@ -2139,7 +2139,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t160 (案源評估:金額加千分位、土增稅算過是0要寫0) 2026.10.19';
+const APP_VERSION = '🧪測試版 t161 (車位非獨立權狀:坪數不扣、單價已反映、不另估車位;只有獨立權狀才另加車位估值) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -6255,9 +6255,8 @@ function calcEvalBuildArea(){
   let hint = '';
 
   if(hasPark && !isIndependent){
-    // 非獨立：車位面積包含在總面積內，扣除後得到純住宅面積
-    buildArea = totalArea - parkArea;
-    hint = `（已扣車位 ${parkArea} 坪）`;
+    // 非獨立權狀：車位算在總面積裡，市場單價本來就反映了，不扣、也不另外估車位（業主 2026/10/19 定）
+    hint = `（含車位 ${parkArea} 坪，單價已反映，不另估車位）`;
   } else if(hasPark && isIndependent){
     // 獨立：車位另有登記，建物面積不含車位，直接用總面積
     hint = `（車位獨立 ${parkArea} 坪）`;
@@ -6283,11 +6282,12 @@ function calcEvalBuildArea(){
     }
   }
 
-  // 有車位 → 顯示車位估值欄；無車位 → 顯示單一總價欄
+  // 只有「獨立權狀」的車位才另外估值；非獨立的算在單價裡
+  const sepPark = hasPark && isIndependent;
   const parkRow = document.getElementById('ev_park_val_row');
   const totalRow = document.getElementById('ev_total_row');
-  if(parkRow) parkRow.style.display = hasPark ? 'grid' : 'none';
-  if(totalRow) totalRow.style.display = hasPark ? 'none' : 'block';
+  if(parkRow) parkRow.style.display = sepPark ? 'grid' : 'none';
+  if(totalRow) totalRow.style.display = sepPark ? 'none' : 'block';
 
   calcTotal();
 }
@@ -6300,7 +6300,7 @@ function calcTotal(){
   const hv = document.getElementById('ev_house_val');
   if(hv) hv.value = houseVal || '';
 
-  const hasPark = (document.getElementById('ev_parking')?.value || '無') !== '無';
+  const hasPark = (document.getElementById('ev_parking')?.value || '無') !== '無' && document.getElementById('ev_park_title')?.value === '獨立';   // 只有獨立權狀才另加車位估值
   const parkVal = hasPark ? (parseFloat(document.getElementById('ev_park_val')?.value) || 0) : 0;
   if(hasPark){
     const total = houseVal + parkVal;
@@ -6387,7 +6387,8 @@ function generateReport(clientId) {
   const parkValRpt = g('ev_park_val') ? `，估值${g('ev_park_val')}萬` : '';
   const parking = g('ev_parking') === '無' ? '無車位'
     : `${g('ev_parking')}車位 ${g('ev_parkarea')}坪（${parkTitleRpt}${parkValRpt}）`;
-  const totalVal = hasParkRpt ? g('ev_total') : g('ev_total_noPark');
+  const sepParkRpt = hasParkRpt && g('ev_park_title') === '獨立';
+  const totalVal = sepParkRpt ? g('ev_total') : g('ev_total_noPark');
 
   // 土地：多地號合併格式
   const mainLandNo=document.getElementById('fLandNo')?.value||'';
@@ -6427,7 +6428,7 @@ function generateReport(clientId) {
 
   const areaNum = gn('ev_buildarea');
   const parkIncluded = hasParkRpt && g('ev_park_title') !== '獨立';
-  const pr = priceRangeStr(gn('ev_unitprice_lo'), gn('ev_unitprice'), areaNum, hasParkRpt ? gn('ev_park_val') : 0);
+  const pr = priceRangeStr(gn('ev_unitprice_lo'), gn('ev_unitprice'), areaNum, sepParkRpt ? gn('ev_park_val') : 0);
   const needTxt = (g('ev_need_amt')||g('ev_need_rate')||g('ev_need_clear'))
     ? [g('ev_need_amt')?`${g('ev_need_amt')} 萬`:'', g('ev_need_rate')?`${g('ev_need_rate')} 分`:''].filter(Boolean).join(' ') + (g('ev_need_clear')?`（${g('ev_need_clear')}）`:'')
     : (g('ev_need')||'');
