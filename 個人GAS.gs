@@ -1,4 +1,4 @@
-// ===== 個人總檔 GAS（最新完整版 2026/06/14，含 listFolder）=====
+// ===== 個人總檔 GAS（最新完整版 2026/10/19，子資料夾改名「民國日期_客戶名_住址」；含 listFolder）=====
 // 部署：網頁應用程式，執行身分=我自己，存取=所有人
 // appsscript.json 的 oauthScopes 需含：
 //   "https://www.googleapis.com/auth/drive"
@@ -22,15 +22,16 @@ function doGet(e) {
   if (action === 'createFolder') {
     var client = e.parameter.client || e.parameter.name || '未命名客戶'; // 相容舊參數 name
     var addr   = e.parameter.addr   || '';
+    var sub    = e.parameter.sub    || addr;   // 2026/10/19 起 CRM 傳「民國日期_客戶名_住址」當子資料夾名；舊版沒傳就用地址
     try {
       var rootIt = DriveApp.getFoldersByName('客戶資料');
       var root = rootIt.hasNext() ? rootIt.next() : DriveApp.createFolder('客戶資料');
       var cIt = root.getFoldersByName(client);
       var clientFolder = cIt.hasNext() ? cIt.next() : root.createFolder(client);
       var target = clientFolder;
-      if (addr) {
-        var aIt = clientFolder.getFoldersByName(addr);
-        target = aIt.hasNext() ? aIt.next() : clientFolder.createFolder(addr);
+      if (sub) {
+        var aIt = clientFolder.getFoldersByName(sub);
+        target = aIt.hasNext() ? aIt.next() : clientFolder.createFolder(sub);
       }
       return jsonp(callback, {status: 'ok', url: target.getUrl()});
     } catch(err) {

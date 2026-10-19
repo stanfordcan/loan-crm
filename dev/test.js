@@ -196,5 +196,12 @@ eval(['logsToProcess','digitsOf','loansToRights','companyExportRows'].map(ext).j
   ok(r.rows[0].heat==='覆訪' && r.rows[2].heat==='新鑫' && C[0]==='乙'+NL+'0933' && C[4]==='地址乙' && r.noRaw===2,'分類帶出去；沒不動產的人一列');
   ok(loansToRights([{n:'國泰',a:600,t:'bank',s:'0001-000',d:'102/02/15',x:true}])==='1)【銀】 民國102年2月15日 0001-000 國泰 新臺幣6,000,000元 （塗銷）','抵押列重組含日期登序金額塗銷');
 }
+// t154：雲端子資料夾命名、民國日期
+eval(['driveSubFolderName','rocShort'].map(ext).join(String.fromCharCode(10)));
+ok(driveSubFolderName('張聖平','台北市中山區建國北路二段92號12樓','','','','2026-10-19')==='1151019_張聖平_台北市中山區建國北路二段92號12樓','子資料夾：民國日期_客戶名_門牌');
+ok(driveSubFolderName('王小明','','松山區','延吉段三小段','0685-000','2026-10-19')==='1151019_王小明_松山區延吉段三小段0685-000','沒門牌 → 地段號＋地號');
+ok(driveSubFolderName('王小明','','','','','2026-10-19')==='','門牌和地號都沒有 → 空字串');
+ok(driveSubFolderName('A/B','台北市*路?1號','','','','2026-01-05')==='1150105_AB_台北市路1號','檔名不能用的符號去掉');
+ok(rocShort('2026-10-19')==='115/10/19','民國短日期');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

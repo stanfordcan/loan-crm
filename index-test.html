@@ -282,6 +282,9 @@ body.readonly .ro-only{display:block}
 .ltag-new{background:var(--gbg);color:var(--green)}
 .ltag-manual{background:var(--abg);color:var(--accent)}
 .ltag-chg{background:var(--obg);color:var(--orange)}
+.ltag-ok{background:var(--gbg);color:var(--green);cursor:pointer}
+.ltag-todo{background:var(--s2);color:var(--t3);cursor:pointer;border:1px dashed var(--border)}
+.inl-btn{flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:0 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ltag-warn{background:var(--obg);color:var(--orange)}
 /* 文件清單三態籤 */
 .doc-chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}
@@ -1496,7 +1499,7 @@ async function applyUrlSettings() {
         </div>
         <div class="fsec fsec-remind rbox"><div class="fsec-hd"><span class="fsec-ic">🔔</span>下次聯絡提醒</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
-            <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind"/></div>
+            <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind" onchange="defaultRemindTime()"/></div>
             <div class="frow" style="margin:0"><label>時間</label>
               <div style="display:flex;gap:4px;align-items:center">
                 <select id="fRemindHour" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 6px;font-size:14px;font-family:inherit;outline:none;-webkit-appearance:none"></select>
@@ -1538,13 +1541,13 @@ async function applyUrlSettings() {
           <!-- 位置與標示 -->
           <div class="prop-card prop-full">
             <div class="prop-card-hd">📍 位置與標示</div>
-            <div class="frow cmp"><label>門牌地址</label><input id="fAddr" placeholder="" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/></div>
+            <div class="frow cmp"><label>門牌地址</label><div style="display:flex;gap:6px"><input id="fAddr" placeholder="" style="flex:1;min-width:0" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/><button type="button" class="inl-btn" onclick="openMapForProp()" title="在 Google 地圖釘出這個門牌">📍 地圖</button></div></div>
             <div class="fg2">
               <div class="frow cmp"><label>地段（區）</label><input id="fDistrict" placeholder="例：松山區" oninput="syncToEval('ev_district', this.value)"/></div>
               <div class="frow cmp"><label>地段號</label><input id="fPurpose" placeholder="" oninput="syncToEval('ev_section', this.value)"/></div>
             </div>
             <div class="fg2">
-              <div class="frow cmp"><label>使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
+              <div class="frow cmp"><label>使用分區</label><div style="display:flex;gap:6px"><input id="fLandzone" placeholder="例：住三" style="flex:1;min-width:0" oninput="syncToEval('ev_landzone', this.value)"/><button type="button" class="inl-btn" onclick="openLandZoneQuery()" title="開內政部使用分區查詢網站，並先把地段地號複製好">🗺️ 查詢</button></div></div>
               <div class="frow cmp"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value);renderCoOwners()"/></div>
             </div>
             <div id="coOwnerBox" style="display:none;background:var(--obg);border:1px solid var(--orange);border-radius:var(--rs);padding:8px 11px;margin-bottom:8px;font-size:12px;color:var(--orange)"></div>
@@ -2112,7 +2115,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t153 (修縮放後畫面下方留白一截:縮小時整頁高度補回整個視窗) 2026.10.19';
+const APP_VERSION = '🧪測試版 t154 (老闆建議第一批:抵押列手改金額自動標「✔ 日期 已確認」、沒改的顯示「待確認」可點一下確認;提醒日期填了時間預設11:30;使用分區🗺️查詢鈕搬到不動產頁籤、門牌旁多📍地圖;雲端子資料夾改名「民國日期_客戶名_住址」) 2026.10.19';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2623,16 +2626,25 @@ function jsonpFetch(url, timeoutMs) {
   });
 }
 
+// 子資料夾名：民國日期_客戶名_門牌；沒門牌就用 地段號＋地號（例：1151019_張聖平_台北市中山區建國北路二段92號12樓）
+function driveSubFolderName(name, addr, district, section, landNo, isoDate){
+  const m=String(isoDate||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const roc=m?`${+m[1]-1911}${m[2]}${m[3]}`:'';
+  const where=String(addr||'').trim() || [district,section,landNo].map(x=>String(x||'').trim()).filter(Boolean).join('');
+  if(!where) return '';
+  return `${roc}_${String(name||'').trim()}_${where}`.replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,' ');
+}
 async function createDriveFolder(){
   const name = document.getElementById('fName').value.trim();
   if(!name){uiAlert('請先填寫客戶姓名');return;}
   const addr = document.getElementById('fAddr').value.trim();
-  if(!addr){uiAlert('請先填寫門牌地址');return;}
+  const sub = driveSubFolderName(name, addr, document.getElementById('fDistrict')?.value, document.getElementById('fPurpose')?.value, document.getElementById('fLandNo')?.value, TODAY);
+  if(!sub){uiAlert('請先填寫門牌地址，或地段號＋地號');return;}
   if(!COMPANY_URL){showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址，資料夾會建立在你自己的 Drive');return;}
   const btn = document.getElementById('btnDrive');
   btn.textContent='⏳ 建立中…';btn.disabled=true;
   try{
-    const data = await jsonpFetch(COMPANY_URL+'?action=createFolder&token='+API_TOKEN+'&client='+encodeURIComponent(name)+'&addr='+encodeURIComponent(addr));
+    const data = await jsonpFetch(COMPANY_URL+'?action=createFolder&token='+API_TOKEN+'&client='+encodeURIComponent(name)+'&addr='+encodeURIComponent(addr||sub)+'&sub='+encodeURIComponent(sub));
     if(data&&data.status==='ok'&&data.url){
       document.getElementById('fDriveUrl').value=data.url;
       document.getElementById('btnOpenDrive').style.display='';
@@ -6062,7 +6074,7 @@ function renderPriceEval(c) {
         </div>
         <div class="fg2" style="margin-top:8px">
           <div class="frow" style="margin:0"><label>地號</label><input id="ev_landno" value="${[c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).join('、')||e.landno||''}" placeholder=""/></div>
-          <div class="frow" style="margin:0"><label>土地使用分區</label><div style="display:flex;gap:6px"><input id="ev_landzone" value="${e.landzone||c.landzone||''}" placeholder="例：住三" style="flex:1" oninput="syncToEval('fLandzone',this.value)"/><button onclick="openLandZoneQuery()" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:0 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🗺️ 查詢</button></div></div>
+          <div class="frow" style="margin:0"><label>土地使用分區</label><div style="display:flex;gap:6px"><input id="ev_landzone" value="${e.landzone||c.landzone||''}" placeholder="例：住三" style="flex:1" oninput="syncToEval('fLandzone',this.value)"/></div></div>
         </div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>建號</label><input id="ev_buildno" value="${e.buildno||c.buildNo||''}" placeholder=""/></div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>地址</label><input id="ev_addr" value="${e.addr||addr}" placeholder="門牌地址"/></div>
@@ -6511,6 +6523,12 @@ function addLog(){
   renderLogs();
 }
 // 快速提醒：days=1/3/7/14/30 設成幾天後（時間保留原本的）；0=清除。基本頁與聯絡記錄頁共用
+// 填了提醒日期、時間還空白 → 預設 11:30（業主定）
+function defaultRemindTime(){
+  const f=document.getElementById('fRemind'), h=document.getElementById('fRemindHour'), m=document.getElementById('fRemindMin');
+  if(!f||!h||!m||!f.value) return;
+  if(!h.value&&!m.value){ h.value='11'; m.value='30'; }
+}
 function quickRemind(days){
   const f=document.getElementById('fRemind'); if(!f) return;
   if(!days){
@@ -6519,6 +6537,7 @@ function quickRemind(days){
   } else {
     const d=new Date(); d.setDate(d.getDate()+days);
     f.value=localDateStr(d);
+    defaultRemindTime();
     const label={1:'明天',3:'3天後',7:'1週後',14:'2週後',30:'1個月後'}[days]||days+'天後';
     showToast(`🔔 下次提醒：${label}（${f.value}）`);
     const st=document.getElementById('qrStatus'); if(st) st.textContent='✓ '+f.value;
@@ -6660,6 +6679,9 @@ function renderLoanRows(){
     if(l.x) tags.push(`<span class="ltag ltag-x">🚫 新版已塗銷 ${calEsc((l.x.date||'').slice(5))}</span>`);
     if(l.added) tags.push(`<span class="ltag ltag-new">🆕 ${calEsc((l.added.date||'').slice(5))} 新增</span>`);
     if(l.eManual) tags.push(`<span class="ltag ltag-manual">✎ 手改</span>`);
+    // 金額確認：手改設定額／實貸會自動標今天；也可以點「待確認」直接標、點「已確認」取消
+    if(l.confirmed&&l.confirmed.date) tags.push(`<span class="ltag ltag-ok" title="點一下取消確認" onclick="toggleLoanConfirm(${i})">✔ ${rocShort(l.confirmed.date)} 已確認</span>`);
+    else if(!l.x) tags.push(`<span class="ltag ltag-todo" title="點一下標成今天確認過" onclick="toggleLoanConfirm(${i})">待確認</span>`);
     if(l.aChanged) tags.push(`<span class="ltag ltag-chg">設定額 ${l.aPrev||'?'}→${l.a} 萬</span>`);
     if(l.nameWarn) tags.push(`<span class="ltag ltag-warn">⚠️ 同登序新版債權人：${calEsc(l.nameWarn)}</span>`);
     return `<div class="loan-row${l.x?' loan-x':''}">
@@ -6694,10 +6716,18 @@ function removeLoanRow(i){
   renderLoanRows();
   syncLoanTotalsToForm();
 }
+// 西元 2026-10-19 → 民國 115/10/19
+function rocShort(iso){ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]-1911}/${m[2]}/${m[3]}`:String(iso||''); }
+function toggleLoanConfirm(i){
+  const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
+  if(p.loans[i].confirmed) delete p.loans[i].confirmed; else p.loans[i].confirmed={date:TODAY};
+  p.loansManual=true; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  renderLoanRows();
+}
 function setLoanField(i,key,val){
   const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
-  if(key==='a') p.loans[i].a = parseFloat(val)||0;
-  else if(key==='e'){ p.loans[i].e = parseFloat(val)||0; p.loans[i].eManual=true; }   // 手改金額：之後任何同步都不碰
+  if(key==='a'){ p.loans[i].a = parseFloat(val)||0; p.loans[i].confirmed={date:TODAY}; }   // 手改設定額＝我們確認過，標今天
+  else if(key==='e'){ p.loans[i].e = parseFloat(val)||0; p.loans[i].eManual=true; p.loans[i].confirmed={date:TODAY}; }   // 手改金額：之後任何同步都不碰
   else if(key==='n'){ p.loans[i].n = val; if(val) p.loans[i].t = classifyCreditor(val); }
   else p.loans[i][key] = val;
   p.loansManual = true;
@@ -6750,10 +6780,17 @@ function syncDocFromProof(type){
   formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
 }
 
+// 📍 地圖：用門牌開 Google 地圖釘一根針（手機會直接開地圖 App）
+function openMapForProp(){
+  const addr=(document.getElementById('fAddr')?.value||'').trim();
+  if(!addr){ showToast('⚠️ 先填門牌地址'); return; }
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr), '_blank');
+}
 function openLandZoneQuery(){
-  const district = (document.getElementById('ev_district')?.value||'').trim();
-  const section  = (document.getElementById('ev_section')?.value||'').trim();
-  const landno   = (document.getElementById('ev_landno')?.value||'').trim();
+  const pick=(a,b)=>((document.getElementById(a)?.value||'').trim()||(document.getElementById(b)?.value||'').trim());
+  const district = pick('fDistrict','ev_district');
+  const section  = pick('fPurpose','ev_section');
+  const landno   = pick('fLandNo','ev_landno');
   const parts = [district, section, landno].filter(Boolean);
   if(parts.length){
     navigator.clipboard.writeText(parts.join(' ')).catch(()=>{});
