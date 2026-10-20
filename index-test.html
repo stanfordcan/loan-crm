@@ -2102,7 +2102,7 @@ async function applyUrlSettings() {
     <p style="margin-bottom:8px">勾選客戶 → 下方填批次名稱 → 套用。剛從總檔更新進來的，勾「只看今日新增」就能快速圈出這批。</p>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
       <input id="batchTagSearch" oninput="renderBatchTagList()" placeholder="🔍 搜尋姓名/電話/地址…" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看本次匯入新增</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看本次匯入的人（新建＋併入）</label>
     </div>
     <div id="batchTagCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -2118,6 +2118,7 @@ async function applyUrlSettings() {
       <datalist id="batchListOptions2"></datalist>
       <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer"><input type="checkbox" id="batchTagReplace" style="width:14px;height:14px;accent-color:var(--accent)">取代原有批次（不勾＝加上）</label>
+        <label id="batchTagReviveWrap" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--red);cursor:pointer"><input type="checkbox" id="batchTagRevive" style="width:14px;height:14px;accent-color:var(--red)">原本無效案件、這次謄本有變的 <b id="batchTagReviveN">0</b> 人改回「待分類」</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">分類 <select id="batchTagHeat" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:inherit;background:var(--surface);color:var(--text)"><option value="">不改</option><option>待分類</option><option>覆訪</option><option>追很緊</option><option>新鑫</option><option>已簽約</option><option>無效案件</option></select></label>
       </div>
     </div>
@@ -2163,7 +2164,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t169 (假的🔁記號修正:比對時空白不算、同一次匯入裡只有所有權部不同是共有人列不算變動、同一次裡內容看過的列不再把最新版蓋回舊的;設定頁多「清掉假的🔁記號」把一模一樣的舊版和沒差異的記號拿掉) 2026.10.20';
+const APP_VERSION = '🧪測試版 t170 (🔁只代表有變:併入沒變的不再標記號;有變的記號寫明來源(二次匯入/總檔更新)與變了什麼;原本無效案件這次謄本有變→紅字「原無效」並在小結點名,批次視窗可勾改回待分類;XLS匯入後批次視窗預設全勾這批所有人(新建+併入),分類只套新建的) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3647,6 +3648,7 @@ function processCompanyData(raw) {
   }
 
   let added=0, updated=0, skipped=0;
+  const _importMerged=new Set(), _importRevived=new Set();   // 這次併入的既有客戶／原本無效案件但這次謄本有變的人（批次標記視窗用）
   const _startNextId = nextId; // 匯入前的 id 上限：之後 id≥這個值的就是「本次匯入新增的人」
   const mergedNames=[];   // 併入既有客戶的名字（匯入小結用）
   const importSrc=(typeof _importSource!=='undefined'&&_importSource)?_importSource:'總檔';
@@ -3712,8 +3714,7 @@ function processCompanyData(raw) {
         if(!existing.heatManual && !keepHeats.includes(existing.heat)) existing.heat = '新鑫';
         existing.updatedAt = TODAY;
         curXin = existing;
-        updated++; mergedNames.push(existing.name||'');
-        if(isXls) markReimport(existing, '二次匯入', '');
+        updated++; mergedNames.push(existing.name||''); _importMerged.add(existing.id);
       } else {
         curXin = {
           id: nextId++,
@@ -3944,8 +3945,7 @@ function processCompanyData(raw) {
           prevSameBuilding.debtPhones = mergeDebtPhonesInto(prevSameBuilding, allDebtPhones);
         }
         prevSameBuilding.updatedAt = TODAY;
-        updated++; mergedNames.push(prevSameBuilding.name||'');
-        if(isXls) markReimport(prevSameBuilding, '二次匯入', '共有人');
+        updated++; mergedNames.push(prevSameBuilding.name||''); _importMerged.add(prevSameBuilding.id);
         return;
       }
     }
@@ -4077,12 +4077,11 @@ function processCompanyData(raw) {
             const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun, run:runId});   // 同一次的重複列不塗銷，塗銷只看跨次
             loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
             mergePropInto(dup, np);
-            if(changed){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:'', lr.dated?`${lr.dated} 筆設定日期更新`:''].filter(Boolean).join('、'); markReimport(existing, '總檔更新：'+kinds.join('、')+'有變', d); }
+            if(changed){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:'', lr.dated?`${lr.dated} 筆設定日期更新`:''].filter(Boolean).join('、'); const revived=(existing.heat==='無效案件'); if(revived) _importRevived.add(existing.id); markReimport(existing, (revived?'原無效・':'')+(isXls?'二次匯入：':'總檔更新：')+kinds.join('、')+'有變', d); }
           }
         } // 同一間 → 公司資料(總檔來源)永遠刷新、其餘欄位補空格，不重複
-        else { companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId; existing.properties.push(np); propAddedN++; markReimport(existing, isXls?'二次匯入':'總檔新增不動產', '新增不動產 '+(np.label||'')); }   // 不同間 → 累積成新一筆房產
+        else { companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId; existing.properties.push(np); propAddedN++; markReimport(existing, '新增不動產', '新增不動產 '+(np.label||'')); }   // 不同間 → 累積成新一筆房產
       })();
-      if(isXls && !(existing.reimports||[]).some(r=>r.date===TODAY&&r.src===importSrc)) markReimport(existing, '二次匯入', '');
       // 公司資料（總檔來源）：永遠更新，這是總檔的職責
       existing.companyRaw = companyRaw;
       // 補本名：既有客戶若是遮罩/單姓(如「馬」)，這次總檔從義務人補到完整本名(同姓且更長)→升級，免得每次都要手動按修復
@@ -4134,7 +4133,7 @@ function processCompanyData(raw) {
       }
       // driveUrl、note、remind、job 等用戶欄位：完全不動
       existing.updatedAt = TODAY;
-      updated++; mergedNames.push(existing.name||'');
+      updated++; mergedNames.push(existing.name||''); _importMerged.add(existing.id);
     } else {
       // B：無效案件且「沒有任何電話」（本人電話＋債務人電話都沒有）→ 不新增。
       // 注意：不能看身分證！謄本「所有權部」本來就帶屋主完整身分證號，那不是聯絡方式，
@@ -4220,9 +4219,14 @@ function processCompanyData(raw) {
     loanAddedN=allLoans.filter(l=>l.added&&l.added.run===runId).length;
     const mergedAway=Math.max(0, added-netNew);
     const loanLine=(loanAddedN||loanCancelledN||propAddedN||rawChangedN)?`\n不動產：新增 ${propAddedN} 間、謄本內容有變 ${rawChangedN} 間（抵押新增 ${loanAddedN} 筆、塗銷 ${loanCancelledN} 筆）`:'';
+    const revivedNames=[..._importRevived].map(id=>{ const c=clients.find(x=>x.id===id); return c?(c.name||''):''; }).filter(Boolean);
+    const revivedLine=revivedNames.length?`\n⚠️ 原本是無效案件、這次謄本有變 ${revivedNames.length} 人：${revivedNames.slice(0,10).join('、')}${revivedNames.length>10?'…':''}（批次視窗可勾選改回待分類）`:'';
     const dedupeLine=dedupe.props?`\n合併重複不動產 ${dedupe.props} 張（${dedupe.names.slice(0,5).join('、')}${dedupe.names.length>5?'…':''}）`:'';
-    const summary=`匯入完成\n\n新增 ${netNew} 人${mergedAway?`（另 ${mergedAway} 筆與既有同一人，已併入）`:''}\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}${dedupeLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
-    const after=()=>{ if(netNew>0){ const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id)); if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 300); } };
+    const summary=`匯入完成\n\n新增 ${netNew} 人${mergedAway?`（另 ${mergedAway} 筆與既有同一人，已併入）`:''}\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}${dedupeLine}${revivedLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
+    const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id));
+    _lastImportInfo={newIds:nids, mergedIds:new Set([..._importMerged].filter(id=>clients.some(c=>c.id===id))), revivedIds:new Set(_importRevived)};
+    // XLS 匯入：這批所有人（新建＋併入）都進批次視窗，批次名掛全員、分類只套新建的；總檔更新只有新建的人才開
+    const after=()=>{ const ids=new Set([...nids, ...(isXls?_lastImportInfo.mergedIds:[])]); if(ids.size) setTimeout(()=>openBatchTagForImport({ids, newIds:nids, revivedIds:_lastImportInfo.revivedIds}), 300); };
     if(typeof uiAlert==='function') uiAlert(summary).then(after); else after();
   }
 
@@ -4273,7 +4277,7 @@ function processCompanyData(raw) {
             if(toAdd.length) ex.logs = [...toAdd,...(ex.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
           }
           ex.updatedAt = TODAY;
-          updated++;
+          updated++; _importMerged.add(ex.id);
         } else {
           // 新增
           const logs = parseVisitLogs(f.processText||'');
@@ -5521,7 +5525,7 @@ function render(){
         ${c.remind?remChip(c.remind,c.remindTime):''}${staleTag(c)}${muteBtn(c)}
         ${(lt=>`${lt.bank?`<span class="mi-amt">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi-amt">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
         ${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯想借${c.loanWant}萬</span>`:''}
-        ${(c.reimports&&c.reimports.length)?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
+        ${(c.reimports&&c.reimports.length)?`<span class="mi" style="${/^原無效/.test(c.reimports[c.reimports.length-1].kind||'')?'color:var(--red);background:var(--rbg);font-weight:700':'color:var(--orange);background:var(--obg)'};padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
         ${(()=>{const sp=(c.properties||[]).find(p=>p.buildShareNum>0&&p.buildShareDen>0&&p.buildShareNum<p.buildShareDen)||((c.buildShareNum>0&&c.buildShareDen>0&&c.buildShareNum<c.buildShareDen)?c:null);return sp?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px;font-weight:700">持分 ${sp.buildShareNum}／${sp.buildShareDen}</span>`:'';})()}
         ${c.serial?`<span class="mi">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
@@ -9209,13 +9213,23 @@ function openBatchTag(){
   renderBatchTagList();
   document.getElementById('batchTagBg').classList.add('open');
 }
-function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); _importNewIds=null; }
+function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); _importNewIds=null; _importBrandNew=null; _importRevivedIds=null; const rw=document.getElementById('batchTagReviveWrap'); if(rw) rw.style.display='none'; }
 // 「本次匯入新增的人」的 id 集合；非 null 時批次視窗只顯示這些人（既有的人不混進來）
-let _importNewIds=null;
+let _importNewIds=null;   // 本次匯入的人（新建＋併入）
+let _importBrandNew=null; // 其中這次新建的
+let _importRevivedIds=null; // 其中原無效案件但這次謄本有變的
+let _lastImportInfo=null;
 // 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
-function openBatchTagForImport(newIds){
+function openBatchTagForImport(info){
   openBatchTag();
-  _importNewIds = newIds || null;   // openBatchTag 之後再設,避免被清掉
+  // 相容：舊呼叫傳 Set；新呼叫傳 {ids, newIds, revivedIds}
+  const isSet = info instanceof Set;
+  _importNewIds = isSet ? info : ((info&&info.ids)||null);   // openBatchTag 之後再設,避免被清掉
+  _importBrandNew = isSet ? info : ((info&&info.newIds)||null);
+  _importRevivedIds = isSet ? null : ((info&&info.revivedIds)||null);
+  _batchTagChecked = new Set(_importNewIds ? [..._importNewIds] : []);   // 這批的人預設全勾，批次名才會掛到每個人
+  const rw=document.getElementById('batchTagReviveWrap'), rn=document.getElementById('batchTagReviveN'), rc=document.getElementById('batchTagRevive');
+  if(rw){ const n=_importRevivedIds?_importRevivedIds.size:0; rw.style.display=n?'flex':'none'; if(rn) rn.textContent=n; if(rc) rc.checked=false; }
   const t=document.getElementById('batchTagTodayOnly');
   if(t){ t.checked=true; }
   // 預設批次名稱：查詢匯出檔 → 「包區 民國年/月 檔名」；分類預設待分類。都可以改
@@ -9259,10 +9273,18 @@ async function batchTagApply(){
   const label=document.getElementById('batchTagInput').value.trim();
   const n=_batchTagChecked.size;
   const _heatPick=(document.getElementById('batchTagHeat')||{}).value||'';
-  if(!(await uiConfirm((label?`把 ${n} 筆客戶標記為批次「${label}」`:`清除 ${n} 筆客戶的批次標記`)+(_heatPick?`，分類改為「${_heatPick}」`:'')+'？'))) return;
+  const inImport=!!_importNewIds;   // 匯入後的視窗：分類只套用到這次新建的人，併入的既有客戶分類不動
+  const reviveOn=!!(document.getElementById('batchTagRevive')||{}).checked && _importRevivedIds && _importRevivedIds.size;
+  const heatNote=_heatPick?(inImport?`，這次新建的人分類改為「${_heatPick}」（併入的既有客戶不動）`:`，分類改為「${_heatPick}」`):'';
+  if(!(await uiConfirm((label?`把 ${n} 筆客戶標記為批次「${label}」`:`清除 ${n} 筆客戶的批次標記`)+heatNote+(reviveOn?`，原無效有變的 ${_importRevivedIds.size} 人改回待分類`:'')+'？'))) return;
   const repl=!!(document.getElementById('batchTagReplace')||{}).checked;
   const heatPick=(document.getElementById('batchTagHeat')||{}).value||'';
-  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ if(!label||repl) batchSetAll(c,label); else batchAdd(c,label); if(heatPick){ c.heat=heatPick; if(heatPick!=='待分類') c.heatManual=true; } c.updatedAt=TODAY; } });
+  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){
+    if(!label||repl) batchSetAll(c,label); else batchAdd(c,label);
+    const isNew=!inImport || (_importBrandNew&&_importBrandNew.has(c.id)) || c.createdAt===TODAY;
+    if(heatPick && isNew){ c.heat=heatPick; if(heatPick!=='待分類') c.heatManual=true; }
+    if(reviveOn && _importRevivedIds.has(c.id)){ c.heat='待分類'; c.heatManual=false; }
+    c.updatedAt=TODAY; } });
   saveLocal();
   render();
   closeBatchTag();

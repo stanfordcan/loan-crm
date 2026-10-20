@@ -54,10 +54,9 @@ tryRun(ctx=>{
   ok(firstNew.length>0 && firstNew.every(c=>!c.reimports),'第一次匯入：新建 '+firstNew.length+' 人、都沒有記號');
   ctx._importSource='XLS：'+f; run('processCompanyData')(n.rows); ctx._importSource='';
   const marked=ctx.clients.filter(c=>c.reimports&&c.reimports.length);
-  ok(marked.length>=firstNew.length*0.9,'第二次匯入：既有的人都有記號（'+marked.length+'/'+firstNew.length+'）');
-  ok(marked.every(c=>c.reimports.length===1),'同一次匯入每人只有一則記號');
-  ok(marked.every(c=>c.reimports[0].src==='XLS：'+f&&c.reimports[0].kind==='二次匯入'),'記號來源＝檔名、種類＝二次匯入');
-  { const bad=marked.filter(c=>!(c.reimports[0].src==='XLS：'+f&&c.reimports[0].kind==='二次匯入')); if(bad.length) console.log('    ↳ 不符的：'+bad.length+' 人，例：'+bad.slice(0,3).map(c=>c.name+' → '+JSON.stringify(c.reimports[0])+' 不動產'+(c.properties||[]).length).join(' ／ ')); }
+  ok(marked.length===0,'第二次匯入同內容：沒變的人不再有記號（'+marked.length+'）');
+  ok(ctx._lastImportInfo && ctx._lastImportInfo.mergedIds.size>=firstNew.length*0.9,'第二次匯入：併入名單有記到（'+(ctx._lastImportInfo?ctx._lastImportInfo.mergedIds.size:0)+'/'+firstNew.length+'）');
+
   ok(ctx.clients.length===BK.clients.length+firstNew.length,'第二次沒有多建任何人');
   // ── 3. 來源＝總檔、同內容重跑 → 不增加記號 ──
   console.log('— 總檔重貼同內容 → 不記號；他項有變 → 記號＋留舊版 —');
