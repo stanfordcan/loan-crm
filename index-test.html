@@ -1839,6 +1839,7 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
       <button onclick="openBatchMgr()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏷️ 批次管理（改名／合併）<br><span style="font-size:10px;font-weight:400;opacity:.8">列出所有批次與建議名稱，確認後一次改</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="cleanupAddrs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔤 門牌統一寫法<br><span style="font-size:10px;font-weight:400;opacity:.8">全形數字→半形、五樓→5樓、去空白；客戶地址、戶籍、每張不動產都統一（先列數量再確認）</span></button>
       <button onclick="cleanupDuplicateProps()" style="width:100%;background:var(--obg);color:var(--orange);border:1px solid var(--obd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏚️ 合併重複的不動產<br><span style="font-size:10px;font-weight:400;opacity:.8">同一人底下同建號、或門牌只差全形半形／中文數字的，併成一張（先列清單再確認）</span></button>
       <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
       <button onclick="var d=document.getElementById('oldDataTools');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.arr').textContent=open?'▴':'▾'" style="width:100%;background:var(--s2);color:var(--t2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
@@ -2160,7 +2161,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t164 (重複不動產:比對門牌前先把全形/半形/中文樓層統一,建號比對改看這間自己的建號(舊資料只有共同擔保清單時要門牌也對才算同一間);設定頁多「合併重複的不動產」先列清單再確認;每次匯入完自動併同建號/同門牌的重複卡並寫進小結) 2026.10.20';
+const APP_VERSION = '🧪測試版 t165 (門牌統一寫法:存檔、匯入時自動把全形數字改半形、五樓改5樓、去空白;設定頁多「門牌統一寫法」一次整理舊資料) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3827,7 +3828,7 @@ function processCompanyData(raw) {
     const area = areaFromBI || areaFromCol5 || (areaCalc > 0 ? Math.round(areaCalc*100)/100 : 0);
 
     // Address (col 4)：標準化全形數字與中文樓層
-    let addr = normalizeAddr(String(row[4]||'').replace(/\n/g,' ').trim());
+    let addr = cleanAddr(String(row[4]||'').replace(/\n/g,' '));
 
     // Extract buildInfo from col 3 (for display only)
     const buildInfo = String(row[3]||'').trim();
@@ -7208,7 +7209,7 @@ function finishRenameTab(inp,idx){
 
 function savePropFields(){
   const p=properties[curPropIdx]; if(!p) return;
-  p.addr=document.getElementById('fAddr')?.value.trim()||'';
+  p.addr=cleanAddr(document.getElementById('fAddr')?.value||'');
   p.district=document.getElementById('fDistrict')?.value.trim()||'';
   p.landzone=document.getElementById('fLandzone')?.value.trim()||'';
   p.purpose=document.getElementById('fPurpose')?.value.trim()||'';
@@ -7826,9 +7827,9 @@ async function saveClient(silent){
     closeReason:gv('fCloseReason'), closeNote:gv('fCloseNote'),
     docs:{...tempDocs},
     note:document.getElementById('fNote').value.trim(),
-    censusAddr:document.getElementById('fCensusAddr').value.trim(),
+    censusAddr:cleanAddr(document.getElementById('fCensusAddr').value),
     batch:batchJoin(batchList(document.getElementById('fBatch').value)),
-    addr:document.getElementById('fAddr').value.trim(),
+    addr:cleanAddr(document.getElementById('fAddr').value),
     area:parseFloat(document.getElementById('fArea').value)||0,
     mainArea:parseFloat(document.getElementById('fMainArea').value)||0,
     subArea:parseFloat(document.getElementById('fSubArea').value)||0,
@@ -8051,6 +8052,8 @@ function normBuildNo(s){
 }
 function normAddr(s){ return String(s||'').replace(/\s/g,'').replace(/台/g,'臺').slice(0,12); }
 // 地址核心：去掉縣市區鄉鎮前綴，只留街路門牌（兩邊格式不同也能對上）
+// 門牌統一寫法（存檔、匯入、整理工具都用這個）：全形數字→半形、「五樓」→「5樓」、去掉所有空白。台／臺不動。
+function cleanAddr(s){ return normalizeAddr(s).replace(/\s+/g,''); }
 function addrCore(s){
   const v=normalizeAddr(s).replace(/\s/g,'').replace(/台/g,'臺');   // 「２０４號五樓之２」和「204號5樓之2」要算同一個
   const idx=Math.max(v.lastIndexOf('區'),v.lastIndexOf('鄉'),v.lastIndexOf('鎮'));
@@ -8829,6 +8832,27 @@ async function cleanupDirtyData(){
 
 // 🧹 一鍵清除「無效案件＋沒有任何電話」的資料
 // 注意：不看身分證！謄本所有權部本來就帶屋主身分證號，那不是聯絡方式，看了會清不掉。
+// 門牌統一半形：所有客戶地址、戶籍地址、每張不動產卡的門牌。dryRun 只算
+function normalizeAllAddrs(dryRun){
+  let n=0; const names=new Set();
+  clients.forEach(c=>{
+    const fix=(obj,k)=>{ const v=String(obj[k]||''); if(!v) return; const nv=cleanAddr(v); if(nv!==v){ n++; names.add(c.name||'(無名)'); if(!dryRun) obj[k]=nv; } };
+    fix(c,'addr'); fix(c,'censusAddr');
+    (c.properties||[]).forEach(p=>fix(p,'addr'));
+  });
+  return {n, names:[...names]};
+}
+async function cleanupAddrs(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=normalizeAllAddrs(true);
+  if(!r.n){ showToast('✅ 門牌寫法都已統一'); return; }
+  if(!(await uiConfirm(`有 ${r.n} 個地址寫法不一致（${r.names.length} 人，例如 ${r.names.slice(0,8).join('、')}${r.names.length>8?'…':''}）。\n\n會統一成：全形數字改半形、「五樓」改「5樓」、去掉空白。台／臺不改。確定？`))) return;
+  const d=normalizeAllAddrs(false);
+  saveLocal(); render();
+  showToast(`🔤 已統一 ${d.n} 個地址`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
 async function cleanupDuplicateProps(){
   if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
   if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }

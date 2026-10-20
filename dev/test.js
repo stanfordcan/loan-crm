@@ -270,5 +270,10 @@ eval(['normBuildNo','addrCore','addrHit','samePropertyCard','propIdOf','propList
   ok(samePropPair({addr:'臺北市松山區民生東路五段２０４號五樓之２',buildNo:'11171-000、11508-000'},{addr:'臺北市松山區民生東路五段204號5樓之2',col4BuildNo:'A_01_0655_11508-000'})===true,'整理工具：舊卡只有清單且含對方建號 → 併');
   ok(samePropPair({col4BuildNo:'A_01_0655_11508-000',addr:'a'},{col4BuildNo:'A_01_0655_11508-000',addr:'b'})===true && samePropPair({col4BuildNo:'A_01_0655_11508-000',addr:'a'},{col4BuildNo:'A_01_0655_11510-000',addr:'a'})===false,'整理工具：有自己的建號就比建號');
 }
+// t165：門牌統一寫法
+eval(['cleanAddr'].map(ext).join(String.fromCharCode(10)));
+ok(cleanAddr('臺北市松山區民生東路五段２０４號五樓之２')==='臺北市松山區民生東路五段204號5樓之2','全形數字與中文樓層統一');
+ok(cleanAddr('新北市五股區 成泰路三段２２１巷１０號')==='新北市五股區成泰路三段221巷10號','去空白');
+ok(cleanAddr('台北市大安區安和路二段60號')==='台北市大安區安和路二段60號','台不改、已經乾淨的不變');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

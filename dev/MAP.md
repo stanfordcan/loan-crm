@@ -17,18 +17,18 @@
 - L588: <script>
 - L1201: </script>
 - L1209: <style>@keyframes cloudPulse{0%,100%{opacity:.45;transform:s
-- L1894: <style>
-- L1907: </style>
-- L1993: <style>
-- L2002: </style>
-- L2157: <script>
-- L5327: </style></head><body>${pages}<script>window.onload=function(
-- L6608: <style>
-- L6615: </style></head>
-- L6616: <body>
-- L6623: </body></html>
-- L9276: </script>
-- L9277: </body>
+- L1895: <style>
+- L1908: </style>
+- L1994: <style>
+- L2003: </style>
+- L2158: <script>
+- L5328: </style></head><body>${pages}<script>window.onload=function(
+- L6609: <style>
+- L6616: </style></head>
+- L6617: <body>
+- L6624: </body></html>
+- L9300: </script>
+- L9301: </body>
 
 ## 函式索引（行號｜名稱｜說明）
 
@@ -77,534 +77,537 @@
 - L1183 `renderZoomPicker()`
 - L1190 `closeUrlSettings()`
 - L1193 `applyUrlSettings()`
-- L2165 `shortVersion(v)` — 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
-- L2168 `localDateStr(d)` — 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
+- L2166 `shortVersion(v)` — 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
+- L2169 `localDateStr(d)` — 用本地時間取日期字串，避免 UTC 時區偏移導致日期錯誤
 
-### Storage  (L2181)
-- L2182 `normalizeDate(val)` — ── Storage ───────────────────────────────────────────────
-- L2211 `normalizeTime(val)`
-- L2236 `fixPhone(val)`
-- L2245 `migrateHeat(c)` — 舊分類名稱遷移（最新資料 → 追很緊）
-- L2253 `saveLocal()`
-- L2265 `loadLocal()`
-- L2296 `ensureSerials()` — 一旦給了就「鎖死」——只補沒有的，絕不更動已有的。回傳這次新補幾筆。
+### Storage  (L2182)
+- L2183 `normalizeDate(val)` — ── Storage ───────────────────────────────────────────────
+- L2212 `normalizeTime(val)`
+- L2237 `fixPhone(val)`
+- L2246 `migrateHeat(c)` — 舊分類名稱遷移（最新資料 → 追很緊）
+- L2254 `saveLocal()`
+- L2266 `loadLocal()`
+- L2297 `ensureSerials()` — 一旦給了就「鎖死」——只補沒有的，絕不更動已有的。回傳這次新補幾筆。
 
-### Memo  (L2307)
-- L2312 `saveMemos()`
-- L2317 `loadMemos()`
-- L2324 `addMemo(src)`
-- L2345 `toggleMemoDone(id)`
-- L2353 `deleteMemo(id)`
-- L2358 `memoItemHtml(m)`
-- L2377 `renderMemos()`
-- L2403 `checkMemoReminders()`
-- L2420 `openMemoModal()`
-- L2424 `closeMemoModal()`
+### Memo  (L2308)
+- L2313 `saveMemos()`
+- L2318 `loadMemos()`
+- L2325 `addMemo(src)`
+- L2346 `toggleMemoDone(id)`
+- L2354 `deleteMemo(id)`
+- L2359 `memoItemHtml(m)`
+- L2378 `renderMemos()`
+- L2404 `checkMemoReminders()`
+- L2421 `openMemoModal()`
+- L2425 `closeMemoModal()`
 
-### Auto-classify  (L2428)
-- L2429 `autoClassify()` — ── Auto-classify ────────────────────────────────────────
+### Auto-classify  (L2429)
+- L2430 `autoClassify()` — ── Auto-classify ────────────────────────────────────────
 
-### Blacklist  (L2435)
-- L2436 `saveBlacklist()` — ── Blacklist ─────────────────────────────────────────────
-- L2439 `loadBlacklist()`
-- L2446 `addToBlacklist(c)`
-- L2462 `isBlacklisted(phone,idno,buildNo,name)`
-- L2476 `removeFromBlacklist(i)`
-- L2483 `updateBlacklistBtn()`
+### Blacklist  (L2436)
+- L2437 `saveBlacklist()` — ── Blacklist ─────────────────────────────────────────────
+- L2440 `loadBlacklist()`
+- L2447 `addToBlacklist(c)`
+- L2463 `isBlacklisted(phone,idno,buildNo,name)`
+- L2477 `removeFromBlacklist(i)`
+- L2484 `updateBlacklistBtn()`
 
-### Google Sheets sync  (L2488)
+### Google Sheets sync  (L2489)
 
-### Sync  (L2566)
-- L2567 `parseVisitLogs(text)` — ── Sync ──────────────────────────────────────────────────
-- L2619 `syncData()`
-- L2639 `pushToSheet()`
+### Sync  (L2567)
+- L2568 `parseVisitLogs(text)` — ── Sync ──────────────────────────────────────────────────
+- L2620 `syncData()`
+- L2640 `pushToSheet()`
 
-### Company Sheet (JSONP)  (L2646)
-- L2647 `jsonpFetch(url,timeoutMs)` — ── Company Sheet (JSONP) ─────────────────────────────────
-- L2675 `driveSubFolderName(name,addr,district,section,landNo,isoDate)` — 子資料夾名：民國日期_客戶名_門牌；沒門牌就用 地段號＋地號（例：1151019_張聖平_台北市中山區建國北路二段92號12樓）
-- L2682 `createDriveFolder()`
-- L2713 `openDriveFolder()`
-- L2719 `cloudEsc(s)` — ☁️ 雲端預覽分頁：列出該筆不動產 Drive 資料夾裡的檔案（縮圖格狀）
-- L2720 `curDriveUrl()`
-- L2721 `openCloudFolder()`
-- L2722 `renderCloudTab()`
-- L2762 `uploadCloudFile(input)` — 上傳檔案到該筆不動產的 Drive 資料夾（POST base64 給個人 GAS 的 uploadFile）
-- L2790 `updateDrivePath()` — 顯示資料夾在雲端的「位置」而非網址：客戶資料 / 客戶名
-- L2801 `syncFromCompany()`
+### Company Sheet (JSONP)  (L2647)
+- L2648 `jsonpFetch(url,timeoutMs)` — ── Company Sheet (JSONP) ─────────────────────────────────
+- L2676 `driveSubFolderName(name,addr,district,section,landNo,isoDate)` — 子資料夾名：民國日期_客戶名_門牌；沒門牌就用 地段號＋地號（例：1151019_張聖平_台北市中山區建國北路二段92號12樓）
+- L2683 `createDriveFolder()`
+- L2714 `openDriveFolder()`
+- L2720 `cloudEsc(s)` — ☁️ 雲端預覽分頁：列出該筆不動產 Drive 資料夾裡的檔案（縮圖格狀）
+- L2721 `curDriveUrl()`
+- L2722 `openCloudFolder()`
+- L2723 `renderCloudTab()`
+- L2763 `uploadCloudFile(input)` — 上傳檔案到該筆不動產的 Drive 資料夾（POST base64 給個人 GAS 的 uploadFile）
+- L2791 `updateDrivePath()` — 顯示資料夾在雲端的「位置」而非網址：客戶資料 / 客戶名
+- L2802 `syncFromCompany()`
 
-### 疑似重複比對  (L2837)
-- L2840 `isFullId(s)` — 完整身分證(A+9碼)才唯一,才能拿來判定「同一人」;遮罩版(F122*****2)不唯一,只能顯示參考
-- L2843 `genderFromId(idno)` — 身分證第二碼＝性別：1男 2女（遮罩身分證也看得到第二碼）
-- L2845 `dispName(c)` — 顯示用姓名：沒有全名(只剩姓或被遮罩)→「姓＋先生/小姐」(性別取身分證第二碼);完整姓名照原樣
-- L2853 `findDupCandidates(c)`
-- L2899 `liveDupCheck()`
-- L2909 `renderDupPanel(c)`
-- L2943 `normPhoneKey(s)` — 債電比對用：去掉 -、空白、括號、#，只留可比對的號碼本體
-- L2946 `mergeDebtPhonesInto(client,incoming)` — 業主刪過的債電＝永不再由總檔/匯入帶回來，跟聯絡紀錄的 deletedLogKeys 同一套規矩。
-- L2953 `mergeDebtPhones(existing,incoming)` — 同一支號碼不管重跑幾次總檔同步都只留一筆——這裡不去重就會每同步一次多長一輪。
-- L2963 `foldClientInto(a,b)`
-- L3009 `clientRichness(c)` — 資料豐富度（決定哪筆當主）：有電話/房產/各種欄位都加分
-- L3020 `mergeWithDup(otherId)` — 手動：把「疑似重複」面板裡某筆併入目前開啟這位（自動保留資料較完整那筆）
-- L3034 `consolidateByIdno()` — 自動：同身分證＝同一人，匯入收尾時把空殼/較少那筆併進較完整那筆
+### 疑似重複比對  (L2838)
+- L2841 `isFullId(s)` — 完整身分證(A+9碼)才唯一,才能拿來判定「同一人」;遮罩版(F122*****2)不唯一,只能顯示參考
+- L2844 `genderFromId(idno)` — 身分證第二碼＝性別：1男 2女（遮罩身分證也看得到第二碼）
+- L2846 `dispName(c)` — 顯示用姓名：沒有全名(只剩姓或被遮罩)→「姓＋先生/小姐」(性別取身分證第二碼);完整姓名照原樣
+- L2854 `findDupCandidates(c)`
+- L2900 `liveDupCheck()`
+- L2910 `renderDupPanel(c)`
+- L2944 `normPhoneKey(s)` — 債電比對用：去掉 -、空白、括號、#，只留可比對的號碼本體
+- L2947 `mergeDebtPhonesInto(client,incoming)` — 業主刪過的債電＝永不再由總檔/匯入帶回來，跟聯絡紀錄的 deletedLogKeys 同一套規矩。
+- L2954 `mergeDebtPhones(existing,incoming)` — 同一支號碼不管重跑幾次總檔同步都只留一筆——這裡不去重就會每同步一次多長一輪。
+- L2964 `foldClientInto(a,b)`
+- L3010 `clientRichness(c)` — 資料豐富度（決定哪筆當主）：有電話/房產/各種欄位都加分
+- L3021 `mergeWithDup(otherId)` — 手動：把「疑似重複」面板裡某筆併入目前開啟這位（自動保留資料較完整那筆）
+- L3035 `consolidateByIdno()` — 自動：同身分證＝同一人，匯入收尾時把空殼/較少那筆併進較完整那筆
 
-### Claude AI 輔助去重  (L3049)
-- L3052 `normalizeAddr(addr)` — 地址標準化：全形→半形 + 中文樓層→數字（保留樓層，不刪除）
-- L3069 `findFuzzyMatches(incoming,existingClients)` — 找出可能模糊相符的現有客戶（已被精確比對略過的才會到這裡）
-- L3100 `callClaudeAPI(pendingCases)` — 呼叫 Anthropic Claude API
+### Claude AI 輔助去重  (L3050)
+- L3053 `normalizeAddr(addr)` — 地址標準化：全形→半形 + 中文樓層→數字（保留樓層，不刪除）
+- L3070 `findFuzzyMatches(incoming,existingClients)` — 找出可能模糊相符的現有客戶（已被精確比對略過的才會到這裡）
+- L3101 `callClaudeAPI(pendingCases)` — 呼叫 Anthropic Claude API
 
-### Claude 審查 Modal 狀態  (L3147)
-- L3150 `showClaudeReviewModal(pendingCases,onComplete)`
-- L3169 `_renderCR(aiResults,errMsg)`
-- L3208 `claudeDecide(index,decision)`
-- L3218 `claudeReviewApply()`
-- L3228 `claudeReviewSkipAll()`
-- L3240 `defaultLoanE(a,t)` — 單筆 e 預設值：bank/legal → Math.ceil(a/1.2)；private → a（原值即實貸）
-- L3246 `normLoanType(t)` — 貸款類型正規化：AI/總檔可能給中文或英文
-- L3253 `cleanCreditorName(name)`
-- L3267 `parseRightsLoans(text)`
-- L3324 `smartMergeLoans(p,incoming,src,date,opts)` — 回傳 {added:n, cancelled:n, changed:n}
-- L3359 `getLoanE(l)` — 取得單筆 loan 的實貸估值：有 e 就用 e（可能是使用者手改過的值），沒有才用預設規則現算（相容舊資料）
-- L3364 `clientLoanTotals(c)` — 名片用：全部房產的貸款「即時」加總(逐筆估值Σe)。有 loans 用逐筆算,沒有才退用存的舊總額——確保名片和抵押貸款區永遠同步
-- L3375 `loansToTotals(loans)` — loans[] → {bank,legal,private} 加總（萬）：直接加總各筆 e（使用者手改過的金額也算進去，絕不再 ÷1.2）
-- L3385 `classifyCreditor(name)` — 依關鍵字預判債權人名稱屬於銀行／法人／民間（規則與 parseRightsLoans 一致）
-- L3392 `isPlaceholderLoanName(n)` — 總檔摘要佔位筆的系統代填名稱（parseRightsLoans fallback 產生的）
-- L3395 `patchLoanDates(dstLoans,srcLoans)` — 例外：總檔摘要佔位筆（系統代填名稱＋沒登序，金額是摘要數字常對不上謄本設定額）→ 放寬成「分類兩邊都唯一」就補，並順便補登序、把佔位名稱換成真實債權人。
-- L3424 `applyLoansToProp(p,loans)` — 把 loans[] 套用到不動產物件 p：設定 p.loans 並從中加總回寫 p.bank/legal/private
-- L3433 `ensurePropLoans(c,p)` — 若 p.loans 已存在但缺 e（t82 舊資料），就地補上 e（同 defaultLoanE 預設規則）
+### Claude 審查 Modal 狀態  (L3148)
+- L3151 `showClaudeReviewModal(pendingCases,onComplete)`
+- L3170 `_renderCR(aiResults,errMsg)`
+- L3209 `claudeDecide(index,decision)`
+- L3219 `claudeReviewApply()`
+- L3229 `claudeReviewSkipAll()`
+- L3241 `defaultLoanE(a,t)` — 單筆 e 預設值：bank/legal → Math.ceil(a/1.2)；private → a（原值即實貸）
+- L3247 `normLoanType(t)` — 貸款類型正規化：AI/總檔可能給中文或英文
+- L3254 `cleanCreditorName(name)`
+- L3268 `parseRightsLoans(text)`
+- L3325 `smartMergeLoans(p,incoming,src,date,opts)` — 回傳 {added:n, cancelled:n, changed:n}
+- L3360 `getLoanE(l)` — 取得單筆 loan 的實貸估值：有 e 就用 e（可能是使用者手改過的值），沒有才用預設規則現算（相容舊資料）
+- L3365 `clientLoanTotals(c)` — 名片用：全部房產的貸款「即時」加總(逐筆估值Σe)。有 loans 用逐筆算,沒有才退用存的舊總額——確保名片和抵押貸款區永遠同步
+- L3376 `loansToTotals(loans)` — loans[] → {bank,legal,private} 加總（萬）：直接加總各筆 e（使用者手改過的金額也算進去，絕不再 ÷1.2）
+- L3386 `classifyCreditor(name)` — 依關鍵字預判債權人名稱屬於銀行／法人／民間（規則與 parseRightsLoans 一致）
+- L3393 `isPlaceholderLoanName(n)` — 總檔摘要佔位筆的系統代填名稱（parseRightsLoans fallback 產生的）
+- L3396 `patchLoanDates(dstLoans,srcLoans)` — 例外：總檔摘要佔位筆（系統代填名稱＋沒登序，金額是摘要數字常對不上謄本設定額）→ 放寬成「分類兩邊都唯一」就補，並順便補登序、把佔位名稱換成真實債權人。
+- L3425 `applyLoansToProp(p,loans)` — 把 loans[] 套用到不動產物件 p：設定 p.loans 並從中加總回寫 p.bank/legal/private
+- L3434 `ensurePropLoans(c,p)` — 若 p.loans 已存在但缺 e（t82 舊資料），就地補上 e（同 defaultLoanE 預設規則）
 
-### 公司總檔匯入  (L3454)
-- L3460 `ownBuildKeyFromBuildInfo(text)` — 這才是「同一間」的唯一識別；「共同擔保建號」清單是整棟/整批共用的，拿它判斷同一間會把不同戶併掉。
-- L3466 `samePropertyCard(p,incBuild,incSection,incAddrCore)`
-- L3480 `propIdOf(p)` — 兩張不動產卡是不是同一間（整理工具用）：都有自己的建號就比建號；否則門牌正規化後要「完全一樣」（不用前綴比對，5樓 跟 5樓之1 不能併）
-- L3481 `propListOf(p)`
-- L3482 `samePropPair(a,b)`
-- L3499 `foldPropInto(keep,other)` — 把 other 併進 keep：欄位只補空白、抵押列依登序或名稱＋金額去重後合併、版本紀錄接起來，然後 other 作廢
-- L3514 `mergeDuplicateProperties(dryRun)` — 合併同一人底下重複的不動產卡。dryRun=true 只算不改。回傳 {clients:n, props:n, names:[]}
-- L3539 `companyOwnerFromRaw(ownerRaw)` — 只在「沒有任何個人身分證格式」時才用(個人＋公司共有時仍以個人為客戶,維持原行為)。
-- L3547 `extractDebtPhones(raw)` — 「00」開頭多打的 0 修掉;沒區碼的市話(7-8碼)照原樣保留讓人看得到——不猜區碼、也不丟掉。
-- L3565 `floorsFromBuildInfo(bi)` — 建物標示 → 總樓層（「12層」）、建築完成年（民國「88年05月」）
-- L3566 `builtYearFromBuildInfo(bi)`
-- L3568 `jobSummary(c)` — 基本頁 → 「上班族（某公司），月收 6 萬，薪轉，有報稅」
-- L3578 `googleCommunity()`
-- L3583 `syncFloorsToEval()`
-- L3584 `syncBuiltYearToEval()`
-- L3585 `processCompanyData(raw)`
+### 公司總檔匯入  (L3455)
+- L3461 `ownBuildKeyFromBuildInfo(text)` — 這才是「同一間」的唯一識別；「共同擔保建號」清單是整棟/整批共用的，拿它判斷同一間會把不同戶併掉。
+- L3467 `samePropertyCard(p,incBuild,incSection,incAddrCore)`
+- L3481 `propIdOf(p)` — 兩張不動產卡是不是同一間（整理工具用）：都有自己的建號就比建號；否則門牌正規化後要「完全一樣」（不用前綴比對，5樓 跟 5樓之1 不能併）
+- L3482 `propListOf(p)`
+- L3483 `samePropPair(a,b)`
+- L3500 `foldPropInto(keep,other)` — 把 other 併進 keep：欄位只補空白、抵押列依登序或名稱＋金額去重後合併、版本紀錄接起來，然後 other 作廢
+- L3515 `mergeDuplicateProperties(dryRun)` — 合併同一人底下重複的不動產卡。dryRun=true 只算不改。回傳 {clients:n, props:n, names:[]}
+- L3540 `companyOwnerFromRaw(ownerRaw)` — 只在「沒有任何個人身分證格式」時才用(個人＋公司共有時仍以個人為客戶,維持原行為)。
+- L3548 `extractDebtPhones(raw)` — 「00」開頭多打的 0 修掉;沒區碼的市話(7-8碼)照原樣保留讓人看得到——不猜區碼、也不丟掉。
+- L3566 `floorsFromBuildInfo(bi)` — 建物標示 → 總樓層（「12層」）、建築完成年（民國「88年05月」）
+- L3567 `builtYearFromBuildInfo(bi)`
+- L3569 `jobSummary(c)` — 基本頁 → 「上班族（某公司），月收 6 萬，薪轉，有報稅」
+- L3579 `googleCommunity()`
+- L3584 `syncFloorsToEval()`
+- L3585 `syncBuiltYearToEval()`
+- L3586 `processCompanyData(raw)`
 
-### Toolbar visibility settings  (L4287)
-- L4301 `toggleMainMenu(e)`
-- L4312 `closeMainMenu()`
-- L4316 `closeImportMenu()`
-- L4323 `loadBtnVis()`
-- L4331 `saveBtnVis()`
-- L4336 `toggleBtnSettings(e)`
-- L4350 `renderBtnSettings()`
-- L4358 `setBtnVis(id,val)`
-- L4375 `uiDialog(o)`
-- L4395 `_uiDlgClose(val)`
-- L4399 `uiConfirm(msg,o)`
-- L4400 `uiAlert(msg)`
-- L4401 `uiPrompt(msg,value)`
+### Toolbar visibility settings  (L4288)
+- L4302 `toggleMainMenu(e)`
+- L4313 `closeMainMenu()`
+- L4317 `closeImportMenu()`
+- L4324 `loadBtnVis()`
+- L4332 `saveBtnVis()`
+- L4337 `toggleBtnSettings(e)`
+- L4351 `renderBtnSettings()`
+- L4359 `setBtnVis(id,val)`
+- L4376 `uiDialog(o)`
+- L4396 `_uiDlgClose(val)`
+- L4400 `uiConfirm(msg,o)`
+- L4401 `uiAlert(msg)`
+- L4402 `uiPrompt(msg,value)`
 
-### UI helpers  (L4418)
-- L4419 `showToast(msg)` — ── UI helpers ────────────────────────────────────────────
-- L4424 `remSt(r)`
-- L4430 `remChip(r,rt)`
-- L4457 `updateStats()`
-- L4501 `calEsc(s)`
-- L4502 `calMonth(delta)`
-- L4509 `renderCalendar()`
-- L4555 `openCalModal()`
-- L4556 `closeCalModal()`
-- L4559 `openDayView(ds)` — 點某天 → 當日排程清單（依時間由早到晚；Google 事件之後插進同一條時間線）
-- L4604 `closeDayView()`
-- L4610 `isCrmReminderEvent(e)` — CRM 自己用「加入行事曆」建的事件標題是「📞 聯絡 …」，這種跟客戶提醒重複，過濾掉
-- L4611 `loadGoogleCalCache()`
-- L4614 `syncGoogleCal(silent)`
-- L4635 `updateTabs()` — 手機端點擊切換
+### UI helpers  (L4419)
+- L4420 `showToast(msg)` — ── UI helpers ────────────────────────────────────────────
+- L4425 `remSt(r)`
+- L4431 `remChip(r,rt)`
+- L4458 `updateStats()`
+- L4502 `calEsc(s)`
+- L4503 `calMonth(delta)`
+- L4510 `renderCalendar()`
+- L4556 `openCalModal()`
+- L4557 `closeCalModal()`
+- L4560 `openDayView(ds)` — 點某天 → 當日排程清單（依時間由早到晚；Google 事件之後插進同一條時間線）
+- L4605 `closeDayView()`
+- L4611 `isCrmReminderEvent(e)` — CRM 自己用「加入行事曆」建的事件標題是「📞 聯絡 …」，這種跟客戶提醒重複，過濾掉
+- L4612 `loadGoogleCalCache()`
+- L4615 `syncGoogleCal(silent)`
+- L4636 `updateTabs()` — 手機端點擊切換
 
-### 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程  (L4660)
-- L4668 `staleDays()`
-- L4669 `setStaleDays(n)`
-- L4670 `lastLogDate(c)`
-- L4671 `daysSince(d)`
-- L4672 `isMuted(c)`
-- L4673 `staleBase(c)`
-- L4674 `isStale(c)`
-- L4675 `isNever(c)`
-- L4676 `staleTag(c)`
-- L4682 `muteBtn(c)`
-- L4684 `weekEndStr()`
-- L4685 `applyListFilters(list)`
+### 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程  (L4661)
+- L4669 `staleDays()`
+- L4670 `setStaleDays(n)`
+- L4671 `lastLogDate(c)`
+- L4672 `daysSince(d)`
+- L4673 `isMuted(c)`
+- L4674 `staleBase(c)`
+- L4675 `isStale(c)`
+- L4676 `isNever(c)`
+- L4677 `staleTag(c)`
+- L4683 `muteBtn(c)`
+- L4685 `weekEndStr()`
+- L4686 `applyListFilters(list)`
 
-### 記住檢視狀態（分類分頁、時間篩選、排序）：重新整理後不會又回到「全部＋提醒日期」  (L4696)
-- L4698 `saveViewState()`
-- L4701 `loadViewState()`
+### 記住檢視狀態（分類分頁、時間篩選、排序）：重新整理後不會又回到「全部＋提醒日期」  (L4697)
+- L4699 `saveViewState()`
+- L4702 `loadViewState()`
 
-### 搜尋：停頓 0.15 秒才重畫（打字不頓）、✕ 清空  (L4711)
-- L4713 `onSearchInput()`
-- L4718 `clearSearch()`
-- L4722 `updateSearchClear()`
-- L4730 `pushRecent(id)`
-- L4737 `onSearchFocus(on)`
-- L4742 `refreshRecentRow()`
-- L4750 `recentRowHtml(q)`
+### 搜尋：停頓 0.15 秒才重畫（打字不頓）、✕ 清空  (L4712)
+- L4714 `onSearchInput()`
+- L4719 `clearSearch()`
+- L4723 `updateSearchClear()`
+- L4731 `pushRecent(id)`
+- L4738 `onSearchFocus(on)`
+- L4743 `refreshRecentRow()`
+- L4751 `recentRowHtml(q)`
 
-### 卡片顯示模式：精簡（預設；點到的那張展開）／一律完整。存本機  (L4756)
-- L4760 `setCardMode(full)`
-- L4765 `renderCardModePicker()`
-- L4772 `shortAddr(a)` — 地址去掉縣市（卡片上只放區以後；完整版仍顯示全址）
+### 卡片顯示模式：精簡（預設；點到的那張展開）／一律完整。存本機  (L4757)
+- L4761 `setCardMode(full)`
+- L4766 `renderCardModePicker()`
+- L4773 `shortAddr(a)` — 地址去掉縣市（卡片上只放區以後；完整版仍顯示全址）
 
-### 清單分段載入：先畫 60 張，捲到底再補，開頁與切分頁才不會卡  (L4773)
-- L4776 `loadMoreCards()`
-- L4779 `jumpToClient(id)` — 不在目前篩選 → 清掉搜尋、切回「全部」、取消時間篩選；排在分段之後 → 把分段放大到他為止；最後捲到正中間。
-- L4800 `watchLoadMore()`
-- L4807 `setTimeFilter(t)`
-- L4813 `setTab(t)`
-- L4824 `hl(text,q)` — Highlight matching keyword in text
-- L4833 `clientMatchesQuery(c,q)` — 搜尋比對：姓名/電話/身分證/備註/主地址 + 所有房產的地址/建號/地號（打第二間以後也找得到）
-- L4860 `openMapExport()`
-- L4866 `mapRowMatch(r)`
-- L4867 `mapPickBatch(b)`
-- L4868 `closeMapExport()`
-- L4869 `buildMapRows()`
-- L4888 `renderMapCatBar()`
-- L4894 `toggleMapCat(h)`
-- L4895 `mapSelectAll(v)`
-- L4896 `updateMapCount()`
-- L4901 `renderMapList()`
-- L4918 `downloadMapCsv()`
-- L4941 `openListTool()`
-- L4949 `closeListTool()`
-- L4950 `ltToggleFilter()`
-- L4951 `ltToggleCat(h)`
-- L4952 `ltToggleCheck(id,on)`
-- L4953 `ltVisible()`
-- L4961 `ltSelectAllVisible(v)`
-- L4962 `renderListTool()`
-- L4982 `ltTagBatch()`
-- L4992 `closeLtBatch()`
-- L4993 `ltBatchApply()`
-- L5007 `findBySerial(s)`
-- L5009 `linkRelation(a,b,relation)` — 在 A、B 兩位客戶間建立雙向關聯（同型別不重複）
-- L5018 `unlinkRelation(a,b)`
-- L5024 `renderRelChips()` — 渲染目前編輯中客戶的關聯標籤
-- L5040 `openRelPicker()`
-- L5050 `closeRelPick()`
-- L5051 `renderRelPickList()`
-- L5065 `addRelation(targetId)`
-- L5076 `removeRelation(serial)`
-- L5091 `bldKeys(buildNo,col4,district,purpose)` — 優先用完整建號(col4，含縣市/區/段)；沒有才退用「區+段+建號數字」，且「沒填段就不比」避免亂配。
-- L5101 `renderCoOwners()`
-- L5119 `ltMapCsv()`
-- L5136 `logsToProcess(logs)` — 聯絡記錄→總檔「拜訪過程」格式（民國日期 + 內容，舊到新）
-- L5153 `loadXlsxStyle()`
-- L5169 `digitsOf(s)` — 謄本原文那種 CRM 沒拆開存的欄位（所有權部、債務人、義務人、權利人…）照總檔原值；兩邊都沒有的才用 CRM 資料湊一個看得懂的。
-- L5170 `loansToRights(loans)`
-- L5182 `companyExportRows(list)`
-- L5233 `buildCompanyWorkbook(X,rows)`
-- L5240 `buildCompanySheet(X,rows)`
-- L5256 `ltExportCompany()`
-- L5271 `noticeAddrParts(addr)` — 地址自動拆成 區/路/段/巷/弄/號/樓 各部分，填進通知單對應空格
-- L5287 `noticeSlip(c,dv)`
-- L5305 `ltPrintNotice()`
-- L5336 `ltExportNoticeData()` — 欄位名要跟 Word 範本的合併欄位一致：流水編號/姓名/地址/區/路/段/巷/弄/號/樓/樓別/投遞姓名/投遞電話
-- L5361 `render()`
-- L5520 `openHeatPick(e,id)`
-- L5537 `openMutePick(e,id)`
-- L5554 `applyMutePick(days)`
-- L5562 `closeHeatPick()`
-- L5563 `applyHeatPick(h)`
-- L5576 `togglePin(id,e)`
+### 清單分段載入：先畫 60 張，捲到底再補，開頁與切分頁才不會卡  (L4774)
+- L4777 `loadMoreCards()`
+- L4780 `jumpToClient(id)` — 不在目前篩選 → 清掉搜尋、切回「全部」、取消時間篩選；排在分段之後 → 把分段放大到他為止；最後捲到正中間。
+- L4801 `watchLoadMore()`
+- L4808 `setTimeFilter(t)`
+- L4814 `setTab(t)`
+- L4825 `hl(text,q)` — Highlight matching keyword in text
+- L4834 `clientMatchesQuery(c,q)` — 搜尋比對：姓名/電話/身分證/備註/主地址 + 所有房產的地址/建號/地號（打第二間以後也找得到）
+- L4861 `openMapExport()`
+- L4867 `mapRowMatch(r)`
+- L4868 `mapPickBatch(b)`
+- L4869 `closeMapExport()`
+- L4870 `buildMapRows()`
+- L4889 `renderMapCatBar()`
+- L4895 `toggleMapCat(h)`
+- L4896 `mapSelectAll(v)`
+- L4897 `updateMapCount()`
+- L4902 `renderMapList()`
+- L4919 `downloadMapCsv()`
+- L4942 `openListTool()`
+- L4950 `closeListTool()`
+- L4951 `ltToggleFilter()`
+- L4952 `ltToggleCat(h)`
+- L4953 `ltToggleCheck(id,on)`
+- L4954 `ltVisible()`
+- L4962 `ltSelectAllVisible(v)`
+- L4963 `renderListTool()`
+- L4983 `ltTagBatch()`
+- L4993 `closeLtBatch()`
+- L4994 `ltBatchApply()`
+- L5008 `findBySerial(s)`
+- L5010 `linkRelation(a,b,relation)` — 在 A、B 兩位客戶間建立雙向關聯（同型別不重複）
+- L5019 `unlinkRelation(a,b)`
+- L5025 `renderRelChips()` — 渲染目前編輯中客戶的關聯標籤
+- L5041 `openRelPicker()`
+- L5051 `closeRelPick()`
+- L5052 `renderRelPickList()`
+- L5066 `addRelation(targetId)`
+- L5077 `removeRelation(serial)`
+- L5092 `bldKeys(buildNo,col4,district,purpose)` — 優先用完整建號(col4，含縣市/區/段)；沒有才退用「區+段+建號數字」，且「沒填段就不比」避免亂配。
+- L5102 `renderCoOwners()`
+- L5120 `ltMapCsv()`
+- L5137 `logsToProcess(logs)` — 聯絡記錄→總檔「拜訪過程」格式（民國日期 + 內容，舊到新）
+- L5154 `loadXlsxStyle()`
+- L5170 `digitsOf(s)` — 謄本原文那種 CRM 沒拆開存的欄位（所有權部、債務人、義務人、權利人…）照總檔原值；兩邊都沒有的才用 CRM 資料湊一個看得懂的。
+- L5171 `loansToRights(loans)`
+- L5183 `companyExportRows(list)`
+- L5234 `buildCompanyWorkbook(X,rows)`
+- L5241 `buildCompanySheet(X,rows)`
+- L5257 `ltExportCompany()`
+- L5272 `noticeAddrParts(addr)` — 地址自動拆成 區/路/段/巷/弄/號/樓 各部分，填進通知單對應空格
+- L5288 `noticeSlip(c,dv)`
+- L5306 `ltPrintNotice()`
+- L5337 `ltExportNoticeData()` — 欄位名要跟 Word 範本的合併欄位一致：流水編號/姓名/地址/區/路/段/巷/弄/號/樓/樓別/投遞姓名/投遞電話
+- L5362 `render()`
+- L5521 `openHeatPick(e,id)`
+- L5538 `openMutePick(e,id)`
+- L5555 `applyMutePick(days)`
+- L5563 `closeHeatPick()`
+- L5564 `applyHeatPick(h)`
+- L5577 `togglePin(id,e)`
 
-### Batch select mode  (L5588)
-- L5592 `getVisibleList()`
-- L5601 `toggleSelectMode()`
-- L5608 `setSelectBtn(on)` — 選取鈕外觀：進入選取＝實心藍「✕ 取消」；平常＝淡藍「☑ 選取」（手機只顯示圖示）
-- L5614 `exitSelectMode()`
-- L5620 `toggleSelect(id,e)`
-- L5627 `batchDeleteSelected()` — 批次刪除勾選的客戶：不加黑名單（之後重新匯入會再建回來）；確認視窗列人數與前幾個名字
-- L5641 `batchClearReimport()` — 清掉勾選的人的 🔁 二次匯入記號（例如只是為了補持分重匯一次，不想留記號）
-- L5652 `withSel(fn)` — 名單面板那套動作（標批次／匯出／通知單／地圖）都吃 _ltChecked；這裡把主清單勾選的人灌進去再呼叫
-- L5658 `mapFromSelection()` — 地圖名單：開原本的地圖匯出視窗，但只預勾目前選取的人（分類全開，免得被分類篩掉）
-- L5663 `batchSelectAll()`
-- L5671 `updateBatchBar()`
-- L5682 `applyBatchCategory()`
-- L5693 `clearRemind(e,id)`
+### Batch select mode  (L5589)
+- L5593 `getVisibleList()`
+- L5602 `toggleSelectMode()`
+- L5609 `setSelectBtn(on)` — 選取鈕外觀：進入選取＝實心藍「✕ 取消」；平常＝淡藍「☑ 選取」（手機只顯示圖示）
+- L5615 `exitSelectMode()`
+- L5621 `toggleSelect(id,e)`
+- L5628 `batchDeleteSelected()` — 批次刪除勾選的客戶：不加黑名單（之後重新匯入會再建回來）；確認視窗列人數與前幾個名字
+- L5642 `batchClearReimport()` — 清掉勾選的人的 🔁 二次匯入記號（例如只是為了補持分重匯一次，不想留記號）
+- L5653 `withSel(fn)` — 名單面板那套動作（標批次／匯出／通知單／地圖）都吃 _ltChecked；這裡把主清單勾選的人灌進去再呼叫
+- L5659 `mapFromSelection()` — 地圖名單：開原本的地圖匯出視窗，但只預勾目前選取的人（分類全開，免得被分類篩掉）
+- L5664 `batchSelectAll()`
+- L5672 `updateBatchBar()`
+- L5683 `applyBatchCategory()`
+- L5694 `clearRemind(e,id)`
 
-### 電話點擊  (L5708)
+### 電話點擊  (L5709)
 
-### 手機撥號後回到 app → 自動開那位客戶的「聯絡記錄」頁，游標停在輸入框  (L5709)
-- L5722 `handlePhoneClick(e,phone,cid)`
+### 手機撥號後回到 app → 自動開那位客戶的「聯絡記錄」頁，游標停在輸入框  (L5710)
+- L5723 `handlePhoneClick(e,phone,cid)`
 
-### 關掉瀏覽器自動填入  (L5733)
+### 關掉瀏覽器自動填入  (L5734)
 
-### 表單髒標記  (L5747)
+### 表單髒標記  (L5748)
 
-### 瀏覽器推播通知  (L5751)
-- L5752 `initNotifications()` — ── 瀏覽器推播通知 ────────────────────────────────────────
-- L5756 `checkReminders()`
+### 瀏覽器推播通知  (L5752)
+- L5753 `initNotifications()` — ── 瀏覽器推播通知 ────────────────────────────────────────
+- L5757 `checkReminders()`
 
-### 鍵盤快捷鍵  (L5772)
-- L5817 `syncToEval(targetId,val)`
-- L5821 `syncLandtax(field,val)`
-- L5826 `extractDistrict(addr)`
-- L5829 `autoFillDistrict(addr)`
-- L5837 `refreshLoanSection()` — 房價評估頁「貸款狀況」區塊的可見度：有哪筆 loans（或其他貸款）就顯示，內容本身在 renderPriceEval() 產生
-- L5846 `openCalendar(id)`
-- L5863 `autoGrowNote(el)` — 備註欄隨內容自動長高（打越多越高，不用滾）
+### 鍵盤快捷鍵  (L5773)
+- L5818 `syncToEval(targetId,val)`
+- L5822 `syncLandtax(field,val)`
+- L5827 `extractDistrict(addr)`
+- L5830 `autoFillDistrict(addr)`
+- L5838 `refreshLoanSection()` — 房價評估頁「貸款狀況」區塊的可見度：有哪筆 loans（或其他貸款）就顯示，內容本身在 renderPriceEval() 產生
+- L5847 `openCalendar(id)`
+- L5864 `autoGrowNote(el)` — 備註欄隨內容自動長高（打越多越高，不用滾）
 
-### Sheet modal  (L5865)
+### Sheet modal  (L5866)
 
-### t126 新欄位：聯絡／工作家庭／借款需求／信用／文件清單／結案原因  (L5866)
-- L5871 `nextDocState(cur)`
-- L5876 `saveCustomDocs()`
-- L5880 `allDocNames()`
-- L5884 `addCustomDoc()`
-- L5891 `removeCustomDoc(name)`
-- L5899 `renderDocChips()`
-- L5911 `toggleDoc(name)`
-- L5917 `fillExtraFields(c)`
-- L5935 `updateSpouseRow()` — 配偶欄只在「已婚」時出現；改成非已婚就把配偶值清掉
-- L5943 `renderBatchChips()` — 來源批次籤：顯示 #fBatch（「、」串接）裡的每一個，✕ 可移除；新增從輸入框 Enter
-- L5950 `addBatchChip()`
-- L5957 `removeBatchChip(b)`
-- L5963 `updateCloseReasonRow()` — 結案原因只在「無效案件」時出現
-- L5969 `creditSet()`
-- L5970 `renderCreditChips()`
-- L5975 `toggleCredit(o)`
-- L5986 `renderHeatChips()` — ── 追蹤熱度色籤（取代下拉；仍透過隱藏的 #fHeat 存值，其他程式不用改）──
-- L5992 `pickHeatChip(h)`
+### t126 新欄位：聯絡／工作家庭／借款需求／信用／文件清單／結案原因  (L5867)
+- L5872 `nextDocState(cur)`
+- L5877 `saveCustomDocs()`
+- L5881 `allDocNames()`
+- L5885 `addCustomDoc()`
+- L5892 `removeCustomDoc(name)`
+- L5900 `renderDocChips()`
+- L5912 `toggleDoc(name)`
+- L5918 `fillExtraFields(c)`
+- L5936 `updateSpouseRow()` — 配偶欄只在「已婚」時出現；改成非已婚就把配偶值清掉
+- L5944 `renderBatchChips()` — 來源批次籤：顯示 #fBatch（「、」串接）裡的每一個，✕ 可移除；新增從輸入框 Enter
+- L5951 `addBatchChip()`
+- L5958 `removeBatchChip(b)`
+- L5964 `updateCloseReasonRow()` — 結案原因只在「無效案件」時出現
+- L5970 `creditSet()`
+- L5971 `renderCreditChips()`
+- L5976 `toggleCredit(o)`
+- L5987 `renderHeatChips()` — ── 追蹤熱度色籤（取代下拉；仍透過隱藏的 #fHeat 存值，其他程式不用改）──
+- L5993 `pickHeatChip(h)`
 
-### 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度  (L5997)
-- L5998 `updateSheetHeader()` — ── 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度 ──
-- L6018 `applyReadOnlyToSheet()` — 唯讀：面板所有輸入欄鎖住（看得到、不能改）；按鈕由 CSS .readonly 隱藏
-- L6024 `saveBtnLabel()` — 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
-- L6025 `openAdd()`
-- L6069 `isSheetOpen()`
-- L6071 `highlightActiveCard(doScroll)` — 左邊清單標出「右邊正在看的那位」：卡片浮起來，並把它捲進可視範圍(↑↓切換客戶時清單會跟著走)
-- L6102 `openEdit(id)`
-- L6182 `closeSheet()`
-- L6203 `evalCtx(c,p)`
-- L6208 `renderPriceEval(c)`
-- L6392 `calcEvalBuildArea()`
-- L6446 `calcTotal()`
-- L6469 `fmtWan(n)` — 行情／總價範圍文字：好賣價～行情價（萬/坪）、各乘建坪再加車位
-- L6470 `priceRangeStr(lo,hi,area,parkVal)`
-- L6477 `regionFromAddr(addr)` — 門牌 → 「台北市 中山區」
-- L6482 `clientAgeStr(c)` — 客戶年紀：用基本頁的出生年月日（民國）
-- L6490 `evalReportText(d)` — 案源評估：純文字排版（空行位置照老闆定的範本，一行都不能動）
-- L6529 `generateReport(clientId)`
-- L6630 `sSTab(i,el)`
-- L6647 `renderCompanyTabs()`
-- L6660 `selectCompanyProp(i)`
-- L6668 `renderCompanyPanel()`
-- L6730 `sSTabTo(i)`
-- L6740 `logKindLabel(k)`
-- L6741 `logKindTag(k)`
-- L6742 `renderLogKindChips()`
-- L6746 `renderLogs()`
-- L6771 `editLog(i)`
-- L6777 `cancelLogEdit()`
-- L6778 `saveLogEdit(i)`
-- L6794 `markDebtPhoneDeleted(p)`
-- L6800 `renderDebtPhones()`
-- L6810 `debtPhoneTel(p)` — 債電字串 → tel: 可用的號碼：去掉「（名字）」等註記，#分機 變成「,分機」（撥通後停一下再送分機）
-- L6817 `dialDebtPhone(i)`
-- L6822 `addDebtPhone()`
-- L6823 `setDebtPhone(i,v)`
-- L6828 `removeDebtPhone(i)`
-- L6832 `addLog()`
-- L6844 `defaultRemindTime()` — 填了提醒日期、時間還空白 → 預設 11:30（業主定）
-- L6849 `quickRemind(days)`
-- L6864 `removeLog(i)`
+### 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度  (L5998)
+- L5999 `updateSheetHeader()` — ── 面板標題列：頭像（名字首字、顏色跟分類）、副標（流水編號 · 區）、資料完整度 ──
+- L6019 `applyReadOnlyToSheet()` — 唯讀：面板所有輸入欄鎖住（看得到、不能改）；按鈕由 CSS .readonly 隱藏
+- L6025 `saveBtnLabel()` — 儲存鈕文字依情況：新客戶「建立客戶」；既有客戶手機「存並關閉」、電腦「儲存」（面板不關）
+- L6026 `openAdd()`
+- L6070 `isSheetOpen()`
+- L6072 `highlightActiveCard(doScroll)` — 左邊清單標出「右邊正在看的那位」：卡片浮起來，並把它捲進可視範圍(↑↓切換客戶時清單會跟著走)
+- L6103 `openEdit(id)`
+- L6183 `closeSheet()`
+- L6204 `evalCtx(c,p)`
+- L6209 `renderPriceEval(c)`
+- L6393 `calcEvalBuildArea()`
+- L6447 `calcTotal()`
+- L6470 `fmtWan(n)` — 行情／總價範圍文字：好賣價～行情價（萬/坪）、各乘建坪再加車位
+- L6471 `priceRangeStr(lo,hi,area,parkVal)`
+- L6478 `regionFromAddr(addr)` — 門牌 → 「台北市 中山區」
+- L6483 `clientAgeStr(c)` — 客戶年紀：用基本頁的出生年月日（民國）
+- L6491 `evalReportText(d)` — 案源評估：純文字排版（空行位置照老闆定的範本，一行都不能動）
+- L6530 `generateReport(clientId)`
+- L6631 `sSTab(i,el)`
+- L6648 `renderCompanyTabs()`
+- L6661 `selectCompanyProp(i)`
+- L6669 `renderCompanyPanel()`
+- L6731 `sSTabTo(i)`
+- L6741 `logKindLabel(k)`
+- L6742 `logKindTag(k)`
+- L6743 `renderLogKindChips()`
+- L6747 `renderLogs()`
+- L6772 `editLog(i)`
+- L6778 `cancelLogEdit()`
+- L6779 `saveLogEdit(i)`
+- L6795 `markDebtPhoneDeleted(p)`
+- L6801 `renderDebtPhones()`
+- L6811 `debtPhoneTel(p)` — 債電字串 → tel: 可用的號碼：去掉「（名字）」等註記，#分機 變成「,分機」（撥通後停一下再送分機）
+- L6818 `dialDebtPhone(i)`
+- L6823 `addDebtPhone()`
+- L6824 `setDebtPhone(i,v)`
+- L6829 `removeDebtPhone(i)`
+- L6833 `addLog()`
+- L6845 `defaultRemindTime()` — 填了提醒日期、時間還空白 → 預設 11:30（業主定）
+- L6850 `quickRemind(days)`
+- L6865 `removeLog(i)`
 
-### Extra Loans  (L6878)
-- L6883 `landAreaLabel(no)` — 坪數欄標籤：有地號→「114地號面積」；沒有→「土地坪數」
-- L6884 `updateLandLabels()`
-- L6888 `renderExtraLands()`
-- L6917 `syncExtraAreaLabel(i)`
-- L6921 `addExtraLand()`
-- L6923 `applyLandShare()` — 土地：全筆坪 × 持分 → 自動填進「土地持分坪」（估價用）；沒填全筆或持分就不動手填的值
-- L6934 `renderShareBanner()` — 持分結算條：把「系統實際用的坪數」用大字寫出來，持分<1 橘底、全部持有綠底
-- L6952 `updateLandTotals()`
-- L6968 `renderExtraLoans()`
-- L6977 `addExtraLoan()`
-- L6980 `renderLoanRows()` — ── 抵押貸款：逐筆列債權人（登序＋名稱＋金額＋分類）───────────────
-- L7021 `addLoanRow()`
-- L7029 `removeLoanRow(i)`
-- L7037 `rocShort(iso)` — 西元 2026-10-19 → 民國 115/10/19
-- L7038 `toggleLoanConfirm(i)`
-- L7044 `setLoanField(i,key,val)`
-- L7055 `syncLoanTotalsToForm()` — 從 p.loans 加總回寫 p.bank/legal/private，同步進隱藏欄位＋房價評估區＋可貸空間
-- L7070 `renderFinProofs()`
-- L7079 `addFinProof()`
-- L7081 `reorderProofHints()` — 收入佐證的建議類型排序：薪轉→存摺排第一；有報稅→所得清單/扣繳憑單排第一（只是排序提示，不自動填）
-- L7091 `syncDocFromProof(type)`
-- L7101 `openMapForProp()` — 📍 地圖：用門牌開 Google 地圖釘一根針（手機會直接開地圖 App）
-- L7106 `openLandZoneQuery()`
-- L7119 `calcAge()`
+### Extra Loans  (L6879)
+- L6884 `landAreaLabel(no)` — 坪數欄標籤：有地號→「114地號面積」；沒有→「土地坪數」
+- L6885 `updateLandLabels()`
+- L6889 `renderExtraLands()`
+- L6918 `syncExtraAreaLabel(i)`
+- L6922 `addExtraLand()`
+- L6924 `applyLandShare()` — 土地：全筆坪 × 持分 → 自動填進「土地持分坪」（估價用）；沒填全筆或持分就不動手填的值
+- L6935 `renderShareBanner()` — 持分結算條：把「系統實際用的坪數」用大字寫出來，持分<1 橘底、全部持有綠底
+- L6953 `updateLandTotals()`
+- L6969 `renderExtraLoans()`
+- L6978 `addExtraLoan()`
+- L6981 `renderLoanRows()` — ── 抵押貸款：逐筆列債權人（登序＋名稱＋金額＋分類）───────────────
+- L7022 `addLoanRow()`
+- L7030 `removeLoanRow(i)`
+- L7038 `rocShort(iso)` — 西元 2026-10-19 → 民國 115/10/19
+- L7039 `toggleLoanConfirm(i)`
+- L7045 `setLoanField(i,key,val)`
+- L7056 `syncLoanTotalsToForm()` — 從 p.loans 加總回寫 p.bank/legal/private，同步進隱藏欄位＋房價評估區＋可貸空間
+- L7071 `renderFinProofs()`
+- L7080 `addFinProof()`
+- L7082 `reorderProofHints()` — 收入佐證的建議類型排序：薪轉→存摺排第一；有報稅→所得清單/扣繳憑單排第一（只是排序提示，不自動填）
+- L7092 `syncDocFromProof(type)`
+- L7102 `openMapForProp()` — 📍 地圖：用門牌開 Google 地圖釘一根針（手機會直接開地圖 App）
+- L7107 `openLandZoneQuery()`
+- L7120 `calcAge()`
 
-### Properties (多筆不動產)  (L7134)
-- L7138 `emptyProperty(n)`
-- L7147 `propLabel(p)` — 不動產子頁標籤：地址優先（取區之後的街路門牌），沒地址才用建號
-- L7157 `migrateProperties(c)`
-- L7180 `renderPropTabs()`
-- L7189 `startRenameTab(e,idx)`
-- L7203 `finishRenameTab(inp,idx)`
-- L7209 `savePropFields()`
-- L7253 `loadPropFields(idx)`
-- L7301 `calcLoanRoom()` — 可貸空間 = 核定估價 × 成數 − 既有抵押(銀行+租賃+民間+其他)
-- L7336 `buildLoanCalcState(c,p)` — 用目前不動產的抵押金額建立試算表初始狀態
-- L7366 `openLoanCalc()`
-- L7399 `renderLoanHints()`
-- L7422 `togglePrivateConfirm(v)`
-- L7427 `switchProperty(idx)`
-- L7433 `addProperty()`
-- L7442 `removeProperty(idx)`
-- L7453 `jumpToEval()`
+### Properties (多筆不動產)  (L7135)
+- L7139 `emptyProperty(n)`
+- L7148 `propLabel(p)` — 不動產子頁標籤：地址優先（取區之後的街路門牌），沒地址才用建號
+- L7158 `migrateProperties(c)`
+- L7181 `renderPropTabs()`
+- L7190 `startRenameTab(e,idx)`
+- L7204 `finishRenameTab(inp,idx)`
+- L7210 `savePropFields()`
+- L7254 `loadPropFields(idx)`
+- L7302 `calcLoanRoom()` — 可貸空間 = 核定估價 × 成數 − 既有抵押(銀行+租賃+民間+其他)
+- L7337 `buildLoanCalcState(c,p)` — 用目前不動產的抵押金額建立試算表初始狀態
+- L7367 `openLoanCalc()`
+- L7400 `renderLoanHints()`
+- L7423 `togglePrivateConfirm(v)`
+- L7428 `switchProperty(idx)`
+- L7434 `addProperty()`
+- L7443 `removeProperty(idx)`
+- L7454 `jumpToEval()`
 
-### 房價評估：畫面上顯示的是「哪一筆」不動產  (L7460)
-- L7465 `collectEvalData()` — 讀取評估表單目前的內容（存檔與切換前保存都用這個，只有一份定義）
-- L7482 `saveEvalFields()` — 把畫面上的評估內容存回「畫面正在顯示的那一筆」（不是 curPropIdx，切換途中兩者可能不同）
-- L7489 `refreshPriceEval()` — 重畫評估面板成「目前這筆」，並記住畫的是哪一筆
-- L7496 `updateEvalIndicator()`
+### 房價評估：畫面上顯示的是「哪一筆」不動產  (L7461)
+- L7466 `collectEvalData()` — 讀取評估表單目前的內容（存檔與切換前保存都用這個，只有一份定義）
+- L7483 `saveEvalFields()` — 把畫面上的評估內容存回「畫面正在顯示的那一筆」（不是 curPropIdx，切換途中兩者可能不同）
+- L7490 `refreshPriceEval()` — 重畫評估面板成「目前這筆」，並記住畫的是哪一筆
+- L7497 `updateEvalIndicator()`
 
-### 謄本 Import  (L7504)
-- L7515 `openTenModal()`
-- L7528 `closeTenModal()`
-- L7530 `normNum(s)`
-- L7537 `detectTenType(text)`
-- L7550 `parseBiao(text)`
-- L7575 `parseSuo(text)`
-- L7591 `parseTa(text)`
-- L7613 `extractPdfText(file)`
-- L7639 `handleTenFiles(files)`
-- L7679 `tenToggleRaw(idx)`
-- L7688 `renderTenPreview()`
-- L7713 `doTenImport()`
-- L7727 `applyTenParsed(mode)`
-- L7765 `onTenModeChange()`
-- L7772 `filterTenClients()`
-- L7793 `selectTenClient(id)`
-- L7798 `saveClient(silent)`
-- L7903 `scheduleDraftSave()`
-- L7911 `setSaveStatus(kind,text)` — 面板標題旁的狀態字：saving=儲存中、saved=✓ 已自動儲存 時:分、dirty=灰字提示
+### 謄本 Import  (L7505)
+- L7516 `openTenModal()`
+- L7529 `closeTenModal()`
+- L7531 `normNum(s)`
+- L7538 `detectTenType(text)`
+- L7551 `parseBiao(text)`
+- L7576 `parseSuo(text)`
+- L7592 `parseTa(text)`
+- L7614 `extractPdfText(file)`
+- L7640 `handleTenFiles(files)`
+- L7680 `tenToggleRaw(idx)`
+- L7689 `renderTenPreview()`
+- L7714 `doTenImport()`
+- L7728 `applyTenParsed(mode)`
+- L7766 `onTenModeChange()`
+- L7773 `filterTenClients()`
+- L7794 `selectTenClient(id)`
+- L7799 `saveClient(silent)`
+- L7904 `scheduleDraftSave()`
+- L7912 `setSaveStatus(kind,text)` — 面板標題旁的狀態字：saving=儲存中、saved=✓ 已自動儲存 時:分、dirty=灰字提示
 
-### 還原：開啟客戶時先拍一份快照，誤改（含已自動存的）可整筆退回  (L7916)
-- L7918 `takeSnapshot(id)`
-- L7924 `updateRevertBtn()`
-- L7929 `revertClient()`
-- L7945 `deleteClient()`
-- L7955 `blacklistClient()`
+### 還原：開啟客戶時先拍一份快照，誤改（含已自動存的）可整筆退回  (L7917)
+- L7919 `takeSnapshot(id)`
+- L7925 `updateRevertBtn()`
+- L7930 `revertClient()`
+- L7946 `deleteClient()`
+- L7956 `blacklistClient()`
 
-### AI 整理匯入  (L7967)
-- L7970 `openAiImport()`
-- L7979 `closeAiImport()`
+### AI 整理匯入  (L7968)
+- L7971 `openAiImport()`
+- L7980 `closeAiImport()`
 
-### 📥 AI匯入待審收件匣：Cowork POST 進 GAS 佇列 → 這裡紅點提示 → 點開走既有AI匯入預覽 → 確認匯入後標記已處理  (L7981)
-- L7983 `checkInbox()`
-- L7993 `openInbox()`
-- L8006 `inboxMarkDone()` — 匯入成功後呼叫:通知 GAS 標記已處理、紅點消失
-- L8012 `parseAiImport()`
-- L8039 `normBuildNo(s)` — 建號正規化：去掉段名與前導0，套用「母-子」慣例，全0子號只留母號
-- L8052 `normAddr(s)`
-- L8054 `addrCore(s)` — 地址核心：去掉縣市區鄉鎮前綴，只留街路門牌（兩邊格式不同也能對上）
-- L8060 `surnameOf(n)` — 姓氏（去掉遮罩星號取第一字）：「龔**」→「龔」
-- L8061 `isMaskedName(n)`
-- L8063 `clearlyDifferentPerson(a,b)` — 判斷 a、b 是否「明顯不同人」(用於同建號/同地址時避免把持分共有的共有人併在一起)
-- L8074 `addrHit(a,b)`
-- L8077 `findAiMatch(rec)` — 多層比對：身分證→電話→建號→地址(+姓氏)→只有姓名
-- L8125 `renderAiPreview()`
-- L8180 `weakMatchBox(x,i)` — 疑似同名：顯示系統既有那筆的資料 + 合併/新增 按鈕讓使用者判斷
-- L8199 `setAiDecision(i,v)`
-- L8202 `mapEval(rec)` — 案源評估表欄位 → evalData（key 與系統內部一致）
-- L8216 `shareFromOwner(ownerRaw)` — 從所有權部文字抓這一戶的建物持分：第一個「X分之Y」→ Y/X（全部1分之1＝1/1）；抓不到回 0/0
-- L8222 `parseShare(s,num,den)`
-- L8236 `emptyProp()`
-- L8244 `recordToProps(rec)`
-- L8328 `mergePropInto(dst,src)` — 把匯入不動產 src 的資料補進既有不動產 dst 的「空格」，有值的不覆蓋
-- L8366 `doAiImport()`
+### 📥 AI匯入待審收件匣：Cowork POST 進 GAS 佇列 → 這裡紅點提示 → 點開走既有AI匯入預覽 → 確認匯入後標記已處理  (L7982)
+- L7984 `checkInbox()`
+- L7994 `openInbox()`
+- L8007 `inboxMarkDone()` — 匯入成功後呼叫:通知 GAS 標記已處理、紅點消失
+- L8013 `parseAiImport()`
+- L8040 `normBuildNo(s)` — 建號正規化：去掉段名與前導0，套用「母-子」慣例，全0子號只留母號
+- L8053 `normAddr(s)`
+- L8056 `cleanAddr(s)` — 門牌統一寫法（存檔、匯入、整理工具都用這個）：全形數字→半形、「五樓」→「5樓」、去掉所有空白。台／臺不動。
+- L8057 `addrCore(s)`
+- L8063 `surnameOf(n)` — 姓氏（去掉遮罩星號取第一字）：「龔**」→「龔」
+- L8064 `isMaskedName(n)`
+- L8066 `clearlyDifferentPerson(a,b)` — 判斷 a、b 是否「明顯不同人」(用於同建號/同地址時避免把持分共有的共有人併在一起)
+- L8077 `addrHit(a,b)`
+- L8080 `findAiMatch(rec)` — 多層比對：身分證→電話→建號→地址(+姓氏)→只有姓名
+- L8128 `renderAiPreview()`
+- L8183 `weakMatchBox(x,i)` — 疑似同名：顯示系統既有那筆的資料 + 合併/新增 按鈕讓使用者判斷
+- L8202 `setAiDecision(i,v)`
+- L8205 `mapEval(rec)` — 案源評估表欄位 → evalData（key 與系統內部一致）
+- L8219 `shareFromOwner(ownerRaw)` — 從所有權部文字抓這一戶的建物持分：第一個「X分之Y」→ Y/X（全部1分之1＝1/1）；抓不到回 0/0
+- L8225 `parseShare(s,num,den)`
+- L8239 `emptyProp()`
+- L8247 `recordToProps(rec)`
+- L8331 `mergePropInto(dst,src)` — 把匯入不動產 src 的資料補進既有不動產 dst 的「空格」，有值的不覆蓋
+- L8369 `doAiImport()`
 
-### 分享客戶給同事：把一筆客戶轉成「AI 匯入」吃得下的 JSON，同事貼進🤖AI匯入即可建檔  (L8452)
-- L8453 `clientToShareJson(c)` — ── 分享客戶給同事：把一筆客戶轉成「AI 匯入」吃得下的 JSON，同事貼進🤖AI匯入即可建檔 ──
-- L8491 `shareClient()`
-- L8500 `closeShare()`
-- L8501 `copyShareCode()`
-- L8509 `nativeShareCode()`
+### 分享客戶給同事：把一筆客戶轉成「AI 匯入」吃得下的 JSON，同事貼進🤖AI匯入即可建檔  (L8455)
+- L8456 `clientToShareJson(c)` — ── 分享客戶給同事：把一筆客戶轉成「AI 匯入」吃得下的 JSON，同事貼進🤖AI匯入即可建檔 ──
+- L8494 `shareClient()`
+- L8503 `closeShare()`
+- L8504 `copyShareCode()`
+- L8512 `nativeShareCode()`
 
-### XLS Import  (L8514)
-- L8515 `openImport()` — ── XLS Import ────────────────────────────────────────────
-- L8523 `closeImport()`
+### XLS Import  (L8517)
+- L8518 `openImport()` — ── XLS Import ────────────────────────────────────────────
+- L8526 `closeImport()`
 
-### Blacklist UI  (L8525)
-- L8526 `openBlacklist()` — ── Blacklist UI ──────────────────────────────────────────
-- L8546 `closeBlacklist()`
-- L8553 `normalizeXlsRows(raw)` — 回傳 {format:'master'|'export'|'unknown', rows, count}；rows 一律是「前 2 列標題、第 3 列起資料」的 25 欄陣列。
-- L8568 `handleXls(file)`
-- L8597 `doImport()`
-- L8611 `idnoFromOwner(ownerRaw)` — 從所有權部文字抓身分證：完整(A+9碼)優先,否則遮罩版(只取緊接姓名前那組)
-- L8618 `isTrustOwner(ownerStr)` — 信託判斷：所有權部有「信託」但沒「塗銷」＝進行中信託(登記人是受託人)
-- L8620 `trustSettlorName(ownerStr,restrictStr)` — 從信託謄本抓「委託人(原屋主)」：可能在 1.所有權部「信託（委託人：X）」 2.遮罩名後括號「張＊＊（高鄭慧貞）」 3.限制登記事項「委託人:X」
-- L8628 `isMaskedShortName(n)` — 名字是不是遮罩/只剩姓(總檔的遮罩名會被縮成單姓如「馬」)
-- L8631 `ownerFullNameFromCompanyRaw(cr)` — 注意:「義務人」和冒號間可能有空白/換行(義務人  :馬曉芃)
-- L8638 `censusFromCompanyRaw(cr)` — 從整列總檔抓戶籍地：優先第7欄,否則所有權部第二行(屋主住址)
-- L8647 `bestDoor(buildInfo,ownerRaw)` — 門牌欄空白/壞掉時的最佳門牌：優先標示部(col3)的門牌行(縣市+區+門牌),沒有就退用所有權部屋主住址
-- L8663 `fixAddrDistrict(addr,buildInfo)` — 用標示部(謄本)修正門牌的「區」：只在區不一致時換區,縣市與街道保留
-- L8676 `isJunkLog(t)` — 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
-- L8677 `applyNewRulesToExisting(dryRun)`
-- L8772 `runApplyNewRules()`
-- L8788 `cleanupDirtyData()` — 🧹 清理明顯髒資料：標題列誤當客戶、地址裡的 Excel 公式殘渣、錯放成身分證的地址
-- L8832 `cleanupDuplicateProps()` — 注意：不看身分證！謄本所有權部本來就帶屋主身分證號，那不是聯絡方式，看了會清不掉。
-- L8844 `cleanupInvalidEmpty()`
-- L8862 `splitMergedCoborrowers()` — 🔗 拆分舊的「名字／名字」共同借款人：拆成獨立兩筆＋雙向綁定「共同借款人」
-- L8903 `fixTrustClients()` — 🔍 找出信託案件並修正：名字是受託人的→改成委託人(原屋主);抓不到委託人的→標記待補
-- L8938 `clearAllData()`
+### Blacklist UI  (L8528)
+- L8529 `openBlacklist()` — ── Blacklist UI ──────────────────────────────────────────
+- L8549 `closeBlacklist()`
+- L8556 `normalizeXlsRows(raw)` — 回傳 {format:'master'|'export'|'unknown', rows, count}；rows 一律是「前 2 列標題、第 3 列起資料」的 25 欄陣列。
+- L8571 `handleXls(file)`
+- L8600 `doImport()`
+- L8614 `idnoFromOwner(ownerRaw)` — 從所有權部文字抓身分證：完整(A+9碼)優先,否則遮罩版(只取緊接姓名前那組)
+- L8621 `isTrustOwner(ownerStr)` — 信託判斷：所有權部有「信託」但沒「塗銷」＝進行中信託(登記人是受託人)
+- L8623 `trustSettlorName(ownerStr,restrictStr)` — 從信託謄本抓「委託人(原屋主)」：可能在 1.所有權部「信託（委託人：X）」 2.遮罩名後括號「張＊＊（高鄭慧貞）」 3.限制登記事項「委託人:X」
+- L8631 `isMaskedShortName(n)` — 名字是不是遮罩/只剩姓(總檔的遮罩名會被縮成單姓如「馬」)
+- L8634 `ownerFullNameFromCompanyRaw(cr)` — 注意:「義務人」和冒號間可能有空白/換行(義務人  :馬曉芃)
+- L8641 `censusFromCompanyRaw(cr)` — 從整列總檔抓戶籍地：優先第7欄,否則所有權部第二行(屋主住址)
+- L8650 `bestDoor(buildInfo,ownerRaw)` — 門牌欄空白/壞掉時的最佳門牌：優先標示部(col3)的門牌行(縣市+區+門牌),沒有就退用所有權部屋主住址
+- L8666 `fixAddrDistrict(addr,buildInfo)` — 用標示部(謄本)修正門牌的「區」：只在區不一致時換區,縣市與街道保留
+- L8679 `isJunkLog(t)` — 聯絡紀錄雜訊判斷：內容只剩數字/標點（沒中文也沒字母）就是雜訊
+- L8680 `applyNewRulesToExisting(dryRun)`
+- L8775 `runApplyNewRules()`
+- L8791 `cleanupDirtyData()` — 🧹 清理明顯髒資料：標題列誤當客戶、地址裡的 Excel 公式殘渣、錯放成身分證的地址
+- L8836 `normalizeAllAddrs(dryRun)` — 門牌統一半形：所有客戶地址、戶籍地址、每張不動產卡的門牌。dryRun 只算
+- L8845 `cleanupAddrs()`
+- L8856 `cleanupDuplicateProps()`
+- L8868 `cleanupInvalidEmpty()`
+- L8886 `splitMergedCoborrowers()` — 🔗 拆分舊的「名字／名字」共同借款人：拆成獨立兩筆＋雙向綁定「共同借款人」
+- L8927 `fixTrustClients()` — 🔍 找出信託案件並修正：名字是受託人的→改成委託人(原屋主);抓不到委託人的→標記待補
+- L8962 `clearAllData()`
 
-### City Filter  (L8960)
-- L8964 `initCityFilter()`
-- L8975 `toggleCityFilter()`
-- L8983 `updateFilterBadge()` — 篩選徽章：縣市數 + 批次數 合計顯示在「🗺️ 篩選」按鈕上
-- L8989 `onCityChange()`
-- L8998 `selectAllCities()`
-- L9003 `clearAllCities()`
+### City Filter  (L8984)
+- L8988 `initCityFilter()`
+- L8999 `toggleCityFilter()`
+- L9007 `updateFilterBadge()` — 篩選徽章：縣市數 + 批次數 合計顯示在「🗺️ 篩選」按鈕上
+- L9013 `onCityChange()`
+- L9022 `selectAllCities()`
+- L9027 `clearAllCities()`
 
-### 來源批次：篩選 + 標記工具  (L9008)
+### 來源批次：篩選 + 標記工具  (L9032)
 
-### 批次管理視窗  (L9011)
-- L9012 `openBatchMgr()` — ── 批次管理視窗 ──
-- L9018 `closeBatchMgr()`
-- L9019 `batchMgrSuggestAll()`
-- L9020 `batchMgrResetAll()`
-- L9021 `batchMgrApply()`
+### 批次管理視窗  (L9035)
+- L9036 `openBatchMgr()` — ── 批次管理視窗 ──
+- L9042 `closeBatchMgr()`
+- L9043 `batchMgrSuggestAll()`
+- L9044 `batchMgrResetAll()`
+- L9045 `batchMgrApply()`
 
-### t141 多批次：batch 仍是一格文字，多個用「、」串接；一律用下面這幾個函式讀寫  (L9033)
-- L9035 `batchList(c)`
-- L9036 `batchJoin(arr)`
-- L9037 `batchAdd(c,b)`
-- L9038 `batchSetAll(c,label)`
-- L9040 `suggestBatchName(b)` — 批次改名建議：新鑫「1150318_資料 (5)」→「新鑫 115/03/18 (5)」（同月多份，保留日）；「115_03 松山區包區」→「包區 115/03 松山區」；「X中人
-- L9048 `allBatches()`
-- L9049 `batchFilterPass(c)`
-- L9050 `refreshBatchDatalist()`
-- L9055 `renderBatchCheckboxes()`
-- L9064 `onBatchChange()`
-- L9065 `clearBatchFilter()`
-- L9070 `renderBatchTagCatBar()`
-- L9074 `toggleBatchTagCat(h)`
-- L9076 `openBatchTag()`
-- L9088 `closeBatchTag()`
-- L9092 `openBatchTagForImport(newIds)` — 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
-- L9104 `batchTagVisible()`
-- L9114 `updateBatchTagCount(visLen)`
-- L9115 `renderBatchTagList()`
-- L9131 `toggleBatchTagPick(id,on)`
-- L9132 `batchTagSelectAll(v)`
-- L9133 `batchTagApply()`
+### t141 多批次：batch 仍是一格文字，多個用「、」串接；一律用下面這幾個函式讀寫  (L9057)
+- L9059 `batchList(c)`
+- L9060 `batchJoin(arr)`
+- L9061 `batchAdd(c,b)`
+- L9062 `batchSetAll(c,label)`
+- L9064 `suggestBatchName(b)` — 批次改名建議：新鑫「1150318_資料 (5)」→「新鑫 115/03/18 (5)」（同月多份，保留日）；「115_03 松山區包區」→「包區 115/03 松山區」；「X中人
+- L9072 `allBatches()`
+- L9073 `batchFilterPass(c)`
+- L9074 `refreshBatchDatalist()`
+- L9079 `renderBatchCheckboxes()`
+- L9088 `onBatchChange()`
+- L9089 `clearBatchFilter()`
+- L9094 `renderBatchTagCatBar()`
+- L9098 `toggleBatchTagCat(h)`
+- L9100 `openBatchTag()`
+- L9112 `closeBatchTag()`
+- L9116 `openBatchTagForImport(newIds)` — 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
+- L9128 `batchTagVisible()`
+- L9138 `updateBatchTagCount(visLen)`
+- L9139 `renderBatchTagList()`
+- L9155 `toggleBatchTagPick(id,on)`
+- L9156 `batchTagSelectAll(v)`
+- L9157 `batchTagApply()`
 
-### Init time dropdowns  (L9156)
-- L9157 `initTimeDropdowns()` — ── Init time dropdowns ───────────────────────────────────
+### Init time dropdowns  (L9180)
+- L9181 `initTimeDropdowns()` — ── Init time dropdowns ───────────────────────────────────
 
-### Drag to resize sheet (mobile)  (L9167)
+### Drag to resize sheet (mobile)  (L9191)
 
 ## 重要畫面元件 id（L 行號）
 - #mainApp L1211
@@ -632,8 +635,8 @@
 - #priceEvalPanel L1716
 - #urlSettingsBg L1802
 - #uiDlgBg L1741
-- #themePicker L1860
-- #cardModePicker L1858
+- #themePicker L1861
+- #cardModePicker L1859
 
 ## 開發手冊.md 目錄（只讀需要的章節：Read offset=行號）
 - L1 開發手冊 — 借款客戶 CRM 系統
