@@ -12,7 +12,7 @@ var EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed'
 function saveLocal(){} function render(){} function pushToSheet(){return Promise.resolve();} function closeUrlSettings(){} function showToast(){}
 function calEsc(s){return String(s==null?'':s);}
 
-const need=['normalizeAddr','normBuildNo','addrCore','addrHit','propLabel','emptyProperty','extractDistrict','migrateProperties','mergePropInto','isFullId','clientRichness','genderFromId','dispName','noticeAddrParts','parseVisitLogs','normPhoneKey','mergeDebtPhones','mergeDebtPhonesInto','foldClientInto','consolidateByIdno','companyOwnerFromRaw','extractDebtPhones','defaultLoanE','cleanCreditorName','parseRightsLoans','samePropertyCard','ownBuildKeyFromBuildInfo'];
+const need=['normalizeAddr','normBuildNo','addrCore','addrHit','propLabel','emptyProperty','extractDistrict','splitLandNos','migrateProperties','mergePropInto','isFullId','clientRichness','genderFromId','dispName','noticeAddrParts','parseVisitLogs','normPhoneKey','mergeDebtPhones','mergeDebtPhonesInto','foldClientInto','consolidateByIdno','companyOwnerFromRaw','extractDebtPhones','defaultLoanE','cleanCreditorName','parseRightsLoans','samePropertyCard','ownBuildKeyFromBuildInfo'];
 eval(need.map(ext).join('\n\n'));
 
 let pass=0,fail=0;
@@ -318,6 +318,16 @@ eval(['parseRightsLoans','cleanCreditorName','classifyCreditor','defaultLoanE','
   const p4={loans:[],removedSeqs:['0013-000']}; smartMergeLoans(p4,[{n:'中租',a:700,t:'legal',s:'0013-000',e:583}],'總檔','2026-10-20',{});
   ok(p4.loans.length===0,'t201 空清單第一次帶進來也會過濾');
   ok(p2.loans.length===3 && r2.added===1 && p2.loans[0].n==='民間甲（手加）' && p2.loans[0].a===100 && !p2.loans[0].x && p2.loans[2].s==='0006000','t200 手加筆登序對上 → 不重複、不動；對不上的新筆照加');
+}
+// t206：多筆地號拆格
+eval(ext('splitLandNos'));
+{
+  const a=splitLandNos({landNo:'403、414-2',extraLands:[]});
+  ok(a.landNo==='403' && a.extraLands.length===1 && a.extraLands[0].landNo==='414-2','t206 「403、414-2」→主地號 403＋地號② 414-2');
+  const b=splitLandNos({landNo:'403、414-2、500',extraLands:[{landNo:'414-2',landArea:12}]});
+  ok(b.landNo==='403' && b.extraLands.length===2 && b.extraLands[0].landArea===12 && b.extraLands[1].landNo==='500','t206 已有的地號②保留坪數、只補新的');
+  const c=splitLandNos({landNo:'403',extraLands:[]}); ok(c.landNo==='403' && c.extraLands.length===0,'t206 單一地號不動');
+  const m=migrateProperties({properties:[{addr:'A',landNo:'1、2'}]}); ok(m[0].landNo==='1' && m[0].extraLands[0].landNo==='2','t206 開面板時舊資料自動拆');
 }
 // t168：重複聯絡記錄清理
 eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)));

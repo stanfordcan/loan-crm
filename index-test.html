@@ -2283,7 +2283,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t205 (面板「來源批次」旁顯示建檔日期:這個人什麼時候進系統的) 2026.10.20';
+const APP_VERSION = '🧪測試版 t206 (多筆地號一格一筆:總檔匯入拆成主地號＋地號②③,各自有面積格;舊資料串在一格的開面板自動拆) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4153,7 +4153,7 @@ function processCompanyData(raw) {
         // 找既有房產裡「同一間」的那張卡（規則見 samePropertyCard）
         const dup = existing.properties.find(p=>samePropertyCard(p, incBuild, sectionName, incAddrCore));
         const np = emptyProperty(existing.properties.length);
-        np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||'';
+        np.addr=addr||''; np.buildNo=buildNo||''; np.col4BuildNo=col4BuildNo||''; np.landNo=landNos||''; np.purpose=sectionName||''; splitLandNos(np);
         np.area=area||0; np.mainArea=mainArea||0; np.subArea=subArea||0; np.commonArea=commonArea||0;
         { const _sh=shareFromOwner(ownerRaw); np.buildShareNum=_sh.num; np.buildShareDen=_sh.den; }   // 建物持分（總檔/XLS 以前沒填）
         applyLoansToProp(np, loans);   // 設 np.loans 並從中加總回寫 bank/legal/private
@@ -7986,9 +7986,20 @@ function propLabel(p){
   return '';
 }
 
+// 多筆地號一格一筆：匯入把地號用「、」串在 landNo 的，拆成主地號＋地號②③…（extraLands）；已有 extraLands 的不動、只補不在裡面的
+function splitLandNos(p){
+  if(!p) return p;
+  const parts=String(p.landNo||'').split(/[、,，;；\s]+/).map(x=>x.trim()).filter(Boolean);
+  if(parts.length<=1) return p;
+  p.landNo=parts[0];
+  p.extraLands=Array.isArray(p.extraLands)?p.extraLands:[];
+  parts.slice(1).forEach(no=>{ if(!p.extraLands.some(l=>String(l.landNo||'').trim()===no)) p.extraLands.push({landNo:no, landArea:0}); });
+  return p;
+}
 function migrateProperties(c){
   if(c.properties&&c.properties.length) return c.properties.map((p,i)=>{
     const np={...emptyProperty(0),...p};
+    splitLandNos(np);
     np.label = propLabel(np) || np.label || `不動產${i+1}`;
     // 舊資料的房價評估內容存在客戶層級(一位客戶只有一份)，那份其實是第一筆不動產填的 → 接回第一筆，之後各筆各自存
     if(i===0 && !np.evalData && c.evalData && Object.keys(c.evalData).length) np.evalData={...c.evalData};
@@ -8005,6 +8016,7 @@ function migrateProperties(c){
     loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed,
     companyRaw:c.companyRaw||null, col4BuildNo:c.col4BuildNo||''});
   if(c.evalData && Object.keys(c.evalData).length) p.evalData={...c.evalData};   // 舊客戶只有一筆不動產，評估內容就是它的
+  splitLandNos(p);
   p.label = propLabel(p) || '不動產';
   return [p];
 }
