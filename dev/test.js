@@ -309,7 +309,7 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
 // t173：查座標（地址清洗、Google 回傳評等、哪些要查）
 {
   const extConst=n=>{ const i=html.indexOf('const '+n+'='); if(i<0) throw new Error('找不到 '+n); const j=html.indexOf(';\n',i); return html.slice(i,j+1); };
-  eval([extConst('GEO_CITY_RE'),extConst('GEO_DIST_CITY'),ext('addrForGeo'),ext('geoParts'),ext('geoGrade'),ext('propsNeedingGeo')].join('\n'));
+  eval([extConst('GEO_CITY_RE'),extConst('GEO_DIST_CITY'),ext('addrForGeo'),ext('geoParts'),ext('geoGrade'),ext('propsNeedingGeo'),ext('allBatches')].join('\n'));
   ok(addrForGeo('台北市大安區敦化南路一段233巷63號4樓').q==='臺北市大安區敦化南路一段233巷63號','清洗：丟樓層、台→臺');
   ok(addrForGeo('台北市大安區信義路三段41號之2').q==='臺北市大安區信義路三段41之2號' && addrForGeo('台北市大安區信義路三段41之2號五樓之1').q==='臺北市大安區信義路三段41之2號','清洗：號之N→N之M號、丟中文樓層與樓之');
   ok(addrForGeo('台北市大安區光復南路260巷43-5號').q==='臺北市大安區光復南路260巷43之5號','清洗：N-M號→N之M號');
@@ -335,6 +335,11 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(need.length===3 && need.map(t=>t.q).join('|')==='臺北市大安區敦化南路一段233巷63號|臺北市大安區建國南路二段33號|臺北市中山區民權東路一段72號','要查的：沒查過、門牌改過的；查過且沒改、空白、補不出縣市的都跳過');
   ok(propsNeedingGeo(new Set([2])).length===1,'只看指定客戶');
   ok(propsNeedingGeo(null,'大安區').length===2 && propsNeedingGeo(null,'中山區').length===1 && propsNeedingGeo(null,'台北市大安區').length===2,'t174 只查某一區（台→臺也認）');
+  clients[0].batch='包區 115/10 大安區'; clients[1].batch='新鑫 115/03/18 (5)、包區 115/10 大安區';
+  eval(ext('allBatches'));
+  ok(propsNeedingGeo(null,'包區 115/10 大安區').length===3 && propsNeedingGeo(null,'新鑫 115/03/18 (5)').length===1,'t175 打批次名就只查那個批次的人（含多批次的人）');
+  ok(propsNeedingGeo(null,'').length===3,'t175 留空＝全部');
+  delete clients[0].batch; delete clients[1].batch;
   clients[0].properties[0].geo={lat:25,lng:121,grade:'手填',q:'',ts:'2026-10-20'};
   ok(propsNeedingGeo(null,'大安區').length===1,'t174 手填的不會被自動查蓋掉');
   eval(ext('parseLatLng'));
