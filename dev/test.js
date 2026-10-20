@@ -297,6 +297,12 @@ eval(['parseRightsLoans','cleanCreditorName','classifyCreditor','defaultLoanE','
   // t200：手動加的筆登序對上新謄本 → 不重複加、不動內容；登序沒對上的手加筆照舊、新謄本那筆照加
   const p2={loans:[{n:'民間甲（手加）',a:100,t:'private',s:'0005000',e:100,manualAdd:true},{n:'手加沒登序',a:50,t:'private',s:'',e:50,manualAdd:true}]};
   const r2=smartMergeLoans(p2,[{n:'民間甲',a:120,t:'private',s:'0005000',e:120},{n:'銀行乙',a:240,t:'bank',s:'0006000',e:200}],'謄本','2026-10-20',{});
+  // t201：拿掉的登序記在 removedSeqs，舊總檔再帶來不復活；新登序照加
+  const p3={loans:[{n:'永豐',a:3000,t:'bank',s:'0011-000',e:2500}],removedSeqs:['0013-000']};
+  const r3=smartMergeLoans(p3,[{n:'永豐',a:3000,t:'bank',s:'0011-000',e:2500},{n:'中租',a:700,t:'legal',s:'0013-000',e:583},{n:'民間丙',a:500,t:'private',s:'0014-000',e:500}],'總檔','2026-10-20',{});
+  ok(p3.loans.length===2 && r3.added===1 && !p3.loans.some(l=>l.s==='0013-000') && p3.loans[1].s==='0014-000','t201 拿掉過的登序不復活、新登序照加');
+  const p4={loans:[],removedSeqs:['0013-000']}; smartMergeLoans(p4,[{n:'中租',a:700,t:'legal',s:'0013-000',e:583}],'總檔','2026-10-20',{});
+  ok(p4.loans.length===0,'t201 空清單第一次帶進來也會過濾');
   ok(p2.loans.length===3 && r2.added===1 && p2.loans[0].n==='民間甲（手加）' && p2.loans[0].a===100 && !p2.loans[0].x && p2.loans[2].s==='0006000','t200 手加筆登序對上 → 不重複、不動；對不上的新筆照加');
 }
 // t168：重複聯絡記錄清理
