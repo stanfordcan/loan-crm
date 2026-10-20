@@ -1366,6 +1366,9 @@ async function applyUrlSettings() {
   .rt-addr{color:var(--t3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
   .rt-done{flex-shrink:0;border:1px solid var(--gbd);background:var(--gbg);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;line-height:1.25;padding:5px 10px;font-family:inherit;min-width:52px}
   .rt-done:disabled{opacity:.7;cursor:default}
+  .rt-person{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;font-size:14px;line-height:1.3;padding:2px 0}
+  .rt-person a{color:var(--accent);text-decoration:none}
+  .rt-done-sm{min-width:auto;padding:3px 8px;font-size:11px}
   .rt-mv{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
   .rt-mv button{border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px}
   .rt-x{border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 2px}
@@ -2279,7 +2282,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t194 (電腦縮放 75～90% 時 ☰ 選單、分類挑選、選單項目顯示這三個小選單不再偏離按鈕) 2026.10.20';
+const APP_VERSION = '🧪測試版 t195 (路線:一站多人時每個人各自一顆「跑過」,去了誰按誰;全部按完整站才打勾) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7692,10 +7695,19 @@ function markVisitedClients(list){
   });
   return n;
 }
+// 一站多人：只記你按的那個人
+async function routeMarkVisitedOne(cid){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能記'); return; }
+  const c=clients.find(x=>x.id===cid); if(!c) return;
+  const n=markVisitedClients([c]);
+  if(n){ saveLocal(); showToast(`✔ 已記「現場拜訪」：${dispName(c)}`); } else showToast('今天已經記過了');
+  mapRender();
+}
 async function routeMarkVisited(k){
   if(readOnlyMode){ showToast('👁 唯讀模式不能記'); return; }
   const pt=_routePts[k]||_mapPts[k]; if(!pt) return;
   const people=[...new Set(pt.entries.map(e=>e.c))];
+  if(people.length>1){ showToast('這一站有好幾個人，請按名字旁邊各自的「跑過」'); return; }
   const n=markVisitedClients(people);
   if(n){ saveLocal(); showToast(`✔ 已記「現場拜訪」：${people.map(dispName).join('、')}`); }
   else showToast('今天已經記過了');
@@ -7846,10 +7858,12 @@ function renderRouteList(){
     return `<div class="rt-stop" data-done="${done?1:0}" style="${done?'opacity:.55':''}">
       <span class="rt-no" style="background:${done?'var(--green)':'var(--accent)'}">${done?'✓':i+1}</span>
       <div class="rt-mid">
-        <div class="rt-names" style="${done?'text-decoration:line-through':''}">${people.map(c=>`<a href="#" onclick="closeMapView();openEdit(${c.id});return false" title="開這個人的面板看資料">${calEsc(dispName(c))}</a>`).join('、')}</div>
+        ${people.length===1
+          ? `<div class="rt-names" style="${done?'text-decoration:line-through':''}"><a href="#" onclick="closeMapView();openEdit(${people[0].id});return false" title="開這個人的面板看資料">${calEsc(dispName(people[0]))}</a></div>`
+          : people.map(c=>{ const d1=lastSiteVisit(c)>=since; return `<div class="rt-person"><a href="#" onclick="closeMapView();openEdit(${c.id});return false" title="開這個人的面板看資料" style="${d1?'text-decoration:line-through;opacity:.6':''}">${calEsc(dispName(c))}</a><button class="rt-done rt-done-sm" onclick="routeMarkVisitedOne(${c.id})" ${d1?'disabled':''}>${d1?'✔ 跑過了':'✔ 跑過'}</button></div>`; }).join('')}
         <div class="rt-addr">${calEsc(addr)}</div>
       </div>
-      <button class="rt-done" onclick="routeMarkVisited('${k}')" ${done?'disabled':''}>${done?'✔<br>跑過了':'✔<br>跑過'}</button>
+      ${people.length===1?`<button class="rt-done" onclick="routeMarkVisited('${k}')" ${done?'disabled':''}>${done?'✔<br>跑過了':'✔<br>跑過'}</button>`:''}
       <div class="map-adv rt-mv"><button onclick="routeMove(${i},-1)">▲</button><button onclick="routeMove(${i},1)">▼</button></div>
       <button class="map-adv rt-x" onclick="routeRemove('${k}')">✕</button></div>`; }).join('')
     +(urls.length>1?`<div style="margin-top:8px;font-size:12px;color:var(--t2)">分 ${urls.length} 段：${urls.map((u,i)=>`<button onclick="routeOpenNav(${i})" class="bb-btn" style="margin:2px">第 ${i+1} 段</button>`).join('')}</div>`:'');
