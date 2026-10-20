@@ -276,5 +276,15 @@ ok(cleanAddr('臺北市松山區民生東路五段２０４號五樓之２')==='
 ok(cleanAddr('新北市五股區 成泰路三段２２１巷１０號')==='新北市五股區成泰路三段221巷10號','去空白');
 ok(cleanAddr('新北市中和區壽德街２６號八樓之二')==='新北市中和區壽德街26號8樓之2' && cleanAddr('路1號之十二')==='路1號之12','之二→之2');
 ok(cleanAddr('台北市大安區安和路二段60號')==='台北市大安區安和路二段60號','台不改、已經乾淨的不變');
+// t167：設定日期（106-03-28 格式）與日期更新
+eval(['parseRightsLoans','cleanCreditorName','classifyCreditor','defaultLoanE','isPlaceholderLoanName','getLoanE','loansToTotals','smartMergeLoans'].map(ext).join(String.fromCharCode(10)));
+{
+  const NL=String.fromCharCode(10);
+  const ls=parseRightsLoans('1)【銀】106-03-28 0007000 最高 花旗（台灣） 28421312（新臺幣9600000元）'+NL+'3)【私】114-07-29 0009000 最高 新鑫股份有限 22764579（新臺幣1320000元）');
+  ok(ls.length===2 && ls[0].d==='106/03/28' && ls[1].d==='114/07/29','他項條列的 106-03-28 抓成設定日期');
+  const p={loans:[{n:'新鑫股份有限',a:132,t:'private',s:'0009000',e:132,d:'111/06/22'}]};
+  const r=smartMergeLoans(p,[{n:'新鑫股份有限',a:132,t:'private',s:'0009000',e:132,d:'114/07/29'}],'總檔','2026-10-20',{});
+  ok(r.dated===1 && p.loans[0].d==='114/07/29' && p.loans[0].dPrev==='111/06/22','同登序設定日期變了 → 更新並留舊日期');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

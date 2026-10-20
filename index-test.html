@@ -2161,7 +2161,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t166 (總檔同一間房有兩列、內容不一樣時,🔁記號直接寫「總檔同一間有兩列,請到總檔刪掉其中一列」,公司資料分頁的版本切換會多一顆「總檔另一列」可以看差在哪) 2026.10.20';
+const APP_VERSION = '🧪測試版 t167 (總檔同一間房有兩列時,以設定日期較新那列為主,舊的那列自動收進公司資料的「舊版」,不用去刪總檔;抵押列的設定日期有更新會跟著改並標「📅 設定日 舊→新」) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3303,8 +3303,10 @@ function parseRightsLoans(text){
     }
     // 設定(登記)日期：條列行裡的民國日期，存成 113/05/13 格式
     const dM = line.match(/民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日/);
+    const dM2 = dM ? null : line.match(/(?:^|\D)(\d{3})-(\d{2})-(\d{2})(?!\d)/);   // 總檔常見「106-03-28」
     const loan = {n:creditorName, a:amt, t:type, s:seq, e:defaultLoanE(amt,type)};
     if(dM) loan.d = `${dM[1]}/${String(+dM[2]).padStart(2,'0')}/${String(+dM[3]).padStart(2,'0')}`;
+    else if(dM2) loan.d = `${dM2[1]}/${dM2[2]}/${dM2[3]}`;
     loans.push(loan);
   });
   if(loans.length) return loans;
@@ -3324,11 +3326,11 @@ function parseRightsLoans(text){
 // 回傳 {added:n, cancelled:n, changed:n}
 function smartMergeLoans(p, incoming, src, date, opts){
   opts=opts||{};
-  if(!p) return {added:0,cancelled:0,changed:0};
+  if(!p) return {added:0,cancelled:0,changed:0,dated:0};
   if(!Array.isArray(p.loans)||!p.loans.length){ p.loans=(incoming||[]).map(l=>({...l})); const t0=loansToTotals(p.loans); p.bank=t0.bank; p.legal=t0.legal; p.private=t0.private; return {added:p.loans.length,cancelled:0,changed:0}; }
   const inc=(incoming||[]).filter(Boolean);
   const incHasSeq=inc.some(l=>l.s);
-  const used=new Set(); let added=0,cancelled=0,changed=0;
+  const used=new Set(); let added=0,cancelled=0,changed=0,dated=0;
   const keyNA=l=>`${String(l.n||'').trim()}|${l.a||0}|${l.t||''}`;
   p.loans.forEach(l=>{
     if(l.manualAdd) return;                                   // 業主手動加的筆，同步永遠不碰
@@ -3338,7 +3340,7 @@ function smartMergeLoans(p, incoming, src, date, opts){
     if(m){
       used.add(inc.indexOf(m));
       if(l.x){ delete l.x; }                                  // 之前被標塗銷、這版又出現 → 取消塗銷
-      if(!l.d && m.d) l.d=m.d;
+      if(m.d && l.d!==m.d){ if(l.d) l.dPrev=l.d; l.d=m.d; dated++; }   // 設定日期更新（例如新鑫重設），舊日期留著顯示
       if(isPlaceholderLoanName(l.n) && m.n) l.n=m.n;
       if(!l.s && m.s) l.s=m.s;
       if(m.a && m.a!==l.a){                                   // 設定額變了：更新設定額；實貸估值只在沒手改時重算
@@ -3354,7 +3356,7 @@ function smartMergeLoans(p, incoming, src, date, opts){
   });
   inc.forEach((x,i)=>{ if(used.has(i)) return; p.loans.push({...x, added:{date,src,run:opts.run||''}}); added++; });
   const t=loansToTotals(p.loans); p.bank=t.bank; p.legal=t.legal; p.private=t.private;
-  return {added,cancelled,changed};
+  return {added,cancelled,changed,dated};
 }
 // 取得單筆 loan 的實貸估值：有 e 就用 e（可能是使用者手改過的值），沒有才用預設規則現算（相容舊資料）
 function getLoanE(l){
@@ -4032,39 +4034,43 @@ function processCompanyData(raw) {
         np.companyRaw = companyRaw;   // 這筆房產自己的公司總檔資料
         np.label=propLabel(np)||('不動產'+(existing.properties.length+1));
         if(dup){
-          // 同一間：先看原文有沒有變（所有權部／他項權利部），有變就把上一版留進 rawHistory（最多 10 版）
+          // 同一間：先看原文有沒有變（所有權部／他項權利部）。
+          // 規則（業主 2026/10/20 定）：總檔同一間房若有好幾列（例如新鑫日期一列舊一列新），以「設定日期較新」那列為主；
+          // 舊的那列留進版本紀錄當舊版，不要求業主刪總檔。跨次匯入的變動照舊：上一版進 rawHistory、換成新版、抵押列依登序合併。
           const prev=dup.companyRaw||{};
           const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
           const sameRun = prev.importRun===runId;
-          // 同一間在同一次匯入裡可能有多列（持分共有人、遮罩同名），上一次匯入看過的每一版都算「沒變」
           const seenR=new Set([norm(prev.rights), ...((prev.altRights||[]).map(norm))]);
           const seenO=new Set([norm(prev.owner), ...((prev.altOwners||[]).map(norm))]);
           const kinds=[];
           if(!seenR.has(norm(companyRaw.rights))) kinds.push('他項權利部');
           if(!seenO.has(norm(companyRaw.owner))) kinds.push('所有權部');
-          if(sameRun){   // 同一次：把這次看過的版本累積起來，下次比對用
-            companyRaw.altRights=[...new Set([...(prev.altRights||[]), prev.rights||''])].filter(Boolean).slice(-10);
-            companyRaw.altOwners=[...new Set([...(prev.altOwners||[]), prev.owner||''])].filter(Boolean).slice(-10);
-            // 同一次裡同一間兩列內容不一樣 → 總檔本身有兩列（例如新鑫日期一列舊一列新）。另一列留著給版本切換看，記號講白
-            companyRaw.altVersions=[...(prev.altVersions||[])];
-            if(kinds.length && (prev.cols||prev.rights||prev.owner)){
-              companyRaw.altVersions.push({at:prev.importedAt||TODAY, src:prev.importedSrc||importSrc, cols:prev.cols||null, owner:prev.owner||'', rights:prev.rights||'', buildInfo:prev.buildInfo||''});
-              companyRaw.altVersions=companyRaw.altVersions.slice(-5);
-              markReimport(existing, '總檔同一間有兩列', '總檔同一間房有兩列、'+kinds.join('、')+'不一樣，請到總檔刪掉其中一列');
+          // 他項文字裡最晚的民國日期，當這一版的「新舊」依據
+          const latestDate=txt=>{ const ds=[...String(txt||'').matchAll(/(\d{3})-(\d{2})-(\d{2})/g)].map(m=>m[1]+m[2]+m[3]); return ds.length?ds.sort().slice(-1)[0]:''; };
+          const incNewer = latestDate(companyRaw.rights) >= latestDate(prev.rights);
+          const sameRunOlder = sameRun && kinds.length>0 && !incNewer;   // 同一次裡又來一列、內容不同、日期比較舊 → 當舊版收起來
+          const pushHist=(v)=>{ const h=dup.rawHistory=dup.rawHistory||[]; const nr=norm(v.rights), no=norm(v.owner); if(h.some(x=>norm(x.rights)===nr&&norm(x.owner)===no)) return false; h.push({at:v.importedAt||v.at||'', src:v.importedSrc||v.src||'', cols:v.cols||null, owner:v.owner||'', rights:v.rights||'', buildInfo:v.buildInfo||''}); h.sort((x,y)=>latestDate(x.rights).localeCompare(latestDate(y.rights))); if(h.length>10) dup.rawHistory=h.slice(-10); return true; };
+          if(sameRunOlder){
+            // 比較舊的那列：只留進版本紀錄、其餘欄位補空白；目前版本與抵押列維持較新那列
+            if(companyRaw.cols||companyRaw.rights||companyRaw.owner) pushHist(companyRaw);
+            prev.altRights=[...new Set([...(prev.altRights||[]), companyRaw.rights||''])].filter(Boolean).slice(-10);
+            prev.altOwners=[...new Set([...(prev.altOwners||[]), companyRaw.owner||''])].filter(Boolean).slice(-10);
+            mergePropInto(dup, np);
+          } else {
+            if(sameRun){   // 同一次：把這次看過的版本累積起來，下次比對用
+              companyRaw.altRights=[...new Set([...(prev.altRights||[]), prev.rights||''])].filter(Boolean).slice(-10);
+              companyRaw.altOwners=[...new Set([...(prev.altOwners||[]), prev.owner||''])].filter(Boolean).slice(-10);
             }
-          }   // 同一次匯入裡同一間又出現（遮罩同名多列）→ 不算變動、不塗銷
-          if(kinds.length && !sameRun && (prev.cols||prev.rights||prev.owner)){
-            (dup.rawHistory=dup.rawHistory||[]).push({at:prev.importedAt||'', src:prev.importedSrc||'', cols:prev.cols||null, owner:prev.owner||'', rights:prev.rights||'', buildInfo:prev.buildInfo||''});
-            if(dup.rawHistory.length>10) dup.rawHistory=dup.rawHistory.slice(-10);
-            rawChangedN++;
+            const changed = kinds.length>0 && (prev.cols||prev.rights||prev.owner);
+            if(changed){ if(pushHist(prev)) rawChangedN++; }
+            companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
+            dup.companyRaw=companyRaw;
+            // 抵押列：依登序聰明合併（既有/手改不動、新增標記、塗銷反灰不計入、設定日期更新）。同一次的重複列（遮罩共有人）不塗銷
+            const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun, run:runId});   // 同一次的重複列不塗銷，塗銷只看跨次
+            loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
+            mergePropInto(dup, np);
+            if(changed){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:'', lr.dated?`${lr.dated} 筆設定日期更新`:''].filter(Boolean).join('、'); markReimport(existing, '總檔更新：'+kinds.join('、')+'有變', d); }
           }
-          companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
-          dup.companyRaw=companyRaw;
-          // 抵押列：依登序聰明合併（既有/手改不動、新增標記、塗銷反灰不計入）
-          const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun, run:runId});
-          loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
-          mergePropInto(dup, np);
-          if(kinds.length && !sameRun){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:''].filter(Boolean).join('、'); markReimport(existing, isXls?'二次匯入':'總檔更新：'+kinds.join('、')+'有變', d); }
         } // 同一間 → 公司資料(總檔來源)永遠刷新、其餘欄位補空格，不重複
         else { companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId; existing.properties.push(np); propAddedN++; markReimport(existing, isXls?'二次匯入':'總檔新增不動產', '新增不動產 '+(np.label||'')); }   // 不同間 → 累積成新一筆房產
       })();
@@ -6681,13 +6687,12 @@ function renderCompanyPanel(){
   const hist = Array.isArray(p.rawHistory) ? p.rawHistory : [];
   // 版本切換：0=最新，1..n=rawHistory 由新到舊；舊版用「跟它的下一版（較新）」比，差異欄標色
   if(_companyVerIdx>hist.length) _companyVerIdx=0;
-  const alts=((latest&&latest.altVersions)||[]).map(a=>({...a,_alt:true}));   // 同一次總檔更新裡同一間的另一列
-  const versions=[latest, ...alts, ...hist.slice().reverse()];
+  const versions=[latest, ...hist.slice().reverse()];
   const r = versions[_companyVerIdx] || latest;
-  const newer = _companyVerIdx>0 ? (versions[_companyVerIdx]._alt ? latest : versions.slice(0,_companyVerIdx).filter(v=>!v._alt).slice(-1)[0]||latest) : null;
+  const newer = _companyVerIdx>0 ? versions[_companyVerIdx-1] : null;
   const bNo = p.buildNo || (_companyPropIdx===0 ? (c.buildNo||'') : '');
   const lNo = p.landNo || (_companyPropIdx===0 ? (c.landNo||'') : '');
-  const vLab=(v,i)=>{ const d=v&&(v.importedAt||v.at)?String(v.importedAt||v.at).slice(5):''; const sr=v&&(v.importedSrc||v.src)?String(v.importedSrc||v.src).replace(/^XLS：/,'').slice(0,12):''; return (i===0?'最新':(v&&v._alt?'總檔另一列':'舊版'))+(d?' '+d:'')+(sr?'・'+calEsc(sr):''); };
+  const vLab=(v,i)=>{ const d=v&&(v.importedAt||v.at)?String(v.importedAt||v.at).slice(5):''; const sr=v&&(v.importedSrc||v.src)?String(v.importedSrc||v.src).replace(/^XLS：/,'').slice(0,12):''; return (i===0?'最新':'舊版')+(d?' '+d:'')+(sr?'・'+calEsc(sr):''); };
   const verBar = versions.length>1 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${versions.map((v,i)=>`<button onclick="_companyVerIdx=${i};renderCompanyPanel()" style="border:none;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;${i===_companyVerIdx?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--t2)'}">${vLab(v,i)}</button>`).join('')}<span style="font-size:10px;color:var(--t3);align-self:center">舊版中<span style="background:var(--obg);padding:0 4px;border-radius:4px">橘底</span>＝跟較新版不同的欄</span></div>` : '';
   if(r && r.cols && r.cols.length){
     // 照總檔欄位順序（電 → 金主門牌）完整顯示，有內容才列
@@ -7009,6 +7014,7 @@ function renderLoanRows(){
     if(l.confirmed&&l.confirmed.date) tags.push(`<span class="ltag ltag-ok" title="點一下取消確認" onclick="toggleLoanConfirm(${i})">✔ ${rocShort(l.confirmed.date)} 已確認</span>`);
     else if(!l.x) tags.push(`<span class="ltag ltag-todo" title="點一下標成今天確認過" onclick="toggleLoanConfirm(${i})">待確認</span>`);
     if(l.aChanged) tags.push(`<span class="ltag ltag-chg">設定額 ${l.aPrev||'?'}→${l.a} 萬</span>`);
+    if(l.dPrev) tags.push(`<span class="ltag ltag-chg">📅 設定日 ${calEsc(l.dPrev)}→${calEsc(l.d||'')}</span>`);
     if(l.nameWarn) tags.push(`<span class="ltag ltag-warn">⚠️ 同登序新版債權人：${calEsc(l.nameWarn)}</span>`);
     return `<div class="loan-row${l.x?' loan-x':''}">
       <div style="display:flex;align-items:center;gap:6px">

@@ -9,7 +9,7 @@ const WATCH=process.argv.slice(4);
 function extFn(n){const s=HTML.indexOf('function '+n+'(');if(s<0)return null;let j=HTML.indexOf('{',s),d=0;for(;j<HTML.length;j++){const c=HTML[j];if(c==='{')d++;else if(c==='}'){d--;if(d===0)return HTML.slice(s,j+1);}}return null;}
 function extConst(n){const m=HTML.match(new RegExp('^(?:const|let|var) '+n+'\\s*=.*?;\\s*$','m'));return m?m[0]:null;}
 const cap={summaries:[],toasts:[]};
-const base=`var TODAY='2026-10-19'; var CLAUDE_API_KEY=''; var GAS_URL=''; var COMPANY_URL=''; var blacklist=[]; var editId=null; var memos=[]; var nextMemoId=1; var _importSource='總檔';
+const base=`var TODAY='2026-10-20'; var CLAUDE_API_KEY=''; var GAS_URL=''; var COMPANY_URL=''; var blacklist=[]; var editId=null; var memos=[]; var nextMemoId=1; var _importSource='總檔';
 function showToast(m){ __cap.toasts.push(String(m)); } function saveLocal(){} function pushToSheet(){ return Promise.resolve(); } function render(){} function saveToFirestore(){ return Promise.resolve(); }
 function uiAlert(m){ __cap.summaries.push(String(m)); return Promise.resolve(true); } function uiConfirm(){ return Promise.resolve(true); } function openBatchTagForImport(){}
 function calEsc(s){ return String(s==null?'':s); }
@@ -38,7 +38,7 @@ tryRun(ctx=>{
     console.log('今天新增的抵押列：', run("clients.flatMap(c=>(c.properties||[]).flatMap(p=>(p.loans||[]).filter(l=>l.added&&l.added.date===TODAY).map(l=>c.name+'：'+(l.s||'-')+' '+(l.n||'')+' '+(l.a||0))))").join(' / '));
     WATCH.forEach(n=>{
       ctx.__n=n; const info=run("(function(){const c=clients.find(x=>x.name===__n); if(!c) return null; return {reimports:c.reimports||[], props:(c.properties||[]).map(p=>({label:p.label,addr:p.addr,importRun:(p.companyRaw||{}).importRun,importedAt:(p.companyRaw||{}).importedAt,rawHist:(p.rawHistory||[]).length,loans:(p.loans||[]).map(l=>(l.s||'-')+' '+(l.n||'')+' '+(l.a||0)+(l.x?' x'+l.x.date:'')+(l.added?' +':''))}))};})()");
-      ctx.__n=n; const lg=run("(function(){const c=clients.find(x=>x.id&&x.name===__n); return c?{logs:(c.logs||[]).length, reimports:(c.reimports||[]).map(r=>r.kind+'｜'+r.detail), propAddrs:(c.properties||[]).map(p=>p.addr), altVersions:(c.properties||[]).map(p=>((p.companyRaw||{}).altVersions||[]).length)}:null;})()");
+      ctx.__n=n; const lg=run("(function(){const c=clients.find(x=>x.id&&x.name===__n); return c?{logs:(c.logs||[]).length, reimports:(c.reimports||[]).map(r=>r.date+' '+r.kind+'｜'+r.detail), cur3:(c.properties||[]).map(p=>String((p.companyRaw||{}).rights||'').split(String.fromCharCode(10))[2]), hist3:(c.properties||[]).map(p=>(p.rawHistory||[]).map(h=>String(h.rights||'').split(String.fromCharCode(10))[2])), loanD:(c.properties||[]).map(p=>(p.loans||[]).map(l=>l.s+' '+(l.d||'-')+(l.dPrev?'(舊'+l.dPrev+')':'')))}:null;})()");
       console.log(`— ${n} —`, JSON.stringify(lg));
     });
   };
