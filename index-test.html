@@ -2279,7 +2279,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t193 (匯入後只自動查「這次新建的人」的座標,併入既有的不再背景全查;背景查會先提示幾間;卡住判斷改成 3 分鐘沒進度;地圖程式 15 秒沒載入就當失敗) 2026.10.20';
+const APP_VERSION = '🧪測試版 t194 (電腦縮放 75～90% 時 ☰ 選單、分類挑選、選單項目顯示這三個小選單不再偏離按鈕) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4442,6 +4442,7 @@ const BTN_DEFS=[
 // 「清除」「登出」已從工具列搬進 ⚙️ 設定視窗底部，不再屬於工具列顯示設定
 
 // ── ☰ 主選單（匯入／待審／黑名單／設定）────────────────────
+function pageZoom(){ const z=parseFloat(getComputedStyle(document.documentElement).zoom); return (z&&z>0)?z:1; }   // 電腦縮放 75～90% 時，getBoundingClientRect 是縮放後的螢幕座標，fixed 定位卻吃縮放前的值，要除回去
 let mainMenuOpen=false;
 function toggleMainMenu(e){
   if(e) e.stopPropagation();
@@ -4449,10 +4450,10 @@ function toggleMainMenu(e){
   const panel=document.getElementById('mainMenu');
   if(!mainMenuOpen){ panel.style.display='none'; return; }
   panel.style.display='flex';
-  const r=document.getElementById('mainMenuBtn').getBoundingClientRect();
-  panel.style.top=(r.bottom+6)+'px';
+  const z=pageZoom(), r=document.getElementById('mainMenuBtn').getBoundingClientRect();
+  panel.style.top=(r.bottom/z+6)+'px';
   const w=panel.offsetWidth||200;
-  panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';   // 靠右對齊 ☰
+  panel.style.left=Math.max(8, Math.min(r.right/z-w, window.innerWidth/z-w-8))+'px';   // 靠右對齊 ☰
 }
 function closeMainMenu(){
   mainMenuOpen=false;
@@ -4487,9 +4488,9 @@ function toggleBtnSettings(e){
   panel.style.display='';
   // position below gear button
   const btn=document.getElementById('hbtnSettingsBtn');
-  const r=btn.getBoundingClientRect();
-  panel.style.top=(r.bottom+6)+'px';
-  panel.style.right=(window.innerWidth-r.right)+'px';
+  const z=pageZoom(), r=btn.getBoundingClientRect();
+  panel.style.top=(r.bottom/z+6)+'px';
+  panel.style.right=((window.innerWidth-r.right)/z)+'px';
   panel.style.left='auto';
 }
 function renderBtnSettings(){
@@ -5671,11 +5672,11 @@ function openHeatPick(e, id){
   const order=['待分類','覆訪','追很緊','新鑫','已簽約','無效案件'];
   panel.innerHTML=`<div class="hp-title">${dispName(c)}</div>`+order.map(h=>`<button type="button" class="hp-item${c.heat===h?' cur':''}" onclick="applyHeatPick('${h}')"><span class="hbadge ${hCls[h]}">${h}</span>${c.heat===h?'<span class="hp-cur">目前</span>':''}</button>`).join('');
   panel.style.display='flex';
-  const r=e.currentTarget.getBoundingClientRect();
+  const z=pageZoom(), r=e.currentTarget.getBoundingClientRect();
   const w=panel.offsetWidth||180, h=panel.offsetHeight||260;
-  let top=r.bottom+6; if(top+h>window.innerHeight-8) top=Math.max(8, r.top-h-6);
+  let top=r.bottom/z+6; if(top+h>window.innerHeight/z-8) top=Math.max(8, r.top/z-h-6);
   panel.style.top=top+'px';
-  panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';
+  panel.style.left=Math.max(8, Math.min(r.right/z-w, window.innerWidth/z-w-8))+'px';
 }
 // 暫不追：30／60／90 天後自動回到久未聯絡；新增一筆聯絡記錄也會自動解除
 let _mutePickId=null;
