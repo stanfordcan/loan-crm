@@ -329,6 +329,9 @@ eval(ext('splitLandNos'));
   const c=splitLandNos({landNo:'403',extraLands:[]}); ok(c.landNo==='403' && c.extraLands.length===0,'t206 單一地號不動');
   const m=migrateProperties({properties:[{addr:'A',landNo:'1、2'}]}); ok(m[0].landNo==='1' && m[0].extraLands[0].landNo==='2','t206 開面板時舊資料自動拆');
 }
+// t207：每個地號各自的持分坪
+eval(ext('parcelShareArea'));
+ok(parcelShareArea(100,1,5)===20 && parcelShareArea(100,0,0)===100 && parcelShareArea(0,1,5)===null && parcelShareArea(33.333,1,3)===11.11,'t207 全筆×持分＝持分坪；沒持分＝整筆；沒全筆回 null');
 // t168：重複聯絡記錄清理
 eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)));
 {

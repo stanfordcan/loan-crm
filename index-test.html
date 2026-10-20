@@ -1358,6 +1358,14 @@ async function applyUrlSettings() {
   .rp-row{display:flex;gap:6px;padding:0 12px 8px}
   .rp-grow{flex:1;min-width:0}
   .rp-loaded{padding:0 12px 6px;font-size:12px;color:var(--accent);font-weight:600}
+  .land-head,.land-row{display:grid;grid-template-columns:minmax(64px,.9fr) 1fr 14px minmax(96px,1.1fr) 14px 1fr;gap:4px;align-items:center}
+  .land-head{font-size:10px;color:var(--t3);margin:6px 0 2px;padding:0 2px}
+  .land-row{margin-bottom:4px}
+  .land-row input{width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 8px;font-size:13px;font-family:inherit;outline:none;color:var(--text)}
+  .land-no{font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .land-op{text-align:center;color:var(--t3);font-size:12px}
+  .land-share{display:flex;align-items:center;gap:2px;font-size:12px;color:var(--t3)}
+  .land-share input{text-align:center;padding:8px 2px}
   .rt-stop{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
   .rt-no{color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
   .rt-mid{flex:1;min-width:0}
@@ -1722,24 +1730,36 @@ async function applyUrlSettings() {
           <div style="display:flex;flex-direction:column;gap:12px">
             <div class="prop-card">
               <div class="prop-card-hd" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-                <span>📐 面積（坪）</span>
+                <span>🏠 建物面積（坪）</span>
                 <span style="font-size:12px;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:3px;white-space:nowrap">建物持分
                   <input type="number" id="fBuildShareNum" placeholder="？" title="持分分子，例：2分之1就填1" style="width:40px;text-align:center" oninput="calcEvalBuildArea()"/>／<input type="number" id="fBuildShareDen" placeholder="？" title="持分分母，例：2分之1就填2" style="width:40px;text-align:center" oninput="calcEvalBuildArea()"/>
                 </span>
               </div>
-              <div style="font-size:10px;color:var(--t3);margin:-2px 0 7px">建物：填全戶面積＋持分，系統算持分坪。土地：填全筆坪＋持分，系統算進「土地持分坪」。</div>
+              <div style="font-size:10px;color:var(--t3);margin:-2px 0 7px">填全戶面積＋右上角持分，系統算持分坪（估價與可貸空間用）。</div>
               <div class="fg3" id="areaGrid">
                 <div class="frow cmp"><label>主建物</label><input type="number" id="fMainArea" placeholder=""/></div>
                 <div class="frow cmp"><label>附屬</label><input type="number" id="fSubArea" placeholder=""/></div>
                 <div class="frow cmp"><label>公設</label><input type="number" id="fCommonArea" placeholder=""/></div>
                 <div class="frow cmp"><label>總面積</label><input type="number" id="fArea" placeholder="" oninput="syncEvalArea();syncToEval('ev_buildarea', this.value);calcEvalBuildArea()"/></div>
                 <div class="frow cmp"><label>車位</label><input type="number" id="fParkArea" placeholder="" oninput="syncEvalPark();syncToEval('ev_parkarea', this.value);calcEvalBuildArea()"/></div>
-                <div class="frow cmp"><label id="fLandAreaLabel">土地持分坪</label><input type="number" id="fLandArea" placeholder="" title="估價用的土地坪。填了右邊的全筆坪＋持分會自動算；也可以直接填" oninput="updateLandTotals();renderShareBanner()"/></div>
-                <div class="frow cmp"><label>土地全筆（坪）</label><input type="number" id="fLandFull" placeholder="整筆土地" oninput="applyLandShare()"/></div>
-                <div class="frow cmp"><label>土地持分</label>
-                  <div style="display:flex;gap:3px;align-items:center"><input type="number" id="fLandShareNum" placeholder="？" style="text-align:center" oninput="applyLandShare()"/>／<input type="number" id="fLandShareDen" placeholder="？" style="text-align:center" oninput="applyLandShare()"/></div>
+              </div>
+            </div>
+            <!-- 土地自己一塊（業主 2026/10/20 定）：每個地號各自一列，各自的全筆坪 × 持分 ＝ 持分坪 -->
+            <div class="prop-card">
+              <div class="prop-card-hd">🌱 土地（坪）</div>
+              <div style="font-size:10px;color:var(--t3);margin:-2px 0 4px">每個地號各自填全筆坪＋持分，系統算各自的持分坪；也可以直接填持分坪。估價用全部地號加總。</div>
+              <div class="land-head"><span>地號</span><span>全筆（坪）</span><span></span><span>持分</span><span></span><span>持分坪（估價用）</span></div>
+              <div id="landRows">
+                <div class="land-row" id="landRowMain">
+                  <span class="land-no" id="landNoMainLbl">地號</span>
+                  <input type="number" id="fLandFull" placeholder="整筆" title="這個地號整筆的坪數" oninput="applyLandShare()"/>
+                  <span class="land-op">×</span>
+                  <span class="land-share"><input type="number" id="fLandShareNum" placeholder="？" oninput="applyLandShare()"/>／<input type="number" id="fLandShareDen" placeholder="？" oninput="applyLandShare()"/></span>
+                  <span class="land-op">＝</span>
+                  <input type="number" id="fLandArea" placeholder="持分坪" title="估價用的土地坪。填了全筆坪＋持分會自動算；也可以直接填" oninput="updateLandTotals();renderShareBanner()"/>
                 </div>
               </div>
+              <div id="extraLandTotal" style="font-size:11px;color:var(--t2);margin:4px 0 0;text-align:right"></div>
               <!-- 持分結算：系統實際拿去估價／算可貸空間的坪數，一定要看得到 -->
               <div id="shareBanner" class="share-banner" style="display:none"></div>
             </div>
@@ -2283,7 +2303,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t206 (多筆地號一格一筆:總檔匯入拆成主地號＋地號②③,各自有面積格;舊資料串在一格的開面板自動拆) 2026.10.20';
+const APP_VERSION = '🧪測試版 t207 (建物與土地分成兩個區塊;土地每個地號各自一列:地號｜全筆坪×持分＝持分坪,各自算、估價用全部加總) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7036,8 +7056,23 @@ let extraLands=[];
 // 坪數欄標籤：有地號→「114地號面積」；沒有→「土地坪數」
 function landAreaLabel(no){ no=String(no||'').trim(); return no ? no+'地號面積' : '土地坪數'; }
 function updateLandLabels(){
-  const lbl=document.getElementById('fLandAreaLabel');
-  if(lbl) lbl.textContent=landAreaLabel(document.getElementById('fLandNo')?.value||'');
+  const lbl=document.getElementById('landNoMainLbl');
+  const no=String(document.getElementById('fLandNo')?.value||'').trim();
+  if(lbl) lbl.textContent=no?no:'主地號';
+}
+// 全筆坪 × 持分 → 持分坪；沒持分＝整筆；回 null 表示沒全筆坪（不動手填的值）
+function parcelShareArea(full, n, d){
+  full=parseFloat(full)||0; n=parseFloat(n)||0; d=parseFloat(d)||0;
+  if(!(full>0)) return null;
+  const share=(n>0&&d>0&&n<=d)?n/d:1;
+  return Math.round(full*share*100)/100;
+}
+function applyExtraShare(i){
+  const l=extraLands[i]; if(!l) return;
+  const v=parcelShareArea(l.landFull,l.shareNum,l.shareDen);
+  if(v!=null){ l.landArea=v; const inp=document.getElementById('exLandArea'+i); if(inp) inp.value=v; }
+  updateLandTotals(); renderShareBanner();
+  formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
 }
 function renderExtraLands(){
   const iStyle='width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none';
@@ -7054,33 +7089,33 @@ function renderExtraLands(){
       grid1.appendChild(cell);
     });
   }
-  // 2. 面積卡片：每筆地號的「坪數格」append 到面積網格（三格一行往下排）
-  const grid=document.getElementById('areaGrid');
-  if(grid){
-    grid.querySelectorAll('.ex-area-cell').forEach(el=>el.remove());
+  // 2. 面積卡片：每筆地號各自一列（地號｜全筆坪 × 持分 ＝ 持分坪），接在主地號那列下面
+  const rows=document.getElementById('landRows');
+  if(rows){
+    rows.querySelectorAll('.ex-land-row').forEach(el=>el.remove());
     extraLands.forEach((l,i)=>{
-      const cell=document.createElement('div');
-      cell.className='frow cmp ex-area-cell';
-      cell.innerHTML=`<label id="exAreaLbl${i}">${landAreaLabel(l.landNo)}</label>`+
-        `<input type="number" placeholder="坪數" value="${l.landArea||''}" oninput="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals()"/>`;
-      grid.appendChild(cell);
+      const row=document.createElement('div');
+      row.className='land-row ex-land-row';
+      row.innerHTML=`<span class="land-no" id="exAreaLbl${i}">${calEsc(l.landNo||'地號'+(i+2))}</span>`+
+        `<input type="number" placeholder="整筆" value="${l.landFull||''}" oninput="extraLands[${i}].landFull=parseFloat(this.value)||0;applyExtraShare(${i})"/>`+
+        `<span class="land-op">×</span>`+
+        `<span class="land-share"><input type="number" placeholder="？" value="${l.shareNum||''}" oninput="extraLands[${i}].shareNum=parseFloat(this.value)||0;applyExtraShare(${i})"/>／<input type="number" placeholder="？" value="${l.shareDen||''}" oninput="extraLands[${i}].shareDen=parseFloat(this.value)||0;applyExtraShare(${i})"/></span>`+
+        `<span class="land-op">＝</span>`+
+        `<input type="number" id="exLandArea${i}" placeholder="持分坪" value="${l.landArea||''}" oninput="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals();renderShareBanner()"/>`;
+      rows.appendChild(row);
     });
   }
   updateLandTotals();
 }
 function syncExtraAreaLabel(i){
   const el=document.getElementById('exAreaLbl'+i);
-  if(el) el.textContent=landAreaLabel(extraLands[i]?extraLands[i].landNo:'');
+  if(el) el.textContent=(extraLands[i]&&extraLands[i].landNo)?extraLands[i].landNo:('地號'+(i+2));
 }
-function addExtraLand(){extraLands.push({landNo:'',landArea:0});renderExtraLands();}
+function addExtraLand(){extraLands.push({landNo:'',landArea:0,landFull:0,shareNum:0,shareDen:0});renderExtraLands();}
 // 土地：全筆坪 × 持分 → 自動填進「土地持分坪」（估價用）；沒填全筆或持分就不動手填的值
 function applyLandShare(){
-  const full=parseFloat(document.getElementById('fLandFull')?.value)||0;
-  const n=parseFloat(document.getElementById('fLandShareNum')?.value)||0, d=parseFloat(document.getElementById('fLandShareDen')?.value)||0;
-  if(full>0){
-    const share=(n>0&&d>0&&n<=d)?n/d:1;
-    const el=document.getElementById('fLandArea'); if(el) el.value=Math.round(full*share*100)/100;
-  }
+  const v=parcelShareArea(document.getElementById('fLandFull')?.value, document.getElementById('fLandShareNum')?.value, document.getElementById('fLandShareDen')?.value);
+  if(v!=null){ const el=document.getElementById('fLandArea'); if(el) el.value=v; }
   updateLandTotals(); renderShareBanner();
   formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
 }
@@ -7097,10 +7132,15 @@ function renderShareBanner(){
   } else {
     lines.push('🏠 建物面積未填');
   }
-  const lf=g('fLandFull'), ln=g('fLandShareNum'), ld=g('fLandShareDen'), la=g('fLandArea');
-  if(lf>0 && ln>0 && ld>0 && ln<=ld && ln<ld){ lines.push(`🌱 土地 全筆 ${lf} 坪 × 持分 ${ln}／${ld} ＝ <b>${Math.round(lf*ln/ld*100)/100} 坪</b>`); if(cls!=='part') cls=cls||'part'; }
-  else if(lf>0){ lines.push(`🌱 土地 全筆 <b>${lf} 坪</b>（持分未填＝全部）`); }
-  else if(la>0){ lines.push(`🌱 土地 持分坪 <b>${la} 坪</b>（直接填的）`); }
+  const parcels=[{no:String(document.getElementById('fLandNo')?.value||'').trim()||'主地號', full:g('fLandFull'), n:g('fLandShareNum'), d:g('fLandShareDen'), a:g('fLandArea')},
+    ...extraLands.map((l,i)=>({no:l.landNo||('地號'+(i+2)), full:parseFloat(l.landFull)||0, n:parseFloat(l.shareNum)||0, d:parseFloat(l.shareDen)||0, a:parseFloat(l.landArea)||0}))];
+  let landSum=0, anyLand=false;
+  parcels.forEach(pc=>{
+    if(pc.full>0 && pc.n>0 && pc.d>0 && pc.n<pc.d){ const v=Math.round(pc.full*pc.n/pc.d*100)/100; landSum+=v; anyLand=true; lines.push(`🌱 ${calEsc(pc.no)} 全筆 ${pc.full} 坪 × 持分 ${pc.n}／${pc.d} ＝ <b>${v} 坪</b>`); if(cls!=='part') cls=cls||'part'; }
+    else if(pc.full>0){ landSum+=pc.full; anyLand=true; lines.push(`🌱 ${calEsc(pc.no)} 全筆 <b>${pc.full} 坪</b>（持分未填＝全部）`); }
+    else if(pc.a>0){ landSum+=pc.a; anyLand=true; lines.push(`🌱 ${calEsc(pc.no)} 持分坪 <b>${pc.a} 坪</b>（直接填的）`); }
+  });
+  if(anyLand && parcels.length>1) lines.push(`🌱 土地合計 <b>${Math.round(landSum*100)/100} 坪</b> <span class="sb-sub">← 估價用這個</span>`);
   el.className='share-banner '+cls; el.innerHTML=lines.join('<br>'); el.style.display='';
 }
 function updateLandTotals(){
