@@ -2279,7 +2279,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t191 (電腦版地圖介面重排:上方分三組、控制項同高、右側面板路線/導航/次要動作分層;「回地圖」鈕不再被拉成長條) 2026.10.20';
+const APP_VERSION = '🧪測試版 t192 (查座標:上一輪還在跑時直接提示等一下,不再跳 0/4 的小結;卡住超過 3 分鐘自動解鎖;少量查詢也顯示進度) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7365,11 +7365,12 @@ function geoNeighborQueries(q){
   return out;
 }
 // 逐筆查、寫回 p.geo。回 {done,exact,near,bad,none,stopped,badNames[]}。OVER_QUERY_LIMIT／金鑰被拒就停下來，已查的留著
-let _geoRunning=false;
+let _geoRunning=false, _geoRunSince=0;
 async function geocodeProps(targets, onProgress){
   const st={done:0,exact:0,near:0,bad:0,none:0,stopped:'',badNames:[]};
+  if(_geoRunning && Date.now()-_geoRunSince>180000) _geoRunning=false;   // 保險：卡超過 3 分鐘就當它掛了
   if(_geoRunning){ st.stopped='上一輪還在跑'; return st; }
-  _geoRunning=true;
+  _geoRunning=true; _geoRunSince=Date.now();
   try{
     await loadGeoLib();
     for(const t of targets){
@@ -7404,6 +7405,7 @@ function geoStopText(code){
   if(!code) return '';
   if(/OVER_QUERY_LIMIT|OVER_DAILY_LIMIT|RESOURCE_EXHAUSTED/i.test(code)) return '今天的查詢次數用完了（Google 每日上限），明天再按一次會接著查';
   if(/REQUEST_DENIED/i.test(code)) return '金鑰被 Google 拒絕，請檢查主控台的金鑰限制';
+  if(/上一輪還在跑/.test(code)) return '上一輪查座標還沒跑完，等它結束再按一次';
   return '中斷：'+code;
 }
 function geoSummaryText(st, total){
@@ -7431,6 +7433,7 @@ function geoProblemList(scope){
 // 設定頁按鈕：查所有還沒查過／門牌改過的不動產
 async function geocodeTool(){
   if(readOnlyMode){ showToast('👁 唯讀模式不能查'); return; }
+  if(_geoRunning && Date.now()-_geoRunSince<=180000){ showToast('📍 上一輪還在查，等它跑完（右下角會有進度）再按'); return; }
   if(typeof refreshBatchDatalist==='function') refreshBatchDatalist();
   const inp=document.getElementById('uiDlgInput'); if(inp) inp.setAttribute('list','batchListOptions');
   let last=''; try{ last=localStorage.getItem('crm_geo_scope')||''; }catch(e){}
@@ -7448,7 +7451,7 @@ async function geocodeTool(){
   }
   if(!(await uiConfirm(`${scope?'「'+scope+'」有 ':'有 '}${targets.length} 間不動產還沒查座標（或門牌改過）。\n\n會逐間向 Google 查，每月前 1 萬次免費；查完座標存在各筆不動產上，不準的會列出來。\n\n開始？`,{ok:'開始查'}))) return;
   showToast(`📍 查座標中… 0／${targets.length}`);
-  const st=await geocodeProps(targets,(d,n)=>{ if(d%10===0||d===n) showToast(`📍 查座標中… ${d}／${n}`); });
+  const st=await geocodeProps(targets,(d,n)=>{ if(d%5===0||d===n||n<=10) showToast(`📍 查座標中… ${d}／${n}`); });
   if(st.done){ saveLocal(); render(); if(editId && typeof loadPropFields==='function') loadPropFields(curPropIdx); }
   await uiAlert(geoSummaryText(st, targets.length));
 }
