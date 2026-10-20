@@ -75,7 +75,9 @@ const names=cs=>cs.map(c=>c.id+':'+c.name).join('|');
 
   // 4. saveLocal：壓一次、本機＋雲端同 ts、連續兩次只送最後一次
   writes=0; g.clients=clone(base937);
-  g.saveLocal(); g.saveLocal(); await sleep(300);
+  g.saveLocal(); g.saveLocal();
+  // 壓縮是非同步的，大備份可能要幾秒：等到真的寫進雲端（writes 不再是 0）再往下，不然殘留的存檔會干擾後面的測試
+  for(let i=0;i<100 && writes===0;i++) await sleep(100); await sleep(300);
   const ls2=JSON.parse(g.localStorage.getItem('loan_crm_fb_v1')); main=store.get('users/u');
   ok(ls2.gz && ls2.updatedAt===main.updatedAt && main.dataTs===main.updatedAt,'saveLocal：本機與雲端同一個時間戳');
   ok(writes===(main.dataN*2+2),'連續兩次 saveLocal 只真的送一次（寫入數＝段數×2＋2）','writes='+writes);
@@ -129,6 +131,7 @@ const names=cs=>cs.map(c=>c.id+':'+c.name).join('|');
   const before=store.get('users/u').dataTs; failNextCommit=true; toasts.length=0;
   g.clients=clone(base937); await g.saveToFirestore('2026-10-14T17:00:00.000Z');
   ok(store.get('users/u').dataTs===before && toasts.some(t=>t.includes('雲端儲存失敗')),'commit 失敗 → 雲端原樣、跳「雲端儲存失敗」提示');
+  if(!(store.get('users/u').dataTs===before && toasts.some(t=>t.includes('雲端儲存失敗')))) console.log('    ↳ dataTs 前',before,'後',store.get('users/u').dataTs,'| toasts:',JSON.stringify(toasts),'| _saveWarned:',g._saveWarned);
 
   // 12. 舊格式本機快取（未壓縮 clients 陣列）仍可讀
   g.localStorage.setItem('loan_crm_fb_v1',JSON.stringify({clients:base937.slice(0,5),nextId:6,updatedAt:'x',uid:'u'}));

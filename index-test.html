@@ -3962,6 +3962,7 @@ function processCompanyData(raw) {
     // 收整列 0~24 欄原始內容，公司資料頁照總檔欄位順序完整顯示（GAS 送多少就有多少）
     companyRaw.cols = [];
     for(var _ci=0; _ci<25; _ci++){ companyRaw.cols.push(String(row[_ci]==null?'':row[_ci]).trim()); }
+    companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;   // 每一列一開始就帶這次匯入的編號：同一次裡再遇到同一間（含這次才新建的人）才認得出是「同一次」
     // 第 7 欄＝所有權人住址 → 帶入基本頁「戶籍地址」（只在空白時補，不覆蓋手動填的）
     // 第7欄沒有時,改從所有權部(col6)第二行抓屋主住址(身分證+姓名的下一行就是住址)
     let ownerAddr = String(row[7]||'').replace(/[\r\n]+/g,'').trim();
@@ -4046,7 +4047,7 @@ function processCompanyData(raw) {
           if(!seenR.has(norm(companyRaw.rights))) kinds.push('他項權利部');
           if(!seenO.has(norm(companyRaw.owner))) kinds.push('所有權部');
           // 他項文字裡最晚的民國日期，當這一版的「新舊」依據
-          const latestDate=txt=>{ const ds=[...String(txt||'').matchAll(/(\d{3})-(\d{2})-(\d{2})/g)].map(m=>m[1]+m[2]+m[3]); return ds.length?ds.sort().slice(-1)[0]:''; };
+          const latestDate=txt=>{ const t=String(txt||''); const ds=[...t.matchAll(/(\d{3})-(\d{2})-(\d{2})/g)].map(m=>m[1]+m[2]+m[3]).concat([...t.matchAll(/民國\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>m[1].padStart(3,'0')+m[2].padStart(2,'0')+m[3].padStart(2,'0'))); return ds.length?ds.sort().slice(-1)[0]:''; };   // 「106-03-28」與「民國114年07月02日」兩種寫法都算
           const incNewer = latestDate(companyRaw.rights) >= latestDate(prev.rights);
           const sameRunOlder = sameRun && kinds.length>0 && !incNewer;   // 同一次裡又來一列、內容不同、日期比較舊 → 當舊版收起來
           const pushHist=(v)=>{ const h=dup.rawHistory=dup.rawHistory||[]; const nr=norm(v.rights), no=norm(v.owner); if(h.some(x=>norm(x.rights)===nr&&norm(x.owner)===no)) return false; h.push({at:v.importedAt||v.at||'', src:v.importedSrc||v.src||'', cols:v.cols||null, owner:v.owner||'', rights:v.rights||'', buildInfo:v.buildInfo||''}); h.sort((x,y)=>latestDate(x.rights).localeCompare(latestDate(y.rights))); if(h.length>10) dup.rawHistory=h.slice(-10); return true; };
@@ -4061,8 +4062,9 @@ function processCompanyData(raw) {
               companyRaw.altRights=[...new Set([...(prev.altRights||[]), prev.rights||''])].filter(Boolean).slice(-10);
               companyRaw.altOwners=[...new Set([...(prev.altOwners||[]), prev.owner||''])].filter(Boolean).slice(-10);
             }
-            const changed = kinds.length>0 && (prev.cols||prev.rights||prev.owner);
-            if(changed){ if(pushHist(prev)) rawChangedN++; }
+            // 真的有新版本才算「有變」（上一版成功留進版本紀錄）；同一次多列輪流覆蓋、或回到已看過的版本，都不算
+            const changed = kinds.length>0 && !!(prev.cols||prev.rights||prev.owner) && pushHist(prev);
+            if(changed) rawChangedN++;
             companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
             dup.companyRaw=companyRaw;
             // 抵押列：依登序聰明合併（既有/手改不動、新增標記、塗銷反灰不計入、設定日期更新）。同一次的重複列（遮罩共有人）不塗銷
