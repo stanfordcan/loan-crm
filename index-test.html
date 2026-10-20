@@ -504,6 +504,7 @@ body.readonly .ro-only{display:block}
 
   /* FAB 固定在左側欄右下角 */
   .fab{left:calc(min(45vw,600px) - 72px);right:auto}
+  #mapBackBtn{left:calc(min(45vw,600px) - 120px);right:auto}
 
   /* PC 表單兩欄排版 */
   .pc-container #sp0,
@@ -580,7 +581,8 @@ try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change'
     <input class="pw-input" id="loginPw" type="password" placeholder="密碼"
       style="margin-top:4px;letter-spacing:0;font-size:15px;text-align:left;padding-left:14px"
       onkeydown="if(event.key==='Enter')doLogin()"/>
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);margin-top:12px;cursor:pointer;text-align:left"><input type="checkbox" id="loginReadOnly" style="width:16px;height:16px;accent-color:var(--accent)">👁 唯讀模式登入<span style="font-size:11px;color:var(--t3)">（手機看資料、打電話用；不會踢掉電腦，也不會寫入任何東西）</span></label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);margin-top:12px;cursor:pointer;text-align:left"><input type="checkbox" id="loginReadOnly" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--accent)"><span style="white-space:nowrap">👁 唯讀模式登入</span></label>
+    <div style="font-size:11px;color:var(--t3);text-align:left;margin:2px 0 0 24px;line-height:1.5">手機看資料、打電話用；不會踢掉電腦，也不會寫入任何東西</div>
     <button class="pw-btn" id="loginBtn" onclick="doLogin()">登入</button>
     <div class="pw-error" id="loginErr" style="display:none;margin-top:10px"></div>
   </div>
@@ -1285,6 +1287,7 @@ async function applyUrlSettings() {
   <div class="list-wrap" id="listWrap"><div class="loading">⏳ 載入中…</div></div>
 </div>
 <button class="fab" id="fabBtn" onclick="openAdd()">＋</button>
+<button id="mapBackBtn" onclick="openMapView({keep:true})" style="display:none;position:fixed;bottom:84px;right:20px;z-index:140;background:var(--surface);color:var(--accent);border:1px solid var(--abd);border-radius:22px;padding:9px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:var(--sh)" title="回到地圖，路線還在">🗺️ 回地圖</button>
 <div class="toast" id="toast"></div>
 
 <!-- Batch action bar -->
@@ -1329,11 +1332,9 @@ async function applyUrlSettings() {
 <div id="mapView">
   <div id="mapTop" style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap">
     <button class="bb-btn" onclick="closeMapView()">✕ 關閉</button>
-    <select id="mapScope" onchange="mapRefit()" title="要上圖的人">
-      <option value="all">全部客戶</option>
-      <option value="sel">只看勾選的人</option>
-    </select>
+    <button class="bb-btn" id="mapSelChip" onclick="mapClearSel()" style="display:none;background:var(--obg);color:var(--orange);border-color:var(--obd)" title="從主畫面勾人「上地圖」進來的；按一下回到全部客戶">只看勾選的 0 人 ✕</button>
     <button class="bb-btn" id="mapLockBtn" onclick="toggleMapLock()" title="鎖定時圖釘只能點、不能拖；要改座標才解鎖">🔒 鎖定</button>
+    <input id="mapSearch" placeholder="🔍 找人：姓名／電話" oninput="mapSearchChanged()" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;width:150px"/>
     <select id="mapBatch" onchange="mapRefit()" title="只看某個批次（只列有定位過的批次）"><option value="">全部批次</option></select>
     <select id="mapVisited" onchange="mapRender()" title="跑過＝30 天內有「現場拜訪」的聯絡記錄">
       <option value="all">跑過沒跑過都看</option>
@@ -2211,7 +2212,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t183 (地圖:圖釘預設鎖定不能拖,按「🔒 鎖定」解鎖才能拖改座標,每次開地圖回到鎖定;範圍拿掉「目前清單」,預設全部客戶) 2026.10.20';
+const APP_VERSION = '🧪測試版 t184 (地圖:上方加「找人」搜尋框只留那個人的針(路線站不受影響);從地圖開面板看完客人,主畫面右下「🗺️ 回地圖（N 站）」一鍵回去;「全部／勾選」下拉拿掉,從主畫面勾人進來才顯示「只看勾選的 N 人 ✕」;登入畫面「唯讀模式登入」不再擠成三行) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7446,7 +7447,7 @@ async function regeocodeCurrent(){
 // 有座標（精準／隔壁／手填）的不動產上圖，一間一針、同座標併成一針；點針看人、加進路線；針可以拖到正確位置（存成手填）；
 // 路線可排最近順序，一鍵開 Google 地圖導航（一段最多 10 站，超過自動分段）。不準／查無／沒查的列在「未上圖」。
 const MAP_HEAT_HEX={'追很緊':'#2C63CF','覆訪':'#A25F00','已簽約':'#0F7A55','無效案件':'#6F7889','新鑫':'#6941C6','待分類':'#8B6E4E'};
-let _gmap=null, _mapInfo=null, _mapMarkers={}, _mapPts={}, _mapSelIds=null, _route=[], _mapMissing=[], _mapLocked=true;
+let _gmap=null, _mapInfo=null, _mapMarkers={}, _mapPts={}, _routePts={}, _mapSelIds=null, _route=[], _mapMissing=[], _mapLocked=true;
 function toggleMapLock(){ _mapLocked=!_mapLocked; renderMapLock(); mapRender(); showToast(_mapLocked?'🔒 圖釘已鎖定，不能拖':'🔓 已解鎖，拖圖釘可改座標（放開會先問你）'); }
 function renderMapLock(){ const b=document.getElementById('mapLockBtn'); if(!b) return; b.textContent=_mapLocked?'🔒 鎖定':'🔓 可拖'; b.style.background=_mapLocked?'':'var(--obg)'; b.style.color=_mapLocked?'':'var(--orange)'; b.style.borderColor=_mapLocked?'':'var(--obd)'; }
 function geoKey(g){ return (+g.lat).toFixed(6)+','+(+g.lng).toFixed(6); }
@@ -7468,11 +7469,12 @@ function mapGroupPoints(list, cats, staleOnly, stalePred, visited, visitedPred){
 }
 async function openMapView(opts){
   opts=opts||{};
-  _mapSelIds=opts.ids?new Set(opts.ids):null;
+  if(!opts.keep){ _mapSelIds=opts.ids?new Set(opts.ids):null; const si=document.getElementById('mapSearch'); if(si) si.value=''; }   // keep＝從「回地圖」回來，範圍／搜尋／路線都照舊
+  _mapOpenedOnce=true;
   const v=document.getElementById('mapView'); if(!v) return;
-  const sc=document.getElementById('mapScope'); if(sc){ sc.value=_mapSelIds?'sel':'all'; sc.querySelector('option[value=sel]').disabled=!_mapSelIds; }
+  renderMapSelChip();
   _mapLocked=true; renderMapLock();   // 每次開地圖都回到鎖定，手機才不會誤拖
-  v.style.display='flex';
+  v.style.display='flex'; updateMapBackBtn();
   renderMapBatchSelect();
   try{ await loadGeoLib(); }catch(e){ showToast('⚠️ 地圖載入失敗，請檢查網路'); return; }
   if(!_gmap){
@@ -7481,7 +7483,7 @@ async function openMapView(opts){
   }
   mapRender();
 }
-function closeMapView(){ const v=document.getElementById('mapView'); if(v) v.style.display='none'; if(_mapInfo) _mapInfo.close(); }
+function closeMapView(){ const v=document.getElementById('mapView'); if(v) v.style.display='none'; if(_mapInfo) _mapInfo.close(); updateMapBackBtn(); }
 // 有定位過的批次：[{b, n}]，n＝那批有座標的不動產數
 function mapBatchOptions(list){
   const cnt={};
@@ -7494,9 +7496,17 @@ function renderMapBatchSelect(){
   sel.innerHTML='<option value="">全部批次</option>'+mapBatchOptions().map(o=>`<option value="${calEsc(o.b)}">${calEsc(o.b)}（${o.n}）</option>`).join('');
   if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
 }
+let _mapSearchT=null;
+function mapSearchChanged(){ clearTimeout(_mapSearchT); _mapSearchT=setTimeout(()=>{ _mapFitted=false; mapRender(); },250); }
+// 主畫面的「回地圖」鈕：路線有站、或這次開過地圖就顯示
+function updateMapBackBtn(){ const b=document.getElementById('mapBackBtn'); if(!b) return; const show=_gmap && (_route.length || _mapOpenedOnce) && document.getElementById('mapView')?.style.display==='none'; b.style.display=show?'':'none'; b.textContent=_route.length?`🗺️ 回地圖（${_route.length} 站）`:'🗺️ 回地圖'; }
+let _mapOpenedOnce=false;
+function renderMapSelChip(){ const b=document.getElementById('mapSelChip'); if(!b) return; b.style.display=_mapSelIds?'':'none'; b.textContent=`只看勾選的 ${_mapSelIds?_mapSelIds.size:0} 人 ✕`; }
+function mapClearSel(){ _mapSelIds=null; renderMapSelChip(); mapRefit(); }
 function mapScopeList(){
-  const sc=document.getElementById('mapScope')?.value||'all';
-  let list=(sc==='sel' && _mapSelIds)?clients.filter(c=>_mapSelIds.has(c.id)):[...clients];
+  let list=_mapSelIds?clients.filter(c=>_mapSelIds.has(c.id)):[...clients];
+  const q=(document.getElementById('mapSearch')?.value||'').trim().toLowerCase();
+  if(q) list=list.filter(c=>clientMatchesQuery(c,q));
   const b=document.getElementById('mapBatch')?.value||'';
   if(b) list=list.filter(c=>batchList(c).includes(b));
   return list;
@@ -7518,7 +7528,7 @@ function markVisitedClients(list){
 }
 async function routeMarkVisited(k){
   if(readOnlyMode){ showToast('👁 唯讀模式不能記'); return; }
-  const pt=_mapPts[k]; if(!pt) return;
+  const pt=_routePts[k]||_mapPts[k]; if(!pt) return;
   const people=[...new Set(pt.entries.map(e=>e.c))];
   const n=markVisitedClients(people);
   if(n){ saveLocal(); showToast(`✔ 已記「現場拜訪」：${people.map(c=>c.name||'').join('、')}`); }
@@ -7537,7 +7547,8 @@ function mapRender(){
   const visited=document.getElementById('mapVisited')?.value||'all';
   const {pts,missing}=mapGroupPoints(mapScopeList(), cats, staleOnly, c=>isStale(c)||isNever(c), visited, c=>visitedWithin(c,30));
   _mapPts=pts; _mapMissing=missing;
-  _route=_route.filter(k=>pts[k]);
+  _routePts=mapGroupPoints([...clients],null,false).pts;   // 路線站用全部客戶的點對，搜尋／篩選把針藏起來時站還在
+  _route=_route.filter(k=>_routePts[k]);
   const bounds=new google.maps.LatLngBounds(); let n=0;
   Object.entries(pts).forEach(([k,pt])=>{
     const stopIdx=_route.indexOf(k);
@@ -7553,7 +7564,7 @@ function mapRender(){
   if(n && !_mapFitted){ _gmap.fitBounds(bounds, 40); _mapFitted=true; }
   const cnt=document.getElementById('mapCount'); if(cnt) cnt.textContent=`${n} 個點、${Object.values(pts).reduce((a,p)=>a+p.entries.length,0)} 間`;
   const mb=document.getElementById('mapMissingBtn'); if(mb) mb.textContent=`未上圖 ${missing.length}`;
-  renderRouteList();
+  renderRouteList(); updateMapBackBtn();
 }
 let _mapFitted=false;
 function mapRefit(){ _mapFitted=false; mapRender(); }
@@ -7631,9 +7642,9 @@ function routeUncross(order, pts){
 function routeLength(keys, pts){ let t=0; for(let i=1;i<keys.length;i++) t+=geoDist(pts[keys[i-1]],pts[keys[i]]); return t; }
 function routeOptimize(){
   if(_route.length<3){ showToast('至少 3 站才需要排'); return; }
-  const before=routeLength(_route,_mapPts);
-  _route=routeNearestOrder(_route,_mapPts);
-  const after=routeLength(_route,_mapPts);
+  const before=routeLength(_route,_routePts);
+  _route=routeNearestOrder(_route,_routePts);
+  const after=routeLength(_route,_routePts);
   showToast(`🔀 已排好：全程約 ${after.toFixed(1)} 公里${before>after+0.05?`（原本 ${before.toFixed(1)}）`:''}`); mapRender();
 }
 // Google 地圖導航網址：一段最多 10 站（起點用「目前位置」，中途最多 9 個），超過就分段，下一段的起點＝上一段的終點
@@ -7650,7 +7661,7 @@ function routeNavUrls(keys, pts){
 }
 function routeOpenNav(seg){
   if(!_route.length){ showToast('⚠️ 先把點加進路線'); return; }
-  const urls=routeNavUrls(_route,_mapPts); seg=seg||0;
+  const urls=routeNavUrls(_route,_routePts); seg=seg||0;
   window.open(urls[seg],'_blank');
   if(urls.length>1 && seg===0) showToast(`路線 ${_route.length} 站分 ${urls.length} 段，先開第 1 段；其他段在路線清單下面`);
 }
@@ -7658,9 +7669,9 @@ function renderRouteList(){
   const el=document.getElementById('routeList'); if(!el) return;
   const rc=document.getElementById('routeCount'); if(rc) rc.textContent=`${_route.length} 站`;
   if(!_route.length){ el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">點地圖上的針 →「加入路線」，或把地圖縮放到今天要跑的那一區再按「畫面內全加」（10～20 站一天剛好）</div>'; return; }
-  if(rc) rc.textContent=`${_route.length} 站・約 ${routeLength(_route,_mapPts).toFixed(1)} 公里（直線）`;
-  const urls=routeNavUrls(_route,_mapPts);
-  el.innerHTML=_route.map((k,i)=>{ const pt=_mapPts[k]; if(!pt) return ''; const names=pt.entries.map(e=>e.c.name||'').join('、'); const addr=pt.entries[0].p.addr||'';
+  if(rc) rc.textContent=`${_route.length} 站・約 ${routeLength(_route,_routePts).toFixed(1)} 公里（直線）`;
+  const urls=routeNavUrls(_route,_routePts);
+  el.innerHTML=_route.map((k,i)=>{ const pt=_routePts[k]; if(!pt) return ''; const names=pt.entries.map(e=>e.c.name||'').join('、'); const addr=pt.entries[0].p.addr||'';
     const done=pt.entries.every(e=>lastSiteVisit(e.c)===TODAY);
     return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;${done?'opacity:.55':''}">
       <span style="background:${done?'var(--green)':'var(--accent)'};color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${done?'✓':i+1}</span>
