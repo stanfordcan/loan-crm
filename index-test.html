@@ -2283,7 +2283,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t199 (路線:「跑過」改成開面板寫現場拜訪記錄,存檔就算跑過;跑過了再按一次可取消打勾(記錄不刪),再寫新記錄會重新打勾;導航只帶沒跑過的站、標題顯示剩幾站) 2026.10.20';
+const APP_VERSION = '🧪測試版 t200 (抵押列:業主手動加的筆若登序跟新謄本對得上,當同一筆不重複新增、內容也不動) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3455,7 +3455,10 @@ function smartMergeLoans(p, incoming, src, date, opts){
   const used=new Set(); let added=0,cancelled=0,changed=0,dated=0;
   const keyNA=l=>`${String(l.n||'').trim()}|${l.a||0}|${l.t||''}`;
   p.loans.forEach(l=>{
-    if(l.manualAdd) return;                                   // 業主手動加的筆，同步永遠不碰
+    if(l.manualAdd){                                          // 業主手動加的筆，同步永遠不碰；但登序對得上新謄本就當同一筆，把那筆吃掉，不重複新增
+      if(l.s){ const mi=inc.findIndex((x,i)=>!used.has(i)&&x.s&&x.s===l.s); if(mi>=0) used.add(mi); }
+      return;
+    }
     let m=null;
     if(l.s){ m=inc.find((x,i)=>!used.has(i)&&x.s&&x.s===l.s); }
     if(!m && !l.s){ m=inc.find((x,i)=>!used.has(i)&&!x.s&&keyNA(x)===keyNA(l)) || inc.find((x,i)=>!used.has(i)&&keyNA(x)===keyNA(l)); }

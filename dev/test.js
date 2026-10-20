@@ -294,6 +294,10 @@ eval(['parseRightsLoans','cleanCreditorName','classifyCreditor','defaultLoanE','
   const p={loans:[{n:'新鑫股份有限',a:132,t:'private',s:'0009000',e:132,d:'111/06/22'}]};
   const r=smartMergeLoans(p,[{n:'新鑫股份有限',a:132,t:'private',s:'0009000',e:132,d:'114/07/29'}],'總檔','2026-10-20',{});
   ok(r.dated===1 && p.loans[0].d==='114/07/29' && p.loans[0].dPrev==='111/06/22','同登序設定日期變了 → 更新並留舊日期');
+  // t200：手動加的筆登序對上新謄本 → 不重複加、不動內容；登序沒對上的手加筆照舊、新謄本那筆照加
+  const p2={loans:[{n:'民間甲（手加）',a:100,t:'private',s:'0005000',e:100,manualAdd:true},{n:'手加沒登序',a:50,t:'private',s:'',e:50,manualAdd:true}]};
+  const r2=smartMergeLoans(p2,[{n:'民間甲',a:120,t:'private',s:'0005000',e:120},{n:'銀行乙',a:240,t:'bank',s:'0006000',e:200}],'謄本','2026-10-20',{});
+  ok(p2.loans.length===3 && r2.added===1 && p2.loans[0].n==='民間甲（手加）' && p2.loans[0].a===100 && !p2.loans[0].x && p2.loans[2].s==='0006000','t200 手加筆登序對上 → 不重複、不動；對不上的新筆照加');
 }
 // t168：重複聯絡記錄清理
 eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)));
