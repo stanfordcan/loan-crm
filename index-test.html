@@ -2165,7 +2165,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t177 (座標守門修正:「大安區市民大道」區名切錯害誤判不準;弄被 Google 丟掉但釘在弄口改判隔壁;以前誤判的再按查座標會自動重查) 2026.10.20';
+const APP_VERSION = '🧪測試版 t178 (查不到的門牌用旁邊的號代查:173→171/175/169/177,對上就存成「隔壁」並標用哪個號;舊的不準再按查座標會自動補試) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7212,7 +7212,7 @@ function propsNeedingGeo(onlyIds, scope){
       const r=addrForGeo(p.addr, p.district||c.district||'');
       if(!r.q || r.level==='不準' || r.level==='無地址') return;
       if(p.geo && p.geo.grade==='手填') return;   // 手填的不被自動查蓋掉
-      if(p.geo && p.geo.q===r.q){ if(!(p.geo.grade==='不準' && p.geo.addr && geoGrade(p.geo.q,p.geo.addr)!=='不準')) return; }   // 查過且沒改就跳過；但以前誤判不準、現在規則判得過的，重查補座標
+      if(p.geo && p.geo.q===r.q){ if(!((p.geo.grade==='不準'||p.geo.grade==='查無') && (!p.geo.tried || (p.geo.addr && geoGrade(p.geo.q,p.geo.addr)!=='不準')))) return; }   // 查過且沒改就跳過；但不準／查無且還沒試過旁邊代查的（tried）、或現在規則判得過的，重查
       out.push({c,p,i,q:r.q});
     });
   });
@@ -7241,6 +7241,14 @@ async function geocodeOne(q){
     return {status:'OK', addr:x.formatted_address, lat:+x.geometry.location.lat().toFixed(7), lng:+x.geometry.location.lng().toFixed(7), type:x.geometry.location_type};
   }catch(e){ return {status:(e&&e.code)||String(e&&e.message||e)}; }
 }
+// 查不到就用旁邊的門牌代查（業主 2026/10/20：173 查不到就查 171，一定在旁邊）：同側隔兩號優先 → 173 給 [171,175,169,177]；有「之」號的不代查
+function geoNeighborQueries(q){
+  const m=String(q||'').match(/^(.*?)(\d+)號$/);
+  if(!m || /之\d+號$/.test(q)) return [];
+  const n=+m[2], out=[];
+  [n-2,n+2,n-4,n+4].forEach(k=>{ if(k>0) out.push(m[1]+k+'號'); });
+  return out;
+}
 // 逐筆查、寫回 p.geo。回 {done,exact,near,bad,none,stopped,badNames[]}。OVER_QUERY_LIMIT／金鑰被拒就停下來，已查的留著
 let _geoRunning=false;
 async function geocodeProps(targets, onProgress){
@@ -7252,11 +7260,22 @@ async function geocodeProps(targets, onProgress){
     for(const t of targets){
       const r=await geocodeOne(t.q);
       const ts=TODAY;
-      if(r.status==='OK'){
+      let fixed=null;
+      if(r.status==='OK' && geoGrade(t.q, r.addr)==='不準' || r.status==='ZERO_RESULTS'){
+        // 旁邊門牌代查：哪個號 Google 有、而且評得「精準」，就用它的座標、標隔壁
+        for(const nq of geoNeighborQueries(t.q)){
+          await new Promise(s=>setTimeout(s,120));
+          const nr=await geocodeOne(nq);
+          if(nr.status!=='OK' && nr.status!=='ZERO_RESULTS'){ r.status=nr.status; break; }
+          if(nr.status==='OK' && geoGrade(nq, nr.addr)==='精準'){ fixed={nq, r:nr}; break; }
+        }
+      }
+      if(fixed){ t.p.geo={lat:fixed.r.lat, lng:fixed.r.lng, grade:'隔壁', q:t.q, addr:fixed.r.addr, via:fixed.nq.match(/(\d+號)$/)[1], ts}; st.near++; }
+      else if(r.status==='OK'){
         const grade=geoGrade(t.q, r.addr);
-        if(grade==='不準'){ t.p.geo={grade, q:t.q, addr:r.addr, ts}; st.bad++; st.badNames.push(`${t.c.name||'(無名)'}：${t.q} → ${r.addr.replace(/^\d*台灣/,'')}`); }
+        if(grade==='不準'){ t.p.geo={grade, q:t.q, addr:r.addr, ts, tried:1}; st.bad++; st.badNames.push(`${t.c.name||'(無名)'}：${t.q} → ${r.addr.replace(/^\d*台灣/,'')}（旁邊門牌也試過）`); }
         else { t.p.geo={lat:r.lat, lng:r.lng, grade, q:t.q, addr:r.addr, ts}; if(grade==='精準') st.exact++; else st.near++; }
-      } else if(r.status==='ZERO_RESULTS'){ t.p.geo={grade:'查無', q:t.q, ts}; st.none++; }
+      } else if(r.status==='ZERO_RESULTS'){ t.p.geo={grade:'查無', q:t.q, ts, tried:1}; st.none++; }
       else { st.stopped=r.status; break; }
       st.done++;
       if(onProgress) onProgress(st.done, targets.length);
@@ -7334,7 +7353,7 @@ function geoTagHtml(p){
   if(!g) return '<span style="font-size:11px;color:var(--t3)">座標未查</span>';
   const col={'精準':'var(--green)','隔壁':'var(--orange)','不準':'var(--red)','查無':'var(--t3)','手填':'var(--accent)'}[g.grade]||'var(--t3)';
   const tip=g.addr?`Google：${g.addr}`:'';
-  return `<span title="${calEsc(tip)}" style="font-size:11px;color:${col};font-weight:600">📍${g.grade}</span>`;
+  return `<span title="${calEsc(tip)}" style="font-size:11px;color:${col};font-weight:600">📍${g.grade}${g.via?`（用${g.via}代查）`:''}</span>`;
 }
 function renderGeoTag(){
   const el=document.getElementById('geoTag'); if(!el) return;
