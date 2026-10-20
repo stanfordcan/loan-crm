@@ -398,6 +398,20 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(urls.length===2 && !urls[0].includes('origin=') && urls[0].includes('destination=25.09,121.5') && decodeURIComponent(urls[0]).split('|').length===9,'導航網址：10 站一段、第一段起點＝目前位置、9 個中途點');
   ok(urls[1].includes('origin=25.09,121.5') && urls[1].includes('destination=25.11,121.5'),'第二段起點＝第一段終點');
   ok(routeNavUrls(['k0'],P)[0]==='https://www.google.com/maps/dir/?api=1&destination=25,121.5&travelmode=driving','單站只有終點');
+  // t181：批次選項、跑過判定、記跑過
+  eval([ext('mapBatchOptions'),ext('lastSiteVisit'),ext('visitedWithin'),ext('markVisitedClients')].join('\n'));
+  const B=[
+    {id:1,name:'甲',batch:'包區 115/10 大安區',properties:[{geo:{lat:25,lng:121,grade:'精準'}},{geo:{lat:25,lng:121,grade:'隔壁'}}]},
+    {id:2,name:'乙',batch:'包區 115/10 大安區、新鑫 115/03/18 (5)',properties:[{geo:{grade:'不準'}},{addr:'x'}]},
+    {id:3,name:'丙',batch:'新鑫 115/03/18 (5)',properties:[{geo:{lat:25,lng:121,grade:'手填'}}]},
+    {id:4,name:'丁',batch:'還沒查的批',properties:[{addr:'y'}]},
+  ];
+  ok(JSON.stringify(mapBatchOptions(B))==='[{"b":"包區 115/10 大安區","n":2},{"b":"新鑫 115/03/18 (5)","n":1}]','批次下拉只列有定位過的批次、算有座標的間數');
+  const V={logs:[{date:'2026-10-01',text:'電話',kind:'phone'},{date:'2026-09-28',text:'到場',kind:'site'},{date:'2026-10-05',text:'到場',kind:'site'}]};
+  var TODAY='2026-10-20';
+  ok(lastSiteVisit(V)==='2026-10-05' && visitedWithin(V,30) && !visitedWithin(V,10) && lastSiteVisit({logs:[]})==='' && !visitedWithin({},30),'跑過判定：只看現場拜訪的記錄');
+  const M=[{name:'a',logs:[],staleMuteUntil:'2026-12-01'},{name:'b',logs:[{date:TODAY,text:'x',kind:'site'}]}];
+  ok(markVisitedClients(M)===1 && M[0].logs[0].kind==='site' && M[0].logs[0].date===TODAY && M[0].staleMuteUntil==='' && M[1].logs.length===1,'記跑過：寫今天現場拜訪、解除暫不追、今天記過的不重複');
 }
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

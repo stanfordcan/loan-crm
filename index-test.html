@@ -1323,6 +1323,8 @@ async function applyUrlSettings() {
   #mapBody{flex:1;display:flex;min-height:0}
   #gmap{flex:1;min-height:0}
   #routePanel{width:290px;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-height:0}
+  #gmCats{display:flex;gap:4px;flex-wrap:wrap}
+  @media (max-width:700px){ #gmCats{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:2px} #gmCats button{white-space:nowrap} }
   #mapTop select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
   @media (max-width:700px){ #mapBody{flex-direction:column} #routePanel{width:auto;height:38%;border-left:none;border-top:1px solid var(--border)} }
 </style>
@@ -1330,11 +1332,12 @@ async function applyUrlSettings() {
   <div id="mapTop" style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap">
     <button class="bb-btn" onclick="closeMapView()">✕ 關閉</button>
     <select id="mapScope" onchange="mapRefit()" title="要上圖的人">
-      <option value="list">目前清單（含搜尋／批次／縣市篩選）</option>
+      <option value="list">目前清單（含搜尋／縣市篩選）</option>
       <option value="all">全部客戶</option>
       <option value="sel">只看勾選的人</option>
     </select>
-    <div id="gmCats" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <select id="mapBatch" onchange="mapRefit()" title="只看某個批次（只列有定位過的批次）"><option value="">全部批次</option></select>
+    <div id="gmCats"></div>
     <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="mapStaleOnly" onchange="mapRender()"/>只看久未聯絡</label>
     <span id="mapCount" style="font-size:12px;color:var(--t2)"></span>
     <button class="bb-btn" id="mapMissingBtn" onclick="mapShowMissing()" title="有門牌但沒座標的：不準／查無／還沒查">未上圖 0</button>
@@ -2205,7 +2208,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t180 (路線「最近順序」加交叉解開:排完整條不折返;路線顯示全程公里數) 2026.10.20';
+const APP_VERSION = '🧪測試版 t181 (地圖:上方多「批次」下拉只列有定位過的批次;路線每站「✔ 跑過」自動記一筆今天的現場拜訪;30 天內跑過的針打勾淡色;資訊窗顯示上次現場拜訪;手機分類列可左右滑) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7471,7 +7474,7 @@ async function openMapView(opts){
   const v=document.getElementById('mapView'); if(!v) return;
   const sc=document.getElementById('mapScope'); if(sc){ sc.value=_mapSelIds?'sel':'list'; sc.querySelector('option[value=sel]').disabled=!_mapSelIds; }
   v.style.display='flex';
-  renderGmCats();
+  renderGmCats(); renderMapBatchSelect();
   try{ await loadGeoLib(); }catch(e){ showToast('⚠️ 地圖載入失敗，請檢查網路'); return; }
   if(!_gmap){
     _gmap=new google.maps.Map(document.getElementById('gmap'),{center:{lat:25.04,lng:121.54},zoom:12,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:'greedy'});
@@ -7485,14 +7488,54 @@ function renderGmCats(){
   el.innerHTML=Object.keys(hOrd).map(h=>{ const on=_gmCats.has(h); return `<button onclick="toggleGmCat('${h}')" style="font-size:11px;padding:3px 8px;border-radius:12px;cursor:pointer;font-family:inherit;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--abg)':'var(--s2)'};color:${on?'var(--accent)':'var(--t3)'}">${on?'✓ ':''}${h}</button>`; }).join('');
 }
 function toggleGmCat(h){ if(_gmCats.has(h)) _gmCats.delete(h); else _gmCats.add(h); renderGmCats(); mapRender(); }
+// 有定位過的批次：[{b, n}]，n＝那批有座標的不動產數
+function mapBatchOptions(list){
+  const cnt={};
+  (list||clients).forEach(c=>{ const n=(c.properties||[]).filter(p=>p.geo&&p.geo.lat&&p.geo.grade!=='不準').length; if(!n) return; batchList(c).forEach(b=>{ cnt[b]=(cnt[b]||0)+n; }); });
+  return Object.keys(cnt).sort().map(b=>({b,n:cnt[b]}));
+}
+function renderMapBatchSelect(){
+  const sel=document.getElementById('mapBatch'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">全部批次</option>'+mapBatchOptions().map(o=>`<option value="${calEsc(o.b)}">${calEsc(o.b)}（${o.n}）</option>`).join('');
+  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+}
 function mapScopeList(){
   const sc=document.getElementById('mapScope')?.value||'list';
-  if(sc==='all') return [...clients];
-  if(sc==='sel' && _mapSelIds) return clients.filter(c=>_mapSelIds.has(c.id));
-  return currentListClients();
+  let list;
+  if(sc==='all') list=[...clients];
+  else if(sc==='sel' && _mapSelIds) list=clients.filter(c=>_mapSelIds.has(c.id));
+  else list=currentListClients();
+  const b=document.getElementById('mapBatch')?.value||'';
+  if(b) list=list.filter(c=>batchList(c).includes(b));
+  return list;
 }
-function mapPinIcon(hex, stop){
-  return {path:google.maps.SymbolPath.CIRCLE, scale:stop?12:8, fillColor:hex, fillOpacity:.95, strokeColor:'#fff', strokeWeight:2};
+// 跑過了＝有「現場拜訪」的聯絡記錄。lastSiteVisit 回最近一次日期；visitedWithin 看是否在幾天內
+function lastSiteVisit(c){ return (c&&c.logs||[]).reduce((m,l)=>(l&&l.kind==='site'&&l.date&&l.date>m)?l.date:m,''); }
+function visitedWithin(c, days){ const d=lastSiteVisit(c); return !!d && daysSince(d)<=days; }
+// 把這些人標成今天跑過：各寫一筆今天的「現場拜訪」記錄（今天已有就不重複）。回寫了幾人
+function markVisitedClients(list){
+  let n=0;
+  list.forEach(c=>{
+    c.logs=c.logs||[];
+    if(c.logs.some(l=>l&&l.kind==='site'&&l.date===TODAY)) return;
+    c.logs.unshift({date:TODAY, text:'現場拜訪（地圖路線）', kind:'site'});
+    if(c.staleMuteUntil) c.staleMuteUntil='';
+    n++;
+  });
+  return n;
+}
+async function routeMarkVisited(k){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能記'); return; }
+  const pt=_mapPts[k]; if(!pt) return;
+  const people=[...new Set(pt.entries.map(e=>e.c))];
+  const n=markVisitedClients(people);
+  if(n){ saveLocal(); showToast(`✔ 已記「現場拜訪」：${people.map(c=>c.name||'').join('、')}`); }
+  else showToast('今天已經記過了');
+  mapRender();
+}
+function mapPinIcon(hex, stop, visited){
+  return {path:google.maps.SymbolPath.CIRCLE, scale:stop?12:(visited?9:8), fillColor:hex, fillOpacity:visited?.45:.95, strokeColor:visited?'#0F7A55':'#fff', strokeWeight:visited?3:2};
 }
 function mapRender(){
   if(!_gmap) return;
@@ -7505,8 +7548,9 @@ function mapRender(){
   Object.entries(pts).forEach(([k,pt])=>{
     const stopIdx=_route.indexOf(k);
     const heat=pt.entries[0].c.heat||'待分類';
-    const m=new google.maps.Marker({position:{lat:pt.lat,lng:pt.lng}, map:_gmap, icon:mapPinIcon(MAP_HEAT_HEX[heat]||'#6F7889', stopIdx>=0),
-      label:stopIdx>=0?{text:String(stopIdx+1),color:'#fff',fontSize:'11px',fontWeight:'700'}:null,
+    const visited=pt.entries.every(e=>visitedWithin(e.c,30));
+    const m=new google.maps.Marker({position:{lat:pt.lat,lng:pt.lng}, map:_gmap, icon:mapPinIcon(MAP_HEAT_HEX[heat]||'#6F7889', stopIdx>=0, visited),
+      label:stopIdx>=0?{text:String(stopIdx+1),color:'#fff',fontSize:'11px',fontWeight:'700'}:(visited?{text:'✓',color:'#0F7A55',fontSize:'12px',fontWeight:'700'}:null),
       title:pt.entries.map(e=>e.c.name||'').join('、'), draggable:!readOnlyMode});
     m.addListener('click',()=>mapOpenInfo(k));
     m.addListener('dragend',(ev)=>mapDragEnd(k, ev.latLng.lat(), ev.latLng.lng()));
@@ -7527,6 +7571,7 @@ function mapEntryHtml(e){
     <div><b style="font-size:13px">${calEsc(c.name||'(無名)')}</b> <span style="color:#fff;background:${MAP_HEAT_HEX[c.heat]||'#6F7889'};border-radius:8px;padding:0 6px;font-size:10px">${calEsc(c.heat||'待分類')}</span> <span style="color:#888;font-size:10px">📍${g.grade||''}${g.via?`（用${g.via}代查）`:''}</span></div>
     <div>${calEsc(p.addr||'')}</div>
     <div style="color:#666">${last?`最後聯絡 ${last}（${daysSince(last)} 天前）`:'從未聯絡'}${c.remind?`・提醒 ${c.remind}`:''}</div>
+    <div style="color:${lastSiteVisit(c)?'#0F7A55':'#999'}">${lastSiteVisit(c)?`✔ 上次現場拜訪 ${lastSiteVisit(c)}（${daysSince(lastSiteVisit(c))} 天前）`:'還沒現場拜訪過'}</div>
     <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
       ${tel?`<a href="tel:${tel}" style="text-decoration:none;color:#0F7A55;font-weight:600">📞 ${tel}</a>`:''}
       <a href="#" onclick="closeMapView();openEdit(${c.id});return false" style="text-decoration:none;color:#2C63CF;font-weight:600">📋 開面板</a>
@@ -7622,9 +7667,11 @@ function renderRouteList(){
   if(rc) rc.textContent=`${_route.length} 站・約 ${routeLength(_route,_mapPts).toFixed(1)} 公里（直線）`;
   const urls=routeNavUrls(_route,_mapPts);
   el.innerHTML=_route.map((k,i)=>{ const pt=_mapPts[k]; if(!pt) return ''; const names=pt.entries.map(e=>e.c.name||'').join('、'); const addr=pt.entries[0].p.addr||'';
-    return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <span style="background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:600">${calEsc(names)}</div><div style="color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc(addr)}</div></div>
+    const done=pt.entries.every(e=>lastSiteVisit(e.c)===TODAY);
+    return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;${done?'opacity:.55':''}">
+      <span style="background:${done?'var(--green)':'var(--accent)'};color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${done?'✓':i+1}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:600;${done?'text-decoration:line-through':''}">${calEsc(names)}</div><div style="color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc(addr)}</div>
+        <button onclick="routeMarkVisited('${k}')" ${done?'disabled':''} style="margin-top:3px;border:1px solid var(--gbd);background:var(--gbg);color:var(--green);border-radius:6px;cursor:pointer;font-size:11px;padding:2px 8px;font-family:inherit">${done?'✔ 今天跑過':'✔ 跑過'}</button></div>
       <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
         <button onclick="routeMove(${i},-1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▲</button>
         <button onclick="routeMove(${i},1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▼</button>
