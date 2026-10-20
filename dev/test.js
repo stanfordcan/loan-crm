@@ -340,6 +340,11 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(propsNeedingGeo(null,'包區 115/10 大安區').length===3 && propsNeedingGeo(null,'新鑫 115/03/18 (5)').length===1,'t175 打批次名就只查那個批次的人（含多批次的人）');
   ok(propsNeedingGeo(null,'').length===3,'t175 留空＝全部');
   delete clients[0].batch; delete clients[1].batch;
+  eval(ext('geoProblemList'));
+  clients[1].properties[0].geo={grade:'不準',q:'x',addr:'105台灣臺北市松山區xx',ts:'2026-10-20'};
+  clients[0].batch='包區 115/10 大安區';
+  ok(geoProblemList('').length===1 && geoProblemList('').join('').includes('不準｜乙') && geoProblemList('包區 115/10 大安區').length===0 && geoProblemList('中山區').length===1,'t176 不準清單：全部／批次／區名');
+  delete clients[0].batch; delete clients[1].properties[0].geo;
   clients[0].properties[0].geo={lat:25,lng:121,grade:'手填',q:'',ts:'2026-10-20'};
   ok(propsNeedingGeo(null,'大安區').length===1,'t174 手填的不會被自動查蓋掉');
   eval(ext('parseLatLng'));

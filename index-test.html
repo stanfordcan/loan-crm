@@ -2165,7 +2165,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t175 (查座標改成可以挑批次:輸入框會列出現有批次,也能打區名,留空全部) 2026.10.20';
+const APP_VERSION = '🧪測試版 t176 (查座標:那批都查過時改列出不準/查無的清單,不用靠截圖) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7268,9 +7268,25 @@ function geoStopText(code){
 }
 function geoSummaryText(st, total){
   let s=`查了 ${st.done}／${total} 間\n精準 ${st.exact}、隔壁 ${st.near}（「之」號釘到鄰號，排路線夠用）、查無 ${st.none}`;
-  if(st.bad){ s+=`\n\n⚠️ 不準 ${st.bad} 間（區／巷弄／主號對不上，沒存座標，請自己確認門牌）：\n`+st.badNames.slice(0,12).join('\n')+(st.badNames.length>12?'\n…':''); }
+  if(st.bad){ s+=`\n\n⚠️ 不準 ${st.bad} 間（區／巷弄／主號對不上，沒存座標，請自己確認門牌；之後再按一次「查座標」會再列出來）：\n`+st.badNames.slice(0,12).join('\n')+(st.badNames.length>12?'\n…':''); }
   if(st.stopped) s+='\n\n'+geoStopText(st.stopped);
   return s;
+}
+// 某範圍內已查過但「不準」或「查無」的清單（給業主事後翻看、去面板重查或貼座標）
+function geoProblemList(scope){
+  scope=String(scope||'').trim();
+  const isBatch=scope && (typeof allBatches==='function') && allBatches().includes(scope);
+  const area=isBatch?'':scope.replace(/\s+/g,'').replace(/台/g,'臺');
+  const out=[];
+  clients.forEach(c=>{
+    if(isBatch && !batchList(c).includes(scope)) return;
+    (c.properties||[]).forEach(p=>{
+      if(!p.geo || (p.geo.grade!=='不準' && p.geo.grade!=='查無')) return;
+      if(area && !String((p.addr||'')+'|'+(p.district||'')+'|'+(c.district||'')).replace(/台/g,'臺').includes(area)) return;
+      out.push(`${p.geo.grade}｜${c.name||'(無名)'}：${p.addr||''}${p.geo.addr?' → Google 找到 '+p.geo.addr.replace(/^\d*台灣/,''):''}`);
+    });
+  });
+  return out;
 }
 // 設定頁按鈕：查所有還沒查過／門牌改過的不動產
 async function geocodeTool(){
@@ -7284,7 +7300,12 @@ async function geocodeTool(){
   if(scope===null) return;
   try{ localStorage.setItem('crm_geo_scope', scope); }catch(e){}
   const targets=propsNeedingGeo(null, scope);
-  if(!targets.length){ showToast(`✅ ${scope?'「'+scope+'」':''}有門牌的不動產都查過座標了`); return; }
+  if(!targets.length){
+    const bad=geoProblemList(scope);
+    if(!bad.length) await uiAlert(`✅ ${scope?'「'+scope+'」':''}有門牌的不動產都查過座標了，沒有不準的。`);
+    else await uiAlert(`✅ ${scope?'「'+scope+'」':''}都查過了。\n\n還有 ${bad.length} 間不準或查無（開那位客戶的面板，改門牌後按「🔄 查座標」，或按「✏️ 貼座標」）：\n`+bad.slice(0,20).join('\n')+(bad.length>20?'\n…':''));
+    return;
+  }
   if(!(await uiConfirm(`${scope?'「'+scope+'」有 ':'有 '}${targets.length} 間不動產還沒查座標（或門牌改過）。\n\n會逐間向 Google 查，每月前 1 萬次免費；查完座標存在各筆不動產上，不準的會列出來。\n\n開始？`,{ok:'開始查'}))) return;
   showToast(`📍 查座標中… 0／${targets.length}`);
   const st=await geocodeProps(targets,(d,n)=>{ if(d%10===0||d===n) showToast(`📍 查座標中… ${d}／${n}`); });
