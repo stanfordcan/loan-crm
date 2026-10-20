@@ -1323,8 +1323,6 @@ async function applyUrlSettings() {
   #mapBody{flex:1;display:flex;min-height:0}
   #gmap{flex:1;min-height:0}
   #routePanel{width:290px;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-height:0}
-  #gmCats{display:flex;gap:4px;flex-wrap:wrap}
-  @media (max-width:700px){ #gmCats{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:2px} #gmCats button{white-space:nowrap} }
   #mapTop select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
   @media (max-width:700px){ #mapBody{flex-direction:column} #routePanel{width:auto;height:38%;border-left:none;border-top:1px solid var(--border)} }
 </style>
@@ -1337,8 +1335,13 @@ async function applyUrlSettings() {
       <option value="sel">只看勾選的人</option>
     </select>
     <select id="mapBatch" onchange="mapRefit()" title="只看某個批次（只列有定位過的批次）"><option value="">全部批次</option></select>
-    <div id="gmCats"></div>
+    <select id="mapVisited" onchange="mapRender()" title="跑過＝30 天內有「現場拜訪」的聯絡記錄">
+      <option value="all">跑過沒跑過都看</option>
+      <option value="no">只看沒跑過的</option>
+      <option value="yes">只看跑過的</option>
+    </select>
     <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="mapStaleOnly" onchange="mapRender()"/>只看久未聯絡</label>
+    <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer" title="預設不上圖，要看再勾"><input type="checkbox" id="mapClosedToo" onchange="mapRender()"/>含已簽約／無效</label>
     <span id="mapCount" style="font-size:12px;color:var(--t2)"></span>
     <button class="bb-btn" id="mapMissingBtn" onclick="mapShowMissing()" title="有門牌但沒座標的：不準／查無／還沒查">未上圖 0</button>
     <button class="bb-btn" onclick="mapRefit()" title="把畫面縮放到看得到所有點">⤢ 全部看到</button>
@@ -2208,7 +2211,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t181 (地圖:上方多「批次」下拉只列有定位過的批次;路線每站「✔ 跑過」自動記一筆今天的現場拜訪;30 天內跑過的針打勾淡色;資訊窗顯示上次現場拜訪;手機分類列可左右滑) 2026.10.20';
+const APP_VERSION = '🧪測試版 t182 (地圖:六個分類鈕拿掉,改「跑過沒跑過都看/只看沒跑過/只看跑過」下拉＋「含已簽約／無效」勾選(預設不上圖)) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7443,7 +7446,7 @@ async function regeocodeCurrent(){
 // 有座標（精準／隔壁／手填）的不動產上圖，一間一針、同座標併成一針；點針看人、加進路線；針可以拖到正確位置（存成手填）；
 // 路線可排最近順序，一鍵開 Google 地圖導航（一段最多 10 站，超過自動分段）。不準／查無／沒查的列在「未上圖」。
 const MAP_HEAT_HEX={'追很緊':'#2C63CF','覆訪':'#A25F00','已簽約':'#0F7A55','無效案件':'#6F7889','新鑫':'#6941C6','待分類':'#8B6E4E'};
-let _gmap=null, _mapInfo=null, _mapMarkers={}, _mapPts={}, _gmCats=new Set(['待分類','覆訪','追很緊','新鑫']), _mapSelIds=null, _route=[], _mapMissing=[];
+let _gmap=null, _mapInfo=null, _mapMarkers={}, _mapPts={}, _mapSelIds=null, _route=[], _mapMissing=[];
 function geoKey(g){ return (+g.lat).toFixed(6)+','+(+g.lng).toFixed(6); }
 // 目前主清單的人（搜尋／分類／批次／縣市篩選後），跟畫面上看到的一樣
 function currentListClients(){
@@ -7455,11 +7458,13 @@ function currentListClients(){
   return list;
 }
 // 把客戶清單變成地圖上的點：{key:{lat,lng,entries:[{c,p,i}]}}；missing＝有門牌但沒座標的 [{c,p,why}]
-function mapGroupPoints(list, cats, staleOnly, stalePred){
+// cats：要上圖的分類（null＝全部）；staleOnly＋stalePred：只看久未聯絡；visited：'all'／'no'／'yes' ＋ visitedPred（跑過沒跑過）
+function mapGroupPoints(list, cats, staleOnly, stalePred, visited, visitedPred){
   const pts={}, missing=[];
   list.forEach(c=>{
     if(cats && cats.size && !cats.has(c.heat||'待分類')) return;
     if(staleOnly && !(stalePred?stalePred(c):false)) return;
+    if(visited && visited!=='all' && visitedPred){ const v=visitedPred(c); if(visited==='yes'?!v:v) return; }
     (c.properties||[]).forEach((p,i)=>{
       const g=p.geo;
       if(g && g.lat && g.lng && g.grade!=='不準'){ const k=geoKey(g); if(!pts[k]) pts[k]={lat:+g.lat,lng:+g.lng,entries:[]}; pts[k].entries.push({c,p,i}); }
@@ -7474,7 +7479,7 @@ async function openMapView(opts){
   const v=document.getElementById('mapView'); if(!v) return;
   const sc=document.getElementById('mapScope'); if(sc){ sc.value=_mapSelIds?'sel':'list'; sc.querySelector('option[value=sel]').disabled=!_mapSelIds; }
   v.style.display='flex';
-  renderGmCats(); renderMapBatchSelect();
+  renderMapBatchSelect();
   try{ await loadGeoLib(); }catch(e){ showToast('⚠️ 地圖載入失敗，請檢查網路'); return; }
   if(!_gmap){
     _gmap=new google.maps.Map(document.getElementById('gmap'),{center:{lat:25.04,lng:121.54},zoom:12,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:'greedy'});
@@ -7483,11 +7488,6 @@ async function openMapView(opts){
   mapRender();
 }
 function closeMapView(){ const v=document.getElementById('mapView'); if(v) v.style.display='none'; if(_mapInfo) _mapInfo.close(); }
-function renderGmCats(){
-  const el=document.getElementById('gmCats'); if(!el) return;
-  el.innerHTML=Object.keys(hOrd).map(h=>{ const on=_gmCats.has(h); return `<button onclick="toggleGmCat('${h}')" style="font-size:11px;padding:3px 8px;border-radius:12px;cursor:pointer;font-family:inherit;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--abg)':'var(--s2)'};color:${on?'var(--accent)':'var(--t3)'}">${on?'✓ ':''}${h}</button>`; }).join('');
-}
-function toggleGmCat(h){ if(_gmCats.has(h)) _gmCats.delete(h); else _gmCats.add(h); renderGmCats(); mapRender(); }
 // 有定位過的批次：[{b, n}]，n＝那批有座標的不動產數
 function mapBatchOptions(list){
   const cnt={};
@@ -7541,7 +7541,10 @@ function mapRender(){
   if(!_gmap) return;
   Object.values(_mapMarkers).forEach(m=>m.setMap(null)); _mapMarkers={};
   const staleOnly=!!document.getElementById('mapStaleOnly')?.checked;
-  const {pts,missing}=mapGroupPoints(mapScopeList(), _gmCats, staleOnly, c=>isStale(c)||isNever(c));
+  const closedToo=!!document.getElementById('mapClosedToo')?.checked;
+  const cats=closedToo?null:new Set(Object.keys(hOrd).filter(h=>h!=='已簽約'&&h!=='無效案件'));
+  const visited=document.getElementById('mapVisited')?.value||'all';
+  const {pts,missing}=mapGroupPoints(mapScopeList(), cats, staleOnly, c=>isStale(c)||isNever(c), visited, c=>visitedWithin(c,30));
   _mapPts=pts; _mapMissing=missing;
   _route=_route.filter(k=>pts[k]);
   const bounds=new google.maps.LatLngBounds(); let n=0;

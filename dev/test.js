@@ -383,6 +383,7 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(Object.keys(r.pts).length===2 && r.pts[geoKey({lat:25.04,lng:121.54})].entries.length===2,'地圖分組：同座標併一針、不準的不上圖、分類篩掉無效');
   ok(r.missing.length===2 && r.missing.map(m=>m.why).join(',')==='不準,未查','未上圖：不準＋沒查的都列出來');
   ok(Object.keys(mapGroupPoints(L,new Set(['覆訪','追很緊']),true,c=>c.id===2).pts).length===1,'只看久未聯絡：用傳進來的判斷');
+  ok(Object.keys(mapGroupPoints(L,null,false,null,'yes',c=>c.id===4).pts).length===1 && Object.keys(mapGroupPoints(L,null,false,null,'no',c=>c.id===4).pts).length===2 && Object.keys(mapGroupPoints(L,null,false,null,'all',c=>c.id===4).pts).length===3,'t182 跑過篩選：只看跑過／沒跑過／全部；cats 給 null＝含已簽約無效');
   const pts={a:{lat:25.00,lng:121.50},b:{lat:25.10,lng:121.50},c:{lat:25.01,lng:121.50},d:{lat:25.05,lng:121.50}};
   ok(routeNearestOrder(['a','b','c','d'],pts).join('')==='acdb','最近順序：a→c→d→b');
   ok(routeNearestOrder(['a','b'],pts).join('')==='ab','兩站不動');
