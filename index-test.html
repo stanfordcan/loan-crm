@@ -2303,7 +2303,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t207 (建物與土地分成兩個區塊;土地每個地號各自一列:地號｜全筆坪×持分＝持分坪,各自算、估價用全部加總) 2026.10.20';
+const APP_VERSION = '🧪測試版 t208 (地號超過 6 筆時預設只列前 3 筆＋有填值的,其餘收起可展開;大樓基地十幾筆地號不會把畫面拉很長) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7051,7 +7051,7 @@ function removeLog(i){
 
 // ── Extra Loans ───────────────────────────────────────────
 let extraLoans=[];
-let extraLands=[];
+let extraLands=[], _landRowsExpanded=false;
 
 // 坪數欄標籤：有地號→「114地號面積」；沒有→「土地坪數」
 function landAreaLabel(no){ no=String(no||'').trim(); return no ? no+'地號面積' : '土地坪數'; }
@@ -7092,8 +7092,12 @@ function renderExtraLands(){
   // 2. 面積卡片：每筆地號各自一列（地號｜全筆坪 × 持分 ＝ 持分坪），接在主地號那列下面
   const rows=document.getElementById('landRows');
   if(rows){
-    rows.querySelectorAll('.ex-land-row').forEach(el=>el.remove());
+    rows.querySelectorAll('.ex-land-row,.ex-land-more').forEach(el=>el.remove());
+    // 大樓基地常有十幾筆地號、大多不會填：超過 6 筆時預設只列前 3 筆＋有填值的，其餘收起來，按一下展開
+    const many=extraLands.length>5 && !_landRowsExpanded;
+    let hidden=0;
     extraLands.forEach((l,i)=>{
+      if(many && i>=3 && !(l.landArea>0||l.landFull>0)){ hidden++; return; }
       const row=document.createElement('div');
       row.className='land-row ex-land-row';
       row.innerHTML=`<span class="land-no" id="exAreaLbl${i}">${calEsc(l.landNo||'地號'+(i+2))}</span>`+
@@ -7104,6 +7108,13 @@ function renderExtraLands(){
         `<input type="number" id="exLandArea${i}" placeholder="持分坪" value="${l.landArea||''}" oninput="extraLands[${i}].landArea=parseFloat(this.value)||0;updateLandTotals();renderShareBanner()"/>`;
       rows.appendChild(row);
     });
+    if(extraLands.length>5){
+      const more=document.createElement('button'); more.className='ex-land-more'; more.type='button';
+      more.style.cssText='font-size:11px;color:var(--accent);background:none;border:1px dashed var(--border);border-radius:var(--rs);padding:5px 10px;cursor:pointer;font-family:inherit;width:100%;margin-top:2px';
+      more.textContent=_landRowsExpanded?`▴ 收合（共 ${extraLands.length+1} 筆地號）`:`▾ 展開全部 ${extraLands.length+1} 筆地號${hidden?`（${hidden} 筆沒填值先收起）`:''}`;
+      more.onclick=()=>{ _landRowsExpanded=!_landRowsExpanded; renderExtraLands(); };
+      rows.appendChild(more);
+    }
   }
   updateLandTotals();
 }
@@ -8175,7 +8186,7 @@ function loadPropFields(idx){
   renderLoanRows();          // 內含 refreshLoanSection()
   syncLoanTotalsToForm();    // 從 loans 加總回寫 fBank/fLegal/fPrivate + renderLoanHints + calcLoanRoom
   extraLoans=[...(p.extraLoans||[])]; renderExtraLoans(); refreshLoanSection();
-  extraLands=[...(p.extraLands||[])]; renderExtraLands();
+  extraLands=[...(p.extraLands||[])]; _landRowsExpanded=false; renderExtraLands();
   if(typeof renderShareBanner==='function') setTimeout(renderShareBanner,0);
   updateLandLabels();
   renderCoOwners();
