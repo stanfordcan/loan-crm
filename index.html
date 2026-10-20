@@ -141,6 +141,15 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .cmeta{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:5px;align-items:center}
 /* 卡片資訊分三級：金額(決策用)最重 → 標記次之 → 身分證/批次/筆數退到背景 */
 .mi{font-size:11px;color:var(--t3)}
+/* 久未聯絡 */
+.stale-tag{font-weight:700;padding:1px 6px;border-radius:99px}
+.stale-tag.o{color:var(--orange);background:var(--obg)}
+.stale-tag.r{color:var(--red);background:var(--rbg)}
+.stale-tag.m{color:var(--t3);background:var(--s2)}
+.stale-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;padding:9px 12px;border-radius:12px;background:var(--obg);border:1px solid var(--obd);font-size:12px;color:var(--orange);font-weight:600}
+.stale-bar button{background:var(--surface);border:1px solid var(--obd);color:var(--orange);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.mute-btn{background:none;border:1px dashed var(--border);color:var(--t3);border-radius:99px;padding:1px 7px;font-size:11px;cursor:pointer;font-family:inherit}
+body.readonly .mute-btn{display:none}
 .mi-amt{font-size:12px;font-weight:600;color:var(--text);letter-spacing:-.2px}
 .mi-amt.warn{color:var(--orange)}
 .mi-amt.danger{color:var(--red)}
@@ -212,6 +221,23 @@ input[type=number]{min-width:0}
 .ldate{font-size:11px;color:var(--t3);margin-bottom:3px;font-weight:600}
 .ltext{font-size:13px;line-height:1.5;padding-right:26px}
 .ldel{float:right;background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;margin-top:-1px}
+/* 聯絡記錄類型：現場（綠）／電話（藍）／來公司（紫）／其他（灰） */
+.lkind{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.lk-site .lkind{background:var(--gbg);color:var(--green)}
+.lk-phone .lkind{background:var(--abg);color:var(--accent)}
+.lk-office .lkind{background:rgba(139,92,246,.16);color:#8b5cf6}
+.lk-other .lkind{background:var(--s2);color:var(--t3)}
+.litem.lk-site::before{background:var(--green)}
+.litem.lk-office::before{background:#8b5cf6}
+.litem.lk-other::before{background:var(--t3)}
+.ltext{cursor:text}
+.lk-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.lk-chip{border:1.5px solid var(--border);background:var(--s2);color:var(--t2);border-radius:99px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.lk-chip.on{border-color:var(--accent);background:var(--abg);color:var(--accent)}
+.le-box input,.le-box textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;color:var(--text);margin-bottom:6px}
+.le-box textarea{min-height:64px;resize:vertical}
+.le-btn{border:none;border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+body.readonly .ltext{cursor:default}
 /* Form section headers */
 .form-section-hd{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)}
 /* ── 編輯面板改版：淡底、白卡分區、白底細框輸入、區段圖示 ── */
@@ -282,6 +308,9 @@ body.readonly .ro-only{display:block}
 .ltag-new{background:var(--gbg);color:var(--green)}
 .ltag-manual{background:var(--abg);color:var(--accent)}
 .ltag-chg{background:var(--obg);color:var(--orange)}
+.ltag-ok{background:var(--gbg);color:var(--green);cursor:pointer}
+.ltag-todo{background:var(--s2);color:var(--t3);cursor:pointer;border:1px dashed var(--border)}
+.inl-btn{flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:0 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ltag-warn{background:var(--obg);color:var(--orange)}
 /* 文件清單三態籤 */
 .doc-chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}
@@ -1102,7 +1131,7 @@ function openUrlSettings() {
   document.getElementById('settingsGasUrl').value     = GAS_URL || '';
   document.getElementById('settingsCompanyUrl').value = COMPANY_URL || '';
   document.getElementById('settingsClaudeKey').value  = CLAUDE_API_KEY || '';
-  renderThemePicker(); renderCardModePicker(); if(typeof renderZoomPicker==='function') renderZoomPicker();
+  renderThemePicker(); renderCardModePicker(); if(typeof renderZoomPicker==='function') renderZoomPicker(); if(typeof renderStaleDaysPicker==='function') renderStaleDaysPicker();
   // 帳號與完整版本說明（標題列只顯示短版 tNN，完整說明收在這裡）
   const info=document.getElementById('settingsAccountInfo');
   if(info){
@@ -1142,6 +1171,13 @@ function renderThemePicker(){
   const cur=getThemeSetting();
   el.innerHTML=[['light','☀️ 淺色'],['dark','🌙 深色'],['auto','🔄 跟隨系統']].map(([k,l])=>
     `<button onclick="setTheme('${k}')" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===k?'var(--accent)':'var(--border)'};background:${cur===k?'var(--abg)':'var(--s2)'};color:${cur===k?'var(--accent)':'var(--t2)'}">${l}</button>`
+  ).join('');
+}
+function renderStaleDaysPicker(){
+  const el=document.getElementById('staleDaysPicker'); if(!el) return;
+  const cur=staleDays();
+  el.innerHTML=[30,60,90].map(n=>
+    `<button onclick="setStaleDays(${n})" style="flex:1;border-radius:var(--rs);padding:9px 4px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;border:1.5px solid ${cur===n?'var(--accent)':'var(--border)'};background:${cur===n?'var(--abg)':'var(--s2)'};color:${cur===n?'var(--accent)':'var(--t2)'}">${n} 天</button>`
   ).join('');
 }
 function renderZoomPicker(){
@@ -1212,6 +1248,7 @@ async function applyUrlSettings() {
     <div style="position:relative;flex-shrink:0">
       <button id="cityFilterBtn" onclick="toggleCityFilter()" title="排序／縣市／批次" style="background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap;min-height:38px">⇅<span class="listtool-txt"> 調整</span><span id="cityFilterCount"></span></button>
       <div id="cityFilterPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;width:280px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:60;max-height:70vh;overflow-y:auto">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:10px;cursor:pointer"><input type="checkbox" id="noRemindChk" onchange="curTime=this.checked?'noremind':'';saveViewState();render()"> 📋 只看未排程（沒有提醒日）</label>
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:10px;cursor:pointer"><input type="checkbox" id="onlyReimportChk" onchange="onlyReimport=this.checked;render()" style="width:15px;height:15px;accent-color:var(--accent)">🔁 只看二次匯入的人</label>
         <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">排序</div>
         <select id="sortSelect" onchange="saveViewState();render()" style="width:100%;box-sizing:border-box;background:var(--s2);border:none;border-radius:var(--rs);padding:9px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;flex-shrink:0">
@@ -1467,6 +1504,7 @@ async function applyUrlSettings() {
         <div class="fsec"><div class="fsec-hd"><span class="fsec-ic">🎯</span>借款需求</div>
         <div class="fg2">
           <div class="frow"><label>想借金額（萬）</label><input id="fLoanWant" type="number" inputmode="decimal" placeholder="例：300"/></div>
+          <div class="frow"><label>利率（分）</label><input id="fLoanRate" type="number" step="0.1" inputmode="decimal" placeholder="例：2"/></div>
           <div class="frow"><label>希望撥款</label>
             <select id="fLoanWhen"><option value="">— 未填 —</option><option>急（3 天內）</option><option>一週內</option><option>一個月內</option><option>不急</option></select>
           </div>
@@ -1496,7 +1534,7 @@ async function applyUrlSettings() {
         </div>
         <div class="fsec fsec-remind rbox"><div class="fsec-hd"><span class="fsec-ic">🔔</span>下次聯絡提醒</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
-            <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind"/></div>
+            <div class="frow" style="margin:0"><label>日期</label><input type="date" id="fRemind" onchange="defaultRemindTime()"/></div>
             <div class="frow" style="margin:0"><label>時間</label>
               <div style="display:flex;gap:4px;align-items:center">
                 <select id="fRemindHour" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 6px;font-size:14px;font-family:inherit;outline:none;-webkit-appearance:none"></select>
@@ -1538,14 +1576,19 @@ async function applyUrlSettings() {
           <!-- 位置與標示 -->
           <div class="prop-card prop-full">
             <div class="prop-card-hd">📍 位置與標示</div>
-            <div class="frow cmp"><label>門牌地址</label><input id="fAddr" placeholder="" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/></div>
+            <div class="frow cmp"><label>門牌地址</label><div style="display:flex;gap:6px"><input id="fAddr" placeholder="" style="flex:1;min-width:0" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/><button type="button" class="inl-btn" onclick="openMapForProp()" title="在 Google 地圖釘出這個門牌">📍 地圖</button></div></div>
             <div class="fg2">
               <div class="frow cmp"><label>地段（區）</label><input id="fDistrict" placeholder="例：松山區" oninput="syncToEval('ev_district', this.value)"/></div>
               <div class="frow cmp"><label>地段號</label><input id="fPurpose" placeholder="" oninput="syncToEval('ev_section', this.value)"/></div>
             </div>
             <div class="fg2">
-              <div class="frow cmp"><label>使用分區</label><input id="fLandzone" placeholder="例：住三" oninput="syncToEval('ev_landzone', this.value)"/></div>
+              <div class="frow cmp"><label>使用分區</label><div style="display:flex;gap:6px"><input id="fLandzone" placeholder="例：住三" style="flex:1;min-width:0" oninput="syncToEval('ev_landzone', this.value)"/><button type="button" class="inl-btn" onclick="openLandZoneQuery()" title="開內政部使用分區查詢網站，並先把地段地號複製好">🗺️ 查詢</button></div></div>
               <div class="frow cmp"><label>建號（共同擔保）</label><input id="fBuildNo" placeholder="" oninput="syncToEval('ev_buildno', this.value);renderCoOwners()"/></div>
+            </div>
+            <div class="fg3">
+              <div class="frow cmp"><label>社區名稱</label><div style="display:flex;gap:6px"><input id="fCommunity" placeholder="社區或大樓名稱" style="flex:1;min-width:0" oninput="syncToEval('ev_community', this.value)"/><button type="button" class="inl-btn" onclick="googleCommunity()" title="用門牌 Google 一下，通常就查得到社區名">🔍 Google</button></div></div>
+              <div class="frow cmp"><label>總樓層</label><input type="number" id="fFloors" placeholder="例：12" oninput="syncFloorsToEval()"/></div>
+              <div class="frow cmp"><label>建築完成年（民國）</label><input type="number" id="fBuiltYear" placeholder="例：88" oninput="syncBuiltYearToEval()"/></div>
             </div>
             <div id="coOwnerBox" style="display:none;background:var(--obg);border:1px solid var(--orange);border-radius:var(--rs);padding:8px 11px;margin-bottom:8px;font-size:12px;color:var(--orange)"></div>
             <label style="display:block;font-size:10px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">地號</label>
@@ -1641,6 +1684,7 @@ async function applyUrlSettings() {
           <div class="log-list" id="logList"></div>
           <div class="add-log" style="margin-top:10px">
             <label>➕ 新增通話記錄</label>
+            <div id="logKindChips" class="lk-chips"></div>
             <div class="alrow">
               <input type="date" id="fLogDate"/>
               <input id="fLogText" placeholder="通話內容摘要…（Enter 直接加入）" onkeydown="if(event.key==='Enter'){event.preventDefault();addLog();}"/>
@@ -1795,6 +1839,10 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
       <button onclick="openBatchMgr()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏷️ 批次管理（改名／合併）<br><span style="font-size:10px;font-weight:400;opacity:.8">列出所有批次與建議名稱，確認後一次改</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="cleanupFalseReimports()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧽 清掉假的 🔁 記號<br><span style="font-size:10px;font-weight:400;opacity:.8">舊版跟最新一模一樣的版本刪掉、沒有真正差異的「總檔更新」記號拿掉（先列數量再確認）</span></button>
+      <button onclick="cleanupDupLogs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理重複聯絡記錄<br><span style="font-size:10px;font-weight:400;opacity:.8">同一句話多筆只留一筆、被截斷的半句與沒日期的雜訊刪掉（先列清單再確認）</span></button>
+      <button onclick="cleanupAddrs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔤 門牌統一寫法<br><span style="font-size:10px;font-weight:400;opacity:.8">全形數字→半形、五樓→5樓、去空白；客戶地址、戶籍、每張不動產都統一（先列數量再確認）</span></button>
+      <button onclick="cleanupDuplicateProps()" style="width:100%;background:var(--obg);color:var(--orange);border:1px solid var(--obd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏚️ 合併重複的不動產<br><span style="font-size:10px;font-weight:400;opacity:.8">同一人底下同建號、或門牌只差全形半形／中文數字的，併成一張（先列清單再確認）</span></button>
       <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
       <button onclick="var d=document.getElementById('oldDataTools');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.arr').textContent=open?'▴':'▾'" style="width:100%;background:var(--s2);color:var(--t2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
         <span>🧰 舊資料整理（一次性）</span><span class="arr" style="font-size:11px">▾</span>
@@ -1816,6 +1864,9 @@ async function applyUrlSettings() {
       <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">只記在這台裝置。「跟隨系統」會照手機／電腦本身的深色模式設定自動切換。</div>
       <div class="pc-only" style="font-size:12px;font-weight:600;color:var(--t2);margin:14px 0 8px">🔍 畫面縮放（電腦）</div>
       <div id="zoomPicker" class="pc-only" style="display:flex;gap:6px"></div>
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin:14px 0 8px">⏳ 久未聯絡：幾天沒新記錄算</div>
+      <div id="staleDaysPicker" style="display:flex;gap:6px"></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">聯絡過、超過這個天數沒新聯絡記錄、沒排提醒、不是已簽約／無效的人，會進頂部「久未聯絡」。只記這台裝置。</div>
       <div class="pc-only" style="font-size:10px;color:var(--t3);margin-top:6px;line-height:1.5">筆電螢幕小、版面擠在一起時縮到 75～90%。只記這台電腦，手機不受影響。</div>
     </div>
     <!-- 帳號：登出、清除全部（從工具列搬來，危險動作不放在日常按鈕旁邊） -->
@@ -2051,7 +2102,7 @@ async function applyUrlSettings() {
     <p style="margin-bottom:8px">勾選客戶 → 下方填批次名稱 → 套用。剛從總檔更新進來的，勾「只看今日新增」就能快速圈出這批。</p>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
       <input id="batchTagSearch" oninput="renderBatchTagList()" placeholder="🔍 搜尋姓名/電話/地址…" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none"/>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看本次匯入新增</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="batchTagTodayOnly" onchange="renderBatchTagList()"> 只看本次匯入的人（新建＋併入）</label>
     </div>
     <div id="batchTagCatBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -2067,6 +2118,7 @@ async function applyUrlSettings() {
       <datalist id="batchListOptions2"></datalist>
       <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer"><input type="checkbox" id="batchTagReplace" style="width:14px;height:14px;accent-color:var(--accent)">取代原有批次（不勾＝加上）</label>
+        <label id="batchTagReviveWrap" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--red);cursor:pointer"><input type="checkbox" id="batchTagRevive" style="width:14px;height:14px;accent-color:var(--red)">原本無效案件、這次謄本有變的 <b id="batchTagReviveN">0</b> 人改回「待分類」</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)">分類 <select id="batchTagHeat" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:inherit;background:var(--surface);color:var(--text)"><option value="">不改</option><option>待分類</option><option>覆訪</option><option>追很緊</option><option>新鑫</option><option>已簽約</option><option>無效案件</option></select></label>
       </div>
     </div>
@@ -2112,7 +2164,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '2026.10.19 #1';
+const APP_VERSION = '2026.10.20 #1';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -2623,18 +2675,28 @@ function jsonpFetch(url, timeoutMs) {
   });
 }
 
+// 子資料夾名：民國日期_客戶名_門牌；沒門牌就用 地段號＋地號（例：1151019_張聖平_台北市中山區建國北路二段92號12樓）
+function driveSubFolderName(name, addr, district, section, landNo, isoDate){
+  const m=String(isoDate||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const roc=m?`${+m[1]-1911}${m[2]}${m[3]}`:'';
+  const where=String(addr||'').trim() || [district,section,landNo].map(x=>String(x||'').trim()).filter(Boolean).join('');
+  if(!where) return '';
+  return `${roc}_${String(name||'').trim()}_${where}`.replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,' ');
+}
 async function createDriveFolder(){
   const name = document.getElementById('fName').value.trim();
   if(!name){uiAlert('請先填寫客戶姓名');return;}
   const addr = document.getElementById('fAddr').value.trim();
-  if(!addr){uiAlert('請先填寫門牌地址');return;}
+  const sub = driveSubFolderName(name, addr, document.getElementById('fDistrict')?.value, document.getElementById('fPurpose')?.value, document.getElementById('fLandNo')?.value, TODAY);
+  if(!sub){uiAlert('請先填寫門牌地址，或地段號＋地號');return;}
   if(!COMPANY_URL){showToast('⚠️ 請先在 ⚙️ 設定填入個人總檔網址，資料夾會建立在你自己的 Drive');return;}
   const btn = document.getElementById('btnDrive');
   btn.textContent='⏳ 建立中…';btn.disabled=true;
   try{
-    const data = await jsonpFetch(COMPANY_URL+'?action=createFolder&token='+API_TOKEN+'&client='+encodeURIComponent(name)+'&addr='+encodeURIComponent(addr));
+    const data = await jsonpFetch(COMPANY_URL+'?action=createFolder&token='+API_TOKEN+'&client='+encodeURIComponent(name)+'&addr='+encodeURIComponent(addr||sub)+'&sub='+encodeURIComponent(sub));
     if(data&&data.status==='ok'&&data.url){
       document.getElementById('fDriveUrl').value=data.url;
+      if(properties[curPropIdx]) properties[curPropIdx].driveSub=sub;   // 記下實際建的子資料夾名，路徑才顯示得對
       document.getElementById('btnOpenDrive').style.display='';
       btn.textContent='✅ 已建立';
       updateDrivePath();
@@ -2734,7 +2796,9 @@ function updateDrivePath(){
   const url = document.getElementById('fDriveUrl')?.value || '';
   const name = (document.getElementById('fName')?.value || '').trim();
   const addr = (document.getElementById('fAddr')?.value || '').trim();
-  if(url){ el.textContent = '客戶資料 / ' + (name||'此客戶') + (addr? ' / '+addr : ''); el.style.color = 'var(--green)'; }
+  // 顯示的是本機推算的路徑，不是去雲端讀的：新格式建的會記 driveSub（民國日期_客戶名_住址），舊的照舊顯示地址
+  const sub = (properties[curPropIdx]||{}).driveSub || '';
+  if(url){ el.textContent = '客戶資料 / ' + (name||'此客戶') + ' / ' + (sub || addr || ''); el.style.color = 'var(--green)'; }
   else   { el.textContent = '尚未建立'; el.style.color = 'var(--t3)'; }
 }
 
@@ -3242,8 +3306,10 @@ function parseRightsLoans(text){
     }
     // 設定(登記)日期：條列行裡的民國日期，存成 113/05/13 格式
     const dM = line.match(/民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日/);
+    const dM2 = dM ? null : line.match(/(?:^|\D)(\d{3})-(\d{2})-(\d{2})(?!\d)/);   // 總檔常見「106-03-28」
     const loan = {n:creditorName, a:amt, t:type, s:seq, e:defaultLoanE(amt,type)};
     if(dM) loan.d = `${dM[1]}/${String(+dM[2]).padStart(2,'0')}/${String(+dM[3]).padStart(2,'0')}`;
+    else if(dM2) loan.d = `${dM2[1]}/${dM2[2]}/${dM2[3]}`;
     loans.push(loan);
   });
   if(loans.length) return loans;
@@ -3263,11 +3329,11 @@ function parseRightsLoans(text){
 // 回傳 {added:n, cancelled:n, changed:n}
 function smartMergeLoans(p, incoming, src, date, opts){
   opts=opts||{};
-  if(!p) return {added:0,cancelled:0,changed:0};
+  if(!p) return {added:0,cancelled:0,changed:0,dated:0};
   if(!Array.isArray(p.loans)||!p.loans.length){ p.loans=(incoming||[]).map(l=>({...l})); const t0=loansToTotals(p.loans); p.bank=t0.bank; p.legal=t0.legal; p.private=t0.private; return {added:p.loans.length,cancelled:0,changed:0}; }
   const inc=(incoming||[]).filter(Boolean);
   const incHasSeq=inc.some(l=>l.s);
-  const used=new Set(); let added=0,cancelled=0,changed=0;
+  const used=new Set(); let added=0,cancelled=0,changed=0,dated=0;
   const keyNA=l=>`${String(l.n||'').trim()}|${l.a||0}|${l.t||''}`;
   p.loans.forEach(l=>{
     if(l.manualAdd) return;                                   // 業主手動加的筆，同步永遠不碰
@@ -3277,7 +3343,7 @@ function smartMergeLoans(p, incoming, src, date, opts){
     if(m){
       used.add(inc.indexOf(m));
       if(l.x){ delete l.x; }                                  // 之前被標塗銷、這版又出現 → 取消塗銷
-      if(!l.d && m.d) l.d=m.d;
+      if(m.d && l.d!==m.d){ if(l.d) l.dPrev=l.d; l.d=m.d; dated++; }   // 設定日期更新（例如新鑫重設），舊日期留著顯示
       if(isPlaceholderLoanName(l.n) && m.n) l.n=m.n;
       if(!l.s && m.s) l.s=m.s;
       if(m.a && m.a!==l.a){                                   // 設定額變了：更新設定額；實貸估值只在沒手改時重算
@@ -3288,12 +3354,12 @@ function smartMergeLoans(p, incoming, src, date, opts){
       if(m.n && l.n && !isPlaceholderLoanName(l.n) && String(m.n).trim()!==String(l.n).trim() && l.s) l.nameWarn=String(m.n).trim();   // 同登序不同名 → 提醒確認
     } else if(!l.x){
       // 這版謄本沒有這筆：有登序的可靠判斷為塗銷；沒登序的只在新版解析可靠（有登序）時才標
-      if(!opts.noCancel && (l.s || incHasSeq)){ l.x={date,src}; cancelled++; }
+      if(!opts.noCancel && (l.s || incHasSeq)){ l.x={date,src,run:opts.run||''}; cancelled++; }
     }
   });
-  inc.forEach((x,i)=>{ if(used.has(i)) return; p.loans.push({...x, added:{date,src}}); added++; });
+  inc.forEach((x,i)=>{ if(used.has(i)) return; p.loans.push({...x, added:{date,src,run:opts.run||''}}); added++; });
   const t=loansToTotals(p.loans); p.bank=t.bank; p.legal=t.legal; p.private=t.private;
-  return {added,cancelled,changed};
+  return {added,cancelled,changed,dated};
 }
 // 取得單筆 loan 的實貸估值：有 e 就用 e（可能是使用者手改過的值），沒有才用預設規則現算（相容舊資料）
 function getLoanE(l){
@@ -3404,13 +3470,75 @@ function ownBuildKeyFromBuildInfo(text){
   return m ? m[1]+'|'+normBuildNo(m[2]) : '';
 }
 function samePropertyCard(p, incBuild, incSection, incAddrCore){
-  const pBuild = normBuildNo(p.col4BuildNo) || normBuildNo(p.buildNo);
-  if(incBuild && pBuild){
-    if(incBuild!==pBuild) return false;
-    const ps=String(p.purpose||'').replace(/\s/g,''), is=String(incSection||'').replace(/\s/g,'');
-    return !(ps && is && ps!==is);
+  const pOwn = normBuildNo(p.col4BuildNo);                                                   // 這間自己的建號
+  const pList = String(p.buildNo||'').split(/[、,，;；\s]+/).map(normBuildNo).filter(Boolean);  // 共同擔保建號清單（舊資料常只有這個）
+  const ps=String(p.purpose||'').replace(/\s/g,''), is=String(incSection||'').replace(/\s/g,'');
+  const sectionOk = !(ps && is && ps!==is);
+  const addrSame = !!(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore));
+  if(incBuild && pOwn) return incBuild===pOwn && sectionOk;                                  // 兩邊都有自己的建號：建號說了算
+  if(incBuild && pList.length){                                                               // 舊資料只有清單：清單含這個建號＋門牌也對才算同一間（同棟不同戶的清單一樣，不能只看清單）
+    if(!pList.includes(incBuild)) return false;
+    return addrSame || (!p.addr && sectionOk);
   }
-  return !!(incAddrCore && p.addr && addrHit(addrCore(p.addr), incAddrCore));
+  return addrSame;
+}
+// 兩張不動產卡是不是同一間（整理工具用）：都有自己的建號就比建號；否則門牌正規化後要「完全一樣」（不用前綴比對，5樓 跟 5樓之1 不能併）
+function propIdOf(p){ const c=normBuildNo(p.col4BuildNo); if(c) return c; const v=String(p.buildNo||''); return /[、,，;；]/.test(v)?'':normBuildNo(v); }   // 自己的建號：col4，不然單一建號；清單不算
+function propListOf(p){ return String(p.buildNo||'').split(/[、,，;；]+/).map(normBuildNo).filter(Boolean); }
+function samePropPair(a,b){
+  const ao=propIdOf(a), bo=propIdOf(b);
+  if(ao&&bo) return ao===bo;                                   // 兩張都有自己的建號：建號說了算（同門牌不同戶不會併）
+  const aa=addrCore(a.addr), ba=addrCore(b.addr);
+  if(!(aa&&ba&&aa===ba)) return false;                         // 門牌正規化後要完全一樣
+  const la=propListOf(a), lb=propListOf(b);                    // 門牌一樣、有一張只有共同擔保清單（舊資料）：清單要含另一張的建號
+  // 同門牌不同戶（整棟、2015/2016 兩戶同址）清單會一樣，再看抵押列：兩張各有自己的登序且對不上 → 是不同戶，不併
+  const seqs=p=>new Set((p.loans||[]).map(l=>String(l.s||'').trim()).filter(Boolean));
+  const loansOk=(()=>{ const sa=seqs(a), sb=seqs(b); if(!sa.size||!sb.size) return true; const [small,big]=sa.size<=sb.size?[sa,sb]:[sb,sa]; return [...small].every(x=>big.has(x)); })();
+  const bothLoans=seqs(a).size>0 && seqs(b).size>0;
+  // 清單有好幾個建號、兩張又都有抵押列 → 分不出是同一戶還是同址另一戶，不併（下次總檔更新會把自己的建號補上，就分得出來了）
+  if(ao && lb.length) return lb.includes(ao) && loansOk && !(lb.length>1 && bothLoans);
+  if(bo && la.length) return la.includes(bo) && loansOk && !(la.length>1 && bothLoans);
+  if(la.length && lb.length) return la.join(',')===lb.join(',') && loansOk;
+  return loansOk;
+}
+// 把 other 併進 keep：欄位只補空白、抵押列依登序或名稱＋金額去重後合併、版本紀錄接起來，然後 other 作廢
+function foldPropInto(keep, other){
+  mergePropInto(keep, other);
+  const kl=keep.loans||[]; const keyNA=l=>`${String(l.n||'').trim()}|${l.a||0}|${l.t||''}`;
+  (other.loans||[]).forEach(l=>{ const hit=kl.some(k=>(l.s&&k.s&&k.s===l.s)||keyNA(k)===keyNA(l)); if(!hit) kl.push({...l}); });
+  keep.loans=kl; const t=loansToTotals(kl); keep.bank=t.bank; keep.legal=t.legal; keep.private=t.private;
+  keep.rawHistory=[...(keep.rawHistory||[]), ...(other.rawHistory||[])];
+  if(other.companyRaw){ const o=other.companyRaw; const nz=v=>String(v||'').replace(/\s+/g,''); const kc=keep.companyRaw||{}; if(!keep.companyRaw) keep.companyRaw=o; else if(!(nz(o.rights)===nz(kc.rights)&&nz(o.owner)===nz(kc.owner)) && !keep.rawHistory.some(h=>nz(h.rights)===nz(o.rights)&&nz(h.owner)===nz(o.owner))) keep.rawHistory.push({at:o.importedAt||'', src:o.importedSrc||'', cols:o.cols||null, owner:o.owner||'', rights:o.rights||'', buildInfo:o.buildInfo||''}); }
+  if(keep.rawHistory.length>10) keep.rawHistory=keep.rawHistory.slice(-10);
+  if(!keep.col4BuildNo && other.col4BuildNo) keep.col4BuildNo=other.col4BuildNo;
+  if(!keep.evalData && other.evalData) keep.evalData=other.evalData;
+  if(!keep.driveUrl && other.driveUrl) keep.driveUrl=other.driveUrl;
+  if(!keep.community && other.community) keep.community=other.community;
+  ['floors','builtYear','landzone'].forEach(k=>{ if(!keep[k] && other[k]) keep[k]=other[k]; });
+}
+// 合併同一人底下重複的不動產卡。dryRun=true 只算不改。回傳 {clients:n, props:n, names:[]}
+function mergeDuplicateProperties(dryRun){
+  let nClients=0, nProps=0; const names=[];
+  clients.forEach(c=>{
+    const props=c.properties||[]; if(props.length<2) return;
+    const used=new Set(), dropped=new Set(); let merged=0;
+    for(let i=0;i<props.length;i++){
+      if(used.has(i)) continue;
+      for(let j=i+1;j<props.length;j++){
+        if(used.has(j)) continue;
+        if(!samePropPair(props[i],props[j])) continue;
+        // 留比較完整的那張：有自己的建號 ＞ 抵押列多 ＞ 匯入時間新
+        const score=p=>(normBuildNo(p.col4BuildNo)?100:0)+((p.loans||[]).length*10)+(String((p.companyRaw||{}).importedAt||'')>String((props[i].companyRaw||{}).importedAt||'')?1:0);
+        const keepIdx = score(props[j])>score(props[i]) ? j : i, dropIdx = keepIdx===i ? j : i;
+        if(!dryRun) foldPropInto(props[keepIdx], props[dropIdx]);
+        used.add(dropIdx); dropped.add(dropIdx); merged++;
+        if(keepIdx===j){ used.add(i); break; }   // i 被併進 j，i 這輪結束
+      }
+    }
+    if(merged){ nClients++; nProps+=merged; names.push(`${c.name||'(無名)'}（${props.length}→${props.length-merged}）`);
+      if(!dryRun){ c.properties=props.filter((_,k)=>!dropped.has(k)); } }   // 作廢的卡拿掉
+  });
+  return {clients:nClients, props:nProps, names};
 }
 // 公司戶所有權人：所有權部一行「8碼統編 公司名」(例:80661538 捷迪實業有限公司)。回傳 {taxId,name},抓不到回 null。
 // 只在「沒有任何個人身分證格式」時才用(個人＋公司共有時仍以個人為客戶,維持原行為)。
@@ -3439,6 +3567,27 @@ function extractDebtPhones(raw){
   return out;
 }
 
+// 建物標示 → 總樓層（「12層」）、建築完成年（民國「88年05月」）
+function floorsFromBuildInfo(bi){ const m=String(bi||'').match(/0*(\d+)層/); return m?String(parseInt(m[1])):''; }
+function builtYearFromBuildInfo(bi){ const m=String(bi||'').match(/(?:^|[^\d])(\d{2,3})年\s*\d{1,2}月/); return m?String(parseInt(m[1])):''; }
+// 基本頁 → 「上班族（某公司），月收 6 萬，薪轉，有報稅」
+function jobSummary(c){
+  if(!c) return '';
+  const parts=[];
+  const job=String(c.job||'').trim(), co=String(c.company||'').trim();
+  if(job&&co) parts.push(`${job}（${co}）`); else if(job||co) parts.push(job||co);   // 只有公司名就直接寫，不加括號
+  if(parseFloat(c.income)>0) parts.push(`月收 ${c.income} 萬`);   // 0 或空白不寫
+  if(c.incomeType) parts.push(String(c.incomeType));
+  if(c.taxed==='有') parts.push('有報稅');
+  return parts.join('，');
+}
+function googleCommunity(){
+  const addr=(document.getElementById('fAddr')?.value||'').trim();
+  if(!addr){ showToast('⚠️ 先填門牌地址'); return; }
+  window.open('https://www.google.com/search?q='+encodeURIComponent(addr+' 社區'), '_blank');
+}
+function syncFloorsToEval(){ const v=(document.getElementById('fFloors')?.value||'').trim(); if(v) syncToEval('ev_floors', v); }
+function syncBuiltYearToEval(){ const y=parseInt(document.getElementById('fBuiltYear')?.value)||0; if(y) syncToEval('ev_age', new Date().getFullYear()-(y+1911)); }
 function processCompanyData(raw) {
   if(!raw||raw.length<3){showToast('⚠️ 總檔沒有資料');return;}
 
@@ -3499,6 +3648,7 @@ function processCompanyData(raw) {
   }
 
   let added=0, updated=0, skipped=0;
+  const _importMerged=new Set(), _importRevived=new Set();   // 這次併入的既有客戶／原本無效案件但這次謄本有變的人（批次標記視窗用）
   const _startNextId = nextId; // 匯入前的 id 上限：之後 id≥這個值的就是「本次匯入新增的人」
   const mergedNames=[];   // 併入既有客戶的名字（匯入小結用）
   const importSrc=(typeof _importSource!=='undefined'&&_importSource)?_importSource:'總檔';
@@ -3564,8 +3714,7 @@ function processCompanyData(raw) {
         if(!existing.heatManual && !keepHeats.includes(existing.heat)) existing.heat = '新鑫';
         existing.updatedAt = TODAY;
         curXin = existing;
-        updated++; mergedNames.push(existing.name||'');
-        if(isXls) markReimport(existing, '二次匯入', '');
+        updated++; mergedNames.push(existing.name||''); _importMerged.add(existing.id);
       } else {
         curXin = {
           id: nextId++,
@@ -3684,7 +3833,7 @@ function processCompanyData(raw) {
     const area = areaFromBI || areaFromCol5 || (areaCalc > 0 ? Math.round(areaCalc*100)/100 : 0);
 
     // Address (col 4)：標準化全形數字與中文樓層
-    let addr = normalizeAddr(String(row[4]||'').replace(/\n/g,' ').trim());
+    let addr = cleanAddr(String(row[4]||'').replace(/\n/g,' '));
 
     // Extract buildInfo from col 3 (for display only)
     const buildInfo = String(row[3]||'').trim();
@@ -3796,8 +3945,7 @@ function processCompanyData(raw) {
           prevSameBuilding.debtPhones = mergeDebtPhonesInto(prevSameBuilding, allDebtPhones);
         }
         prevSameBuilding.updatedAt = TODAY;
-        updated++; mergedNames.push(prevSameBuilding.name||'');
-        if(isXls) markReimport(prevSameBuilding, '二次匯入', '共有人');
+        updated++; mergedNames.push(prevSameBuilding.name||''); _importMerged.add(prevSameBuilding.id);
         return;
       }
     }
@@ -3816,6 +3964,7 @@ function processCompanyData(raw) {
     // 收整列 0~24 欄原始內容，公司資料頁照總檔欄位順序完整顯示（GAS 送多少就有多少）
     companyRaw.cols = [];
     for(var _ci=0; _ci<25; _ci++){ companyRaw.cols.push(String(row[_ci]==null?'':row[_ci]).trim()); }
+    companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;   // 每一列一開始就帶這次匯入的編號：同一次裡再遇到同一間（含這次才新建的人）才認得出是「同一次」
     // 第 7 欄＝所有權人住址 → 帶入基本頁「戶籍地址」（只在空白時補，不覆蓋手動填的）
     // 第7欄沒有時,改從所有權部(col6)第二行抓屋主住址(身分證+姓名的下一行就是住址)
     let ownerAddr = String(row[7]||'').replace(/[\r\n]+/g,'').trim();
@@ -3888,36 +4037,51 @@ function processCompanyData(raw) {
         np.companyRaw = companyRaw;   // 這筆房產自己的公司總檔資料
         np.label=propLabel(np)||('不動產'+(existing.properties.length+1));
         if(dup){
-          // 同一間：先看原文有沒有變（所有權部／他項權利部），有變就把上一版留進 rawHistory（最多 10 版）
+          // 同一間：先看原文有沒有變（所有權部／他項權利部）。
+          // 規則（業主 2026/10/20 定）：
+          //  ‧ 比對時空白全部不算（總檔同一句有的有空格有的沒有，不是變動）。
+          //  ‧ 同一次匯入裡同一間有好幾列：他項不同 → 以文字裡最晚的日期新的那列為主，舊的那列收進版本紀錄；
+          //    只有所有權部不同、他項一樣 → 是持分共有人各一列，不是版本，不換、不記號。
+          //  ‧ 跨次匯入內容變了 → 上一版進版本紀錄、換成新版、記 🔁。只有真的留進一個新版本才算「有變」。
           const prev=dup.companyRaw||{};
-          const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
+          const norm=v=>String(v||'').replace(/\s+/g,'');
           const sameRun = prev.importRun===runId;
-          // 同一間在同一次匯入裡可能有多列（持分共有人、遮罩同名），上一次匯入看過的每一版都算「沒變」
           const seenR=new Set([norm(prev.rights), ...((prev.altRights||[]).map(norm))]);
           const seenO=new Set([norm(prev.owner), ...((prev.altOwners||[]).map(norm))]);
-          const kinds=[];
-          if(!seenR.has(norm(companyRaw.rights))) kinds.push('他項權利部');
-          if(!seenO.has(norm(companyRaw.owner))) kinds.push('所有權部');
-          if(sameRun){   // 同一次：把這次看過的版本累積起來，下次比對用
-            companyRaw.altRights=[...new Set([...(prev.altRights||[]), prev.rights||''])].filter(Boolean).slice(-10);
-            companyRaw.altOwners=[...new Set([...(prev.altOwners||[]), prev.owner||''])].filter(Boolean).slice(-10);
-          }   // 同一次匯入裡同一間又出現（遮罩同名多列）→ 不算變動、不塗銷
-          if(kinds.length && !sameRun && (prev.cols||prev.rights||prev.owner)){
-            (dup.rawHistory=dup.rawHistory||[]).push({at:prev.importedAt||'', src:prev.importedSrc||'', cols:prev.cols||null, owner:prev.owner||'', rights:prev.rights||'', buildInfo:prev.buildInfo||''});
-            if(dup.rawHistory.length>10) dup.rawHistory=dup.rawHistory.slice(-10);
-            rawChangedN++;
+          const diffR=!seenR.has(norm(companyRaw.rights)), diffO=!seenO.has(norm(companyRaw.owner));
+          const kinds=[]; if(diffR) kinds.push('他項權利部'); if(diffO) kinds.push('所有權部');
+          // 版本新舊：他項＋所有權部＋標示部文字裡最晚的民國日期（「106-03-28」「民國114年07月02日」都認）
+          const latestDate=v=>{ const t=[v.rights,v.owner,v.buildInfo].map(x=>String(x||'')).join('\n'); const ds=[...t.matchAll(/(\d{3})-(\d{2})-(\d{2})/g)].map(m=>m[1]+m[2]+m[3]).concat([...t.matchAll(/(?:民國)?\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>m[1].padStart(3,'0')+m[2].padStart(2,'0')+m[3].padStart(2,'0'))); return ds.length?ds.sort().slice(-1)[0]:''; };
+          const pushHist=(v)=>{ const h=dup.rawHistory=dup.rawHistory||[]; const nr=norm(v.rights), no=norm(v.owner); if(nr===norm((dup.companyRaw||{}).rights) && no===norm((dup.companyRaw||{}).owner) && v!==dup.companyRaw) return false; if(h.some(x=>norm(x.rights)===nr&&norm(x.owner)===no)) return false; h.push({at:v.importedAt||v.at||'', src:v.importedSrc||v.src||'', cols:v.cols||null, owner:v.owner||'', rights:v.rights||'', buildInfo:v.buildInfo||''}); h.sort((x,y)=>latestDate(x).localeCompare(latestDate(y))); if(h.length>10) dup.rawHistory=h.slice(-10); return true; };
+          const addAlt=(obj)=>{ obj.altRights=[...new Set([...(obj.altRights||[]), companyRaw.rights||'', prev.rights||''])].filter(Boolean).slice(-10); obj.altOwners=[...new Set([...(obj.altOwners||[]), companyRaw.owner||'', prev.owner||''])].filter(Boolean).slice(-10); };
+          let mode;   // 'same' 內容看過＝不動；'sibling' 只有所有權不同＝共有人列；'older' 同一次的舊列；'update' 換成新版
+          if(!diffR && !diffO) mode='same';
+          else if(sameRun){
+            if(!diffR) mode='sibling';
+            else mode = (latestDate(companyRaw) > latestDate(prev)) ? 'update' : 'older';
+          } else mode='update';
+          if(mode==='same' || mode==='sibling'){
+            addAlt(prev);                      // 看過的版本／共有人記在目前這版上，下次比對才認得
+            mergePropInto(dup, np);
+            if(mode==='sibling' && !sameRun){ /* 跨次只換了所有權部（例如共有人順序）：不當變動 */ }
+          } else if(mode==='older'){
+            if(companyRaw.cols||companyRaw.rights||companyRaw.owner) pushHist(companyRaw);
+            addAlt(prev);
+            mergePropInto(dup, np);
+          } else {
+            addAlt(companyRaw);                // 新版帶著舊版的清單
+            const changed = !!(prev.cols||prev.rights||prev.owner) && pushHist(prev);
+            if(changed) rawChangedN++;
+            companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
+            dup.companyRaw=companyRaw;
+            const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun, run:runId});   // 同一次的重複列不塗銷，塗銷只看跨次
+            loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
+            mergePropInto(dup, np);
+            if(changed){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:'', lr.dated?`${lr.dated} 筆設定日期更新`:''].filter(Boolean).join('、'); const revived=(existing.heat==='無效案件'); if(revived) _importRevived.add(existing.id); markReimport(existing, (revived?'原無效・':'')+(isXls?'二次匯入：':'總檔更新：')+kinds.join('、')+'有變', d); }
           }
-          companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
-          dup.companyRaw=companyRaw;
-          // 抵押列：依登序聰明合併（既有/手改不動、新增標記、塗銷反灰不計入）
-          const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun});
-          loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
-          mergePropInto(dup, np);
-          if(kinds.length && !sameRun){ const d=[kinds.join('、')+'有變', lr.cancelled?`${lr.cancelled} 筆塗銷`:'', lr.added?`${lr.added} 筆新增`:'', lr.changed?`${lr.changed} 筆設定額變`:''].filter(Boolean).join('、'); markReimport(existing, isXls?'二次匯入':'總檔更新：'+kinds.join('、')+'有變', d); }
         } // 同一間 → 公司資料(總檔來源)永遠刷新、其餘欄位補空格，不重複
-        else { companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId; existing.properties.push(np); propAddedN++; markReimport(existing, isXls?'二次匯入':'總檔新增不動產', '新增不動產 '+(np.label||'')); }   // 不同間 → 累積成新一筆房產
+        else { companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId; existing.properties.push(np); propAddedN++; markReimport(existing, '新增不動產', '新增不動產 '+(np.label||'')); }   // 不同間 → 累積成新一筆房產
       })();
-      if(isXls && !(existing.reimports||[]).some(r=>r.date===TODAY&&r.src===importSrc)) markReimport(existing, '二次匯入', '');
       // 公司資料（總檔來源）：永遠更新，這是總檔的職責
       existing.companyRaw = companyRaw;
       // 補本名：既有客戶若是遮罩/單姓(如「馬」)，這次總檔從義務人補到完整本名(同姓且更長)→升級，免得每次都要手動按修復
@@ -3969,7 +4133,7 @@ function processCompanyData(raw) {
       }
       // driveUrl、note、remind、job 等用戶欄位：完全不動
       existing.updatedAt = TODAY;
-      updated++; mergedNames.push(existing.name||'');
+      updated++; mergedNames.push(existing.name||''); _importMerged.add(existing.id);
     } else {
       // B：無效案件且「沒有任何電話」（本人電話＋債務人電話都沒有）→ 不新增。
       // 注意：不能看身分證！謄本「所有權部」本來就帶屋主完整身分證號，那不是聯絡方式，
@@ -4009,6 +4173,7 @@ function processCompanyData(raw) {
           loanEstimated: (bank>0||legal>0)?true:undefined,
           privateConfirmed: priv>0?false:undefined,
           purpose: sectionName, buildNo, col4BuildNo, col7Name, driveUrl: '', landNo: landNos,
+          floors: floorsFromBuildInfo(buildInfo), builtYear: builtYearFromBuildInfo(buildInfo),
           logs: logs.slice(0,3),
           companyRaw,
           createdAt: TODAY, updatedAt: TODAY,
@@ -4038,16 +4203,32 @@ function processCompanyData(raw) {
     });
     autoClassify();
     ensureSerials();   // 新匯入的人補上流水編號(客戶ID)
+    const dedupe=mergeDuplicateProperties(false);   // 匯入完順手把同建號／同門牌的重複卡併掉（舊資料全形半形那種）
     saveLocal();
     pushToSheet().catch(()=>{});
     render();
     showToast(`✅ 新增 ${added} 筆，併入 ${updated} 筆，略過 ${skipped} 筆${idnoMerged?`，合併同人 ${idnoMerged} 筆`:''}`);
     // 匯入小結：新增幾人、併入既有哪幾人、略過幾筆；按「知道了」之後才跳批次標記（只列這次新增的人）
     const uniq=[...new Set(mergedNames.map(n=>String(n||'').trim()).filter(Boolean))];
-    const nameList=uniq.length?`：${uniq.slice(0,15).join('、')}${uniq.length>15?`…等 ${uniq.length} 人`:''}`:'';
+    // 併入的人只給數字（沒變的不值得列名）；有變的人卡片上有 🔁，小結下面會另外點名
+    const changedNames=[...new Set(clients.filter(c=>(c.reimports||[]).some(r=>r.date===TODAY&&r.src===importSrc)).map(c=>c.name||'').filter(Boolean))];
+    const nameList=changedNames.length?`（其中有變 ${changedNames.length} 人：${changedNames.slice(0,15).join('、')}${changedNames.length>15?'…':''}）`:'';
+    // 小結用跑完後的實際狀態算，不用途中累加：同一間在同一次匯入有多列時，前一列標塗銷、後一列又取消，累加會多算；
+    // 新建的人若跟既有同身分證，會在 consolidateByIdno 併掉，累加也會多算
+    const netNew=clients.filter(c=>c.id>=_startNextId).length;
+    const allLoans=clients.flatMap(c=>(c.properties||[]).flatMap(p=>p.loans||[]));
+    loanCancelledN=allLoans.filter(l=>l.x&&l.x.run===runId).length;
+    loanAddedN=allLoans.filter(l=>l.added&&l.added.run===runId).length;
+    const mergedAway=Math.max(0, added-netNew);
     const loanLine=(loanAddedN||loanCancelledN||propAddedN||rawChangedN)?`\n不動產：新增 ${propAddedN} 間、謄本內容有變 ${rawChangedN} 間（抵押新增 ${loanAddedN} 筆、塗銷 ${loanCancelledN} 筆）`:'';
-    const summary=`匯入完成\n\n新增 ${added} 人\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
-    const after=()=>{ if(added>0){ const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id)); if(nids.size) setTimeout(()=>openBatchTagForImport(nids), 300); } };
+    const revivedNames=[..._importRevived].map(id=>{ const c=clients.find(x=>x.id===id); return c?(c.name||''):''; }).filter(Boolean);
+    const revivedLine=revivedNames.length?`\n⚠️ 原本是無效案件、這次謄本有變 ${revivedNames.length} 人：${revivedNames.slice(0,10).join('、')}${revivedNames.length>10?'…':''}（批次視窗可勾選改回待分類）`:'';
+    const dedupeLine=dedupe.props?`\n合併重複不動產 ${dedupe.props} 張（${dedupe.names.slice(0,5).join('、')}${dedupe.names.length>5?'…':''}）`:'';
+    const summary=`匯入完成\n\n新增 ${netNew} 人${mergedAway?`（另 ${mergedAway} 筆與既有同一人，已併入）`:''}\n併入既有 ${updated} 人${nameList}\n略過 ${skipped} 筆${idnoMerged?`\n同身分證合併 ${idnoMerged} 筆`:''}${loanLine}${dedupeLine}${revivedLine}\n\n既有客戶只補空白欄位，手填的資料不會被蓋；有變動的人卡片上有 🔁 記號。`;
+    const nids=new Set(clients.filter(c=>c.id>=_startNextId).map(c=>c.id));
+    _lastImportInfo={newIds:nids, mergedIds:new Set([..._importMerged].filter(id=>clients.some(c=>c.id===id))), revivedIds:new Set(_importRevived)};
+    // XLS 匯入：這批所有人（新建＋併入）都進批次視窗，批次名掛全員、分類只套新建的；總檔更新只有新建的人才開
+    const after=()=>{ const ids=new Set([...nids, ...(isXls?_lastImportInfo.mergedIds:[])]); if(ids.size) setTimeout(()=>openBatchTagForImport({ids, newIds:nids, revivedIds:_lastImportInfo.revivedIds}), 300); };
     if(typeof uiAlert==='function') uiAlert(summary).then(after); else after();
   }
 
@@ -4098,7 +4279,7 @@ function processCompanyData(raw) {
             if(toAdd.length) ex.logs = [...toAdd,...(ex.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
           }
           ex.updatedAt = TODAY;
-          updated++;
+          updated++; _importMerged.add(ex.id);
         } else {
           // 新增
           const logs = parseVisitLogs(f.processText||'');
@@ -4116,6 +4297,7 @@ function processCompanyData(raw) {
             buildShareNum: shareFromOwner((f.companyRaw||{}).owner).num, buildShareDen: shareFromOwner((f.companyRaw||{}).owner).den,
             loans: (f.loans&&f.loans.length) ? f.loans : undefined,
             purpose: f.sectionName, buildNo: f.buildNo, col4BuildNo: f.col4BuildNo, col7Name: f.col7Name, driveUrl:'', landNo: f.landNos,
+            floors: floorsFromBuildInfo((f.companyRaw||{}).buildInfo), builtYear: builtYearFromBuildInfo((f.companyRaw||{}).buildInfo),
             logs: logs.slice(0,3),
             companyRaw: f.companyRaw,
             createdAt: TODAY, updatedAt: TODAY,
@@ -4315,13 +4497,14 @@ function updateStats(){
   const fullTotal   = clients.length;
 
   const todayN = clients.filter(c=>c.remind===TODAY).length;
+  const staleN = clients.filter(isStale).length, neverN = clients.filter(isNever).length;
   // 統計卡可點：點了就只看那一類（跟分類疊加），再點一次取消。總計數字改放在分類下拉的「全部 (N)」
   const on=k=>curTime===k?' on':'';
   document.getElementById('statsBar').innerHTML=`
     <div class="spill ${over?'alert':''}${on('over')}" onclick="setTimeFilter('over')" title="只看逾期"><b>${over}</b><span><i class="spi">⚠️ </i>逾期</span></div>
     <div class="spill ${todayN?'info':''}${on('today')}" onclick="setTimeFilter('today')" title="只看今日"><b>${todayN}</b><span><i class="spi">📞 </i>今日</span></div>
     <div class="spill ${week?'info':''}${on('week')}" onclick="setTimeFilter('week')" title="只看本週"><b>${week}</b><span><i class="spi">📅 </i>本週</span></div>
-    <div class="spill ${noRemind?'warn':''}${on('noremind')}" onclick="setTimeFilter('noremind')" title="只看未排程"><b>${noRemind}</b><span><i class="spi">📋 </i>未排程</span></div>
+    <div class="spill ${staleN?'warn':''}${on('stale')}" onclick="setTimeFilter('stale')" title="聯絡過但超過 ${staleDays()} 天沒新記錄：${staleN} 人；從未聯絡 ${neverN} 人（點進去可展開）"><b>${staleN}</b><span><i class="spi">⏳ </i>久未聯絡</span></div>
   `;
   // ☰ 上的紅點：待審收件匣有東西
   const dot=document.getElementById('menuDot'), ib=document.getElementById('inboxBtn');
@@ -4505,6 +4688,26 @@ function updateTabs(){
 // ── 時間篩選（上方統計卡）：'' | 'over' 逾期 | 'today' 今日 | 'week' 本週 | 'noremind' 未排程 ──
 // 跟熱度分頁疊加（例如「追很緊」＋「逾期」）。再點一次同一張卡＝取消。
 let curTime='';
+let showNever=false;   // 久未聯絡檢視：是否展開「從未聯絡」那群
+// ── 久未聯絡（2026/10/19 業主＋老闆定）──
+// 規則：聯絡過、最後一筆記錄距今 ≥ N 天（設定頁 30/60/90）、沒有未來的提醒、不是已簽約／無效案件、沒在「暫不追」期間。
+// 從未聯絡（一筆記錄都沒有）另外一群，在久未聯絡檢視裡預設收起。
+const STALE_KEY='crm_stale_days';
+function staleDays(){ try{ const n=parseInt(localStorage.getItem(STALE_KEY)); return [30,60,90].includes(n)?n:30; }catch(e){ return 30; } }
+function setStaleDays(n){ try{ localStorage.setItem(STALE_KEY,String(n)); }catch(e){} if(typeof renderStaleDaysPicker==='function') renderStaleDaysPicker(); render(); }
+function lastLogDate(c){ return (c&&c.logs||[]).reduce((m,l)=>(l&&l.date&&l.date>m)?l.date:m,''); }
+function daysSince(d){ return Math.floor((new Date(TODAY)-new Date(d))/86400000); }
+function isMuted(c){ return !!(c&&c.staleMuteUntil&&c.staleMuteUntil>TODAY); }
+function staleBase(c){ return c && !['已簽約','無效案件'].includes(c.heat) && !(c.remind&&c.remind>=TODAY) && !isMuted(c); }
+function isStale(c){ if(!staleBase(c)) return false; const d=lastLogDate(c); return !!d && daysSince(d)>=staleDays(); }
+function isNever(c){ return staleBase(c) && !lastLogDate(c); }
+function staleTag(c){
+  if(isMuted(c)) return `<span class="mi stale-tag m" title="暫不追，到期自動回到久未聯絡">⏸ 暫停到 ${String(c.staleMuteUntil).slice(5)}</span>`;
+  if(isStale(c)){ const d=daysSince(lastLogDate(c)); return `<span class="mi stale-tag ${d>=90?'r':'o'}">⏳ ${d} 天沒聯絡</span>`; }
+  if(curTime==='stale' && isNever(c)) return `<span class="mi stale-tag m">從未聯絡</span>`;
+  return '';
+}
+function muteBtn(c){ return (!selectMode && (isStale(c)||isMuted(c)||(curTime==='stale'&&isNever(c)))) ? `<button type="button" class="mute-btn" onclick="openMutePick(event,${c.id})" title="暫時不追，到期自動回來">${isMuted(c)?'⏸ 改期':'⏸ 暫不追'}</button>` : ''; }
 let onlyReimport=false;   // 調整面板：只看有 🔁 二次匯入記號的人
 function weekEndStr(){ const d=new Date(); d.setDate(d.getDate()+7); return localDateStr(d); }
 function applyListFilters(list){
@@ -4514,6 +4717,7 @@ function applyListFilters(list){
   else if(curTime==='over') list=list.filter(c=>c.remind&&c.remind<TODAY&&!inactive.includes(c.heat));
   else if(curTime==='week'){ const we=weekEndStr(); list=list.filter(c=>c.remind&&c.remind>=TODAY&&c.remind<=we); }
   else if(curTime==='noremind') list=list.filter(c=>!c.remind&&!inactive.includes(c.heat));
+  else if(curTime==='stale') list=list.filter(c=>isStale(c)||(showNever&&isNever(c)));
   if(typeof onlyReimport!=='undefined' && onlyReimport) list=list.filter(c=>c.reimports&&c.reimports.length);
   return list;
 }
@@ -4527,7 +4731,7 @@ function loadViewState(){
     const v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); if(!v) return;
     const okTabs=['all','覆訪','追很緊','新鑫','待分類','已簽約','無效案件'];
     if(okTabs.includes(v.tab)) curTab=v.tab;
-    if(['','over','today','week','noremind'].includes(v.time||'')) curTime=v.time||'';
+    if(['','over','today','week','noremind','stale'].includes(v.time||'')) curTime=v.time||'';
     const s=document.getElementById('sortSelect');
     if(s && v.sort && [...s.options].some(o=>o.value===v.sort)) s.value=v.sort;
   }catch(e){}
@@ -4632,7 +4836,7 @@ function setTimeFilter(t){
   curTime=(curTime===t)?'':t;
   saveViewState();
   render();
-  if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
+  if(curTime){ const names={over:'逾期',today:'今日',week:'本週',noremind:'未排程',stale:'久未聯絡'}; showToast(`🔎 只看「${names[curTime]}」，再點一次取消`); }
 }
 function setTab(t){
   const same=(t===curTab);
@@ -4963,7 +5167,8 @@ function logsToProcess(logs){
     const m=String(l.date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     const d=m?String(parseInt(m[1])-1911)+m[2]+m[3]:'';
     const t=l.time?String(l.time).replace(':',''):'';
-    return [d,t].filter(Boolean).join(' ')+(l.text?((d||t?' ':'')+l.text):'');
+    const tag=(typeof logKindTag==='function'&&l.kind)?logKindTag(l.kind):'';
+    return [d,t].filter(Boolean).join(' ')+(l.text?((d||t?' ':'')+tag+l.text):'');
   }).map(s=>s.trim()).filter(Boolean).join('\n');
 }
 const COMPANY_EXPORT_HEADER=['電話','拜訪過程','備註','建物標示','門牌','面積','建物所有權部','所有權人住址','持分面積','債務人及債務額比例','設定義務人','共同擔保地號、建號','債務人電話','他項權利部','權利人','權利人住址','設定權利範圍','債權額比例','限制登記事項','流抵約定','顏色','登記門牌','建物門牌','其他門牌','金主門牌'];
@@ -5215,6 +5420,13 @@ function render(){
   list.sort((a,b)=>{
     // 置頂優先
     if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    if(curTime==='stale'){
+      // 久未聯絡檢視：先久未聯絡（最久沒碰的在最上面），再從未聯絡（照批次、新增時間）
+      const sa=isStale(a)?0:1, sb=isStale(b)?0:1; if(sa!==sb) return sa-sb;
+      if(sa===0){ return lastLogDate(a).localeCompare(lastLogDate(b)); }
+      const ba=a.firstBatch||(batchList(a)[0]||''), bb=b.firstBatch||(batchList(b)[0]||''); if(ba!==bb) return ba.localeCompare(bb);
+      return (a.createdAt||'').localeCompare(b.createdAt||'');
+    }
     if(sortBy==='heat'){
       const hd=(hOrd[a.heat]??9)-(hOrd[b.heat]??9);
       if(hd!==0) return hd;
@@ -5258,11 +5470,14 @@ function render(){
   if(!list.length){wrap.innerHTML=recentRowHtml(q)+`<div class="empty">🔍 查無資料</div>`;return;}
   const sheetIsOpen=isSheetOpen();   // 編輯面板開著才標「正在看的那位」
   // 篩選條件變了就從頭算分段；沒變（例如存檔後重畫）維持已載入的張數
-  const listKey=[curTab,curTime,onlyReimport?'R':'',q,sortBy,[...selectedCities].join(','),(typeof selectedBatches!=='undefined'?[...selectedBatches].join(','):'')].join('|');
+  const listKey=[curTab,curTime,showNever?'N':'',onlyReimport?'R':'',q,sortBy,[...selectedCities].join(','),(typeof selectedBatches!=='undefined'?[...selectedBatches].join(','):'')].join('|');
   if(listKey!==_listKey){ _listKey=listKey; _listLimit=LIST_PAGE; }
   const total=list.length;
   if(total>_listLimit) list=list.slice(0,_listLimit);
-  wrap.innerHTML=recentRowHtml(q)+list.map(c=>{
+  const staleBar = curTime==='stale'
+    ? `<div class="stale-bar">⏳ 久未聯絡 <b>${clients.filter(isStale).length}</b> 人（超過 ${staleDays()} 天沒新記錄，最久的在最上面）<span style="flex:1"></span>從未聯絡 <b>${clients.filter(isNever).length}</b> 人 <button type="button" onclick="showNever=!showNever;render()">${showNever?'收起':'展開'}</button></div>`
+    : '';
+  wrap.innerHTML=staleBar+recentRowHtml(q)+list.map(c=>{
     let st=remSt(c.remind);
     // 今天的提醒，但時間已過 → 視為逾期
     if(st==='today'&&c.remindTime){
@@ -5291,11 +5506,11 @@ function render(){
         </div>
         <span class="hbadge ${heatCls}${selectMode?'':' hb-click'}" ${selectMode?'':`onclick="openHeatPick(event,${c.id})" title="點一下直接換分類"`}>${c.heat}</span>
       </div>
-      ${(c.remind||tot||(c.reimports&&c.reimports.length)||(c.properties||[]).some(p=>p.buildShareNum>0&&p.buildShareDen>p.buildShareNum))?`<div class="cmeta" style="margin-top:6px">
-        ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}
-        ${(()=>{const sp=(c.properties||[]).find(p=>p.buildShareNum>0&&p.buildShareDen>0&&p.buildShareNum<p.buildShareDen)||((c.buildShareNum>0&&c.buildShareDen>0&&c.buildShareNum<c.buildShareDen)?c:null);return sp?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px;font-weight:700">持分 ${sp.buildShareNum}／${sp.buildShareDen}</span>`:'';})()}${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯 想借${c.loanWant}萬</span>`:''}${(c.reimports&&c.reimports.length)?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
+      ${(c.remind||tot||(c.reimports&&c.reimports.length)||staleTag(c)||(c.properties||[]).some(p=>p.buildShareNum>0&&p.buildShareDen>p.buildShareNum))?`<div class="cmeta" style="margin-top:6px">
+        ${c.remind?remChip(c.remind,c.remindTime):''}${c.remindNote?`<span class="mi" style="color:var(--accent)">${hl(c.remindNote,q)}</span>`:''}${staleTag(c)}${muteBtn(c)}
+        ${(()=>{const sp=(c.properties||[]).find(p=>p.buildShareNum>0&&p.buildShareDen>0&&p.buildShareNum<p.buildShareDen)||((c.buildShareNum>0&&c.buildShareDen>0&&c.buildShareNum<c.buildShareDen)?c:null);return sp?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px;font-weight:700">持分 ${sp.buildShareNum}／${sp.buildShareDen}</span>`:'';})()}${tot?`<span class="mi-amt">💰 債務${fmt(tot)}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${fmt(lt.priv)}萬</span>`:''}${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯 想借${c.loanWant}萬</span>`:''}${(c.reimports&&c.reimports.length)?`<span class="mi" style="${/^原無效/.test(c.reimports[c.reimports.length-1].kind||'')?'color:var(--red);background:var(--rbg);font-weight:700':'color:var(--orange);background:var(--obg)'};padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
       </div>`:''}
-      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${logKindLabel(lastLog.kind||'phone').slice(0,2)}${String(lastLog.date||'').slice(5)}：</span>${hl(lastLog.text||'',q)}</div>`:''}
     </div>`;
     }
     return`<div class="ccard ${cls} heat-${heatCls}${c.pinned?' pinned':''}${isSel?' selected':''}${(!selectMode&&editId===c.id&&sheetIsOpen)?' active':''}" data-cid="${c.id}" onclick="${cardClick}">
@@ -5309,10 +5524,10 @@ function render(){
         </div>
       </div>
       <div class="cmeta">
-        ${c.remind?remChip(c.remind,c.remindTime):''}
+        ${c.remind?remChip(c.remind,c.remindTime):''}${staleTag(c)}${muteBtn(c)}
         ${(lt=>`${lt.bank?`<span class="mi-amt">🏦銀行${lt.bank}萬</span>`:''}${lt.legal?`<span class="mi-amt">🏢法人${lt.legal}萬</span>`:''}${lt.priv?`<span class="mi-amt warn">⚠️民間${lt.priv}萬</span>`:''}`)(clientLoanTotals(c))}
         ${c.loanWant?`<span class="mi" style="color:var(--purple)">🎯想借${c.loanWant}萬</span>`:''}
-        ${(c.reimports&&c.reimports.length)?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
+        ${(c.reimports&&c.reimports.length)?`<span class="mi" style="${/^原無效/.test(c.reimports[c.reimports.length-1].kind||'')?'color:var(--red);background:var(--rbg);font-weight:700':'color:var(--orange);background:var(--obg)'};padding:1px 6px;border-radius:99px" title="${calEsc(c.reimports.slice(-3).map(r=>r.date.slice(5)+' '+r.kind+(r.detail?'（'+r.detail+'）':'')).join('；'))}">🔁 ${c.reimports.length>1?c.reimports.length+'次 ':''}${calEsc(c.reimports[c.reimports.length-1].kind.replace(/：.*$/,''))} ${c.reimports[c.reimports.length-1].date.slice(5)}</span>`:''}
         ${(()=>{const sp=(c.properties||[]).find(p=>p.buildShareNum>0&&p.buildShareDen>0&&p.buildShareNum<p.buildShareDen)||((c.buildShareNum>0&&c.buildShareDen>0&&c.buildShareNum<c.buildShareDen)?c:null);return sp?`<span class="mi" style="color:var(--orange);background:var(--obg);padding:1px 6px;border-radius:99px;font-weight:700">持分 ${sp.buildShareNum}／${sp.buildShareDen}</span>`:'';})()}
         ${c.serial?`<span class="mi">🔢${hl(c.serial,q)}</span>`:''}
         ${c.idno?`<span class="mi">🪪${hl(c.idno||'',q)}</span>`:''}
@@ -5322,7 +5537,7 @@ function render(){
       </div>
       ${c.remindNote?`<div style="font-size:11px;color:var(--accent);margin-bottom:4px">🔔${c.remindNote}</div>`:''}
       ${c.addr?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍${hl(c.addr||'',q)}</div>`:''}
-      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
+      ${lastLog?`<div class="clog"><span style="color:var(--t3)">${logKindLabel(lastLog.kind||'phone').slice(0,2)}${lastLog.date}：</span>${hl(lastLog.text||'',q)}</div>`:''}
     </div>`;
   }).join('')+(total>list.length?`<button type="button" class="load-more" id="loadMoreBtn" onclick="loadMoreCards()">顯示更多（還有 ${total-list.length} 筆）</button>`:'');
   watchLoadMore();
@@ -5345,7 +5560,34 @@ function openHeatPick(e, id){
   panel.style.top=top+'px';
   panel.style.left=Math.max(8, Math.min(r.right-w, window.innerWidth-w-8))+'px';
 }
-function closeHeatPick(){ _heatPickId=null; const p=document.getElementById('heatPick'); if(p) p.style.display='none'; }
+// 暫不追：30／60／90 天後自動回到久未聯絡；新增一筆聯絡記錄也會自動解除
+let _mutePickId=null;
+function openMutePick(e, id){
+  e.stopPropagation();
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
+  const panel=document.getElementById('heatPick'); if(!panel) return;
+  const c=clients.find(x=>x.id===id); if(!c) return;
+  _mutePickId=id; _heatPickId=null;
+  const opts=[[30,'30 天'],[60,'60 天'],[90,'90 天']];
+  panel.innerHTML=`<div class="hp-title">${dispName(c)}：暫不追</div>`+opts.map(([d,l])=>`<button type="button" class="hp-item" onclick="applyMutePick(${d})">⏸ ${l}後再提醒</button>`).join('')
+    +(isMuted(c)?`<button type="button" class="hp-item" onclick="applyMutePick(0)">▶ 取消暫停</button>`:'')
+    +`<button type="button" class="hp-item" onclick="applyMutePick(-1)">🚫 改成無效案件</button>`;
+  panel.style.display='flex';
+  const r=e.currentTarget.getBoundingClientRect();
+  const w=panel.offsetWidth||180, h=panel.offsetHeight||200;
+  let top=r.bottom+6; if(top+h>window.innerHeight-8) top=Math.max(8, r.top-h-6);
+  panel.style.top=top+'px';
+  panel.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+}
+function applyMutePick(days){
+  const c=clients.find(x=>x.id===_mutePickId); closeHeatPick(); _mutePickId=null;
+  if(!c) return;
+  if(days===-1){ c.heat='無效案件'; c.heatManual=true; c.staleMuteUntil=''; showToast(`🚫 「${dispName(c)}」改成無效案件`); }
+  else if(days===0){ c.staleMuteUntil=''; showToast('▶ 已取消暫停'); }
+  else { const d=new Date(TODAY); d.setDate(d.getDate()+days); c.staleMuteUntil=localDateStr(d); showToast(`⏸ 「${dispName(c)}」暫不追到 ${c.staleMuteUntil.slice(5)}`); }
+  c.updatedAt=TODAY; saveLocal(); render();
+}
+function closeHeatPick(){ _heatPickId=null; _mutePickId=null; const p=document.getElementById('heatPick'); if(p) p.style.display='none'; }
 function applyHeatPick(h){
   const c=clients.find(x=>x.id===_heatPickId); closeHeatPick();
   if(!c || c.heat===h) return;
@@ -5605,14 +5847,9 @@ function syncToEval(targetId, val) {
   if(el) el.value = val;
 }
 function syncLandtax(field, val){
-  const wan = val ? Math.round(parseFloat(val)/10000) || '' : '';
-  if(field==='normal'){
-    syncToEval('ev_landtax_normal', val);
-    syncToEval('ev_tax_general', wan);
-  } else {
-    syncToEval('ev_landtax_self', val);
-    syncToEval('ev_tax_self', wan);
-  }
+  // 評估頁的土增稅現在也是「元」，直接同步
+  if(field==='normal'){ syncToEval('ev_landtax_normal', val); syncToEval('ev_tax_general', val); }
+  else { syncToEval('ev_landtax_self', val); syncToEval('ev_tax_self', val); }
 }
 function extractDistrict(addr){
   return addr.match(/[一-鿿]+[市縣]([一-鿿]+[區鄉鎮市])/)?.[1] || '';
@@ -5656,7 +5893,7 @@ function autoGrowNote(el){ if(!el) return; el.style.height='auto'; el.style.heig
 // ── Sheet modal ───────────────────────────────────────────
 // ── t126 新欄位：聯絡／工作家庭／借款需求／信用／文件清單／結案原因 ──
 // 這張清單是「新欄位不會被任何同步/合併洗掉」的單一來源：foldClientInto、試算表富欄位往返都用它
-const EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed','marital','spouse','loanWant','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
+const EXTRA_FIELDS=['phone2','contactTime','company','income','incomeType','taxed','marital','spouse','loanWant','loanRate','loanUse','loanWhen','creditBank','creditPrivate','creditBounce','closeReason','closeNote'];
 const DOC_LIST=['身分證','第二證件(健保卡/駕照)','存摺(近6個月)','薪資證明','企業401','所得清單/扣繳憑單','自然人憑證','印鑑證明','印鑑章','權狀','土地建物謄本','戶籍謄本','原貸款對帳單','房屋稅單','聯徵報告'];
 let tempDocs={};   // {文件名: 'got'|'skip'}；沒鍵＝未收
 function nextDocState(cur){ return cur==='got' ? 'skip' : cur==='skip' ? '' : 'got'; }   // 未收→已收→不需要→未收
@@ -5955,7 +6192,7 @@ function openEdit(id){
   _companyPropIdx=0; renderCompanyTabs(); renderCompanyPanel();
   finProofs=[...(c.finProofs||[])];renderFinProofs();
   fillExtraFields(c);
-  tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
+  _logEdit=null; tempLogs=[...(c.logs||[])];renderLogs();sSTabTo(0);
   properties=migrateProperties(c); curPropIdx=0; loadPropFields(0); renderPropTabs();
   // 預載房價評估資料
   _evalRenderedIdx=-1;   // 換客戶了，舊的渲染索引作廢，避免把上一位的評估內容寫進來
@@ -5986,7 +6223,7 @@ function closeSheet(){
 // 房價評估頁的資料來源：不動產相關欄位「只認正在評估的那一筆」。
 // 以前用 {...客戶, ...這筆不動產} 直接合併，這筆缺的欄位會被客戶層級(＝第一筆不動產留下的舊值)補上，
 // 結果多筆案件會互相污染（例如土地持分那筆顯示出另一間的建號/地址/社區/坪數）。
-const EVAL_PROP_KEYS=['addr','district','landzone','purpose','buildNo','col4BuildNo','landNo',
+const EVAL_PROP_KEYS=['addr','district','landzone','purpose','buildNo','col4BuildNo','landNo','community','floors','builtYear',
   'area','mainArea','subArea','commonArea','landArea','parkArea','parkType','parkTitle','parkVal',
   'buildShare','buildShareNum','buildShareDen','bank','legal','private','loans','loansManual',
   'extraLoans','extraLands','landtaxNormal','landtaxSelf','landtaxCalced',
@@ -6039,11 +6276,12 @@ function renderPriceEval(c) {
   const district  = e.district  || c.district || districtDerived;
   const section   = e.section   || sectionDerived;
   const area      = e.buildarea || areaDerived;
-  const floorDisp = e.floors    || floorDisplayDerived;
-  const age       = (e.age !== undefined && e.age !== '') ? e.age : ageDerived;
+  const floorDisp = e.floors    || (c.floors ? (clientFloor ? `${clientFloor}／${c.floors}` : String(c.floors)) : floorDisplayDerived);
+  const ageFromYear = c.builtYear ? (new Date().getFullYear() - (parseInt(c.builtYear)+1911)) : '';
+  const age       = (e.age !== undefined && e.age !== '') ? e.age : (ageFromYear || ageDerived);
 
   // 記住目前車位資料，渲染後還原並觸發計算
-  const savedParking  = e.parking  || c.parkType  || '無';
+  const savedParking  = e.parking  || ((c.parkType&&c.parkType!=='無') ? c.parkType : ((parseFloat(c.parkArea)>0) ? '平面' : '無'));   // 車位坪 > 0 就當有車位
   const savedParkArea = c.parkArea  || '';
   const savedParkTitle= e.parkTitle || c.parkTitle || '非獨立';
 
@@ -6062,11 +6300,11 @@ function renderPriceEval(c) {
         </div>
         <div class="fg2" style="margin-top:8px">
           <div class="frow" style="margin:0"><label>地號</label><input id="ev_landno" value="${[c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).join('、')||e.landno||''}" placeholder=""/></div>
-          <div class="frow" style="margin:0"><label>土地使用分區</label><div style="display:flex;gap:6px"><input id="ev_landzone" value="${e.landzone||c.landzone||''}" placeholder="例：住三" style="flex:1" oninput="syncToEval('fLandzone',this.value)"/><button onclick="openLandZoneQuery()" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:0 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🗺️ 查詢</button></div></div>
+          <div class="frow" style="margin:0"><label>土地使用分區</label><div style="display:flex;gap:6px"><input id="ev_landzone" value="${e.landzone||c.landzone||''}" placeholder="例：住三" style="flex:1" oninput="syncToEval('fLandzone',this.value)"/></div></div>
         </div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>建號</label><input id="ev_buildno" value="${e.buildno||c.buildNo||''}" placeholder=""/></div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>地址</label><input id="ev_addr" value="${e.addr||addr}" placeholder="門牌地址"/></div>
-        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>社區名稱</label><input id="ev_community" value="${e.community||''}" placeholder="社區或大樓名稱"/></div>
+        <div class="frow" style="margin-top:8px;margin-bottom:0"><label>社區名稱</label><input id="ev_community" value="${e.community||c.community||''}" placeholder="社區或大樓名稱" oninput="syncToEval('fCommunity', this.value)"/></div>
         <div class="fg2" style="margin-top:8px">
           <div class="frow" style="margin:0">
             <label>建物（坪）</label>
@@ -6100,8 +6338,8 @@ function renderPriceEval(c) {
       <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">💰 土增稅</div>
         <div class="fg2">
-          <div class="frow" style="margin:0"><label>一般（萬）</label><input type="number" id="ev_tax_general" value="${(e.taxGeneral!=null&&e.taxGeneral!=='')?e.taxGeneral:(c.landtaxCalced?Math.round((c.landtaxNormal||0)/10000):(c.landtaxNormal?Math.round(c.landtaxNormal/10000):''))}" placeholder=""/></div>
-          <div class="frow" style="margin:0"><label>自用（萬）</label><input type="number" id="ev_tax_self" value="${(e.taxSelf!=null&&e.taxSelf!=='')?e.taxSelf:(c.landtaxCalced?Math.round((c.landtaxSelf||0)/10000):(c.landtaxSelf?Math.round(c.landtaxSelf/10000):''))}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>一般（元）</label><input type="number" id="ev_tax_general" value="${(e.taxGeneralYuan!=null&&e.taxGeneralYuan!=='')?e.taxGeneralYuan:((e.taxGeneral!=null&&e.taxGeneral!=='')?Math.round(e.taxGeneral*10000):(c.landtaxCalced?(c.landtaxNormal||0):(c.landtaxNormal||'')))}" placeholder=""/></div>
+          <div class="frow" style="margin:0"><label>自用（元）</label><input type="number" id="ev_tax_self" value="${(e.taxSelfYuan!=null&&e.taxSelfYuan!=='')?e.taxSelfYuan:((e.taxSelf!=null&&e.taxSelf!=='')?Math.round(e.taxSelf*10000):(c.landtaxCalced?(c.landtaxSelf||0):(c.landtaxSelf||'')))}" placeholder=""/></div>
         </div>
         <div class="frow" style="margin-top:8px;margin-bottom:0"><label>筆數</label><input type="number" id="ev_tax_count" value="${e.taxCount||([c.landNo||'',...(extraLands||[]).map(l=>l.landNo)].filter(Boolean).length)||''}" placeholder="1"/></div>
       </div>
@@ -6130,6 +6368,10 @@ function renderPriceEval(c) {
           <div class="frow" style="margin:0"><label>住宅行情（萬/坪）</label><input type="number" id="ev_unitprice" value="${e.unitprice||''}" placeholder="80" oninput="calcTotal()"/></div>
           <div class="frow" style="margin:0"><label>住宅估值（萬）</label><input type="number" id="ev_house_val" placeholder="自動計算" readonly style="background:var(--s2)"/></div>
         </div>
+        <div class="fg2" style="margin-top:8px">
+          <div class="frow" style="margin:0"><label>好賣價（萬/坪）</label><input type="number" id="ev_unitprice_lo" value="${e.unitpriceLo||''}" placeholder="比行情低的快賣價" oninput="calcTotal()"/></div>
+          <div class="frow" style="margin:0"><label>總價範圍（萬）</label><input id="ev_total_range" placeholder="自動計算" readonly style="background:var(--s2)"/></div>
+        </div>
         <div class="fg2" id="ev_park_val_row" style="margin-top:8px;display:none">
           <div class="frow" style="margin:0"><label>車位估值（萬）</label><input type="number" id="ev_park_val" value="${e.parkval||c.parkVal||''}" placeholder="例：100" oninput="calcTotal()"/></div>
           <div class="frow" style="margin:0"><label style="color:var(--accent);font-weight:700">估算總價（萬）</label><input type="number" id="ev_total" placeholder="自動計算" readonly style="background:var(--abg);font-weight:700;color:var(--accent)"/></div>
@@ -6141,9 +6383,14 @@ function renderPriceEval(c) {
 
       <div style="background:var(--s2);border-radius:var(--rs);padding:12px 14px">
         <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">👤 客戶資訊</div>
-        <div class="frow" style="margin-bottom:8px"><label>職業／收入</label><input id="ev_job" value="${e.job||c.job||''}" placeholder="例：上班族，月收5萬"/></div>
+        <div class="frow" style="margin-bottom:8px"><label>職業／收入</label><input id="ev_job" value="${e.job||jobSummary(c)||''}" placeholder="例：上班族，月收5萬"/></div>
         <div class="frow" style="margin-bottom:8px"><label>借款用途</label><input id="ev_purpose" value="${c.loanPurpose||''}" placeholder="例：週轉、整合債務"/></div>
-        <div class="frow" style="margin-bottom:8px"><label>客戶需求</label><input id="ev_need" value="${e.need||''}" placeholder="例：需借500萬，1分以內"/></div>
+        <div class="fg2" style="margin-bottom:8px">
+          <div class="frow" style="margin:0"><label>需求金額（萬）</label><input type="number" id="ev_need_amt" value="${e.needAmt||c.loanWant||''}" placeholder="例：300"/></div>
+          <div class="frow" style="margin:0"><label>利率（分）</label><input type="number" step="0.1" id="ev_need_rate" value="${e.needRate||c.loanRate||''}" placeholder="例：2"/></div>
+        </div>
+        <div class="frow" style="margin-bottom:8px"><label>是否含清償前胎</label><select id="ev_need_clear"><option value="">未填</option><option value="含清償前胎"${e.needClear==='含清償前胎'?' selected':''}>含清償前胎</option><option value="不含清償前胎"${e.needClear==='不含清償前胎'?' selected':''}>不含清償前胎</option></select></div>
+        <input type="hidden" id="ev_need" value="${calEsc(e.need||'')}"/>
         <div class="frow" style="margin-bottom:0"><label>備註（中人、注意事項）</label><textarea id="ev_note" style="height:70px" placeholder="例：中人需退2%，客戶態度保守">${e.evalNote||''}</textarea></div>
       </div>
 
@@ -6187,9 +6434,8 @@ function calcEvalBuildArea(){
   let hint = '';
 
   if(hasPark && !isIndependent){
-    // 非獨立：車位面積包含在總面積內，扣除後得到純住宅面積
-    buildArea = totalArea - parkArea;
-    hint = `（已扣車位 ${parkArea} 坪）`;
+    // 非獨立權狀：車位算在總面積裡，市場單價本來就反映了，不扣、也不另外估車位（業主 2026/10/19 定）
+    hint = `（含車位 ${parkArea} 坪，單價已反映，不另估車位）`;
   } else if(hasPark && isIndependent){
     // 獨立：車位另有登記，建物面積不含車位，直接用總面積
     hint = `（車位獨立 ${parkArea} 坪）`;
@@ -6215,11 +6461,12 @@ function calcEvalBuildArea(){
     }
   }
 
-  // 有車位 → 顯示車位估值欄；無車位 → 顯示單一總價欄
+  // 只有「獨立權狀」的車位才另外估值；非獨立的算在單價裡
+  const sepPark = hasPark && isIndependent;
   const parkRow = document.getElementById('ev_park_val_row');
   const totalRow = document.getElementById('ev_total_row');
-  if(parkRow) parkRow.style.display = hasPark ? 'grid' : 'none';
-  if(totalRow) totalRow.style.display = hasPark ? 'none' : 'block';
+  if(parkRow) parkRow.style.display = sepPark ? 'grid' : 'none';
+  if(totalRow) totalRow.style.display = sepPark ? 'none' : 'block';
 
   calcTotal();
 }
@@ -6232,9 +6479,9 @@ function calcTotal(){
   const hv = document.getElementById('ev_house_val');
   if(hv) hv.value = houseVal || '';
 
-  const hasPark = (document.getElementById('ev_parking')?.value || '無') !== '無';
+  const hasPark = (document.getElementById('ev_parking')?.value || '無') !== '無' && document.getElementById('ev_park_title')?.value === '獨立';   // 只有獨立權狀才另加車位估值
+  const parkVal = hasPark ? (parseFloat(document.getElementById('ev_park_val')?.value) || 0) : 0;
   if(hasPark){
-    const parkVal = parseFloat(document.getElementById('ev_park_val')?.value) || 0;
     const total = houseVal + parkVal;
     const t = document.getElementById('ev_total');
     if(t) t.value = total || '';
@@ -6242,6 +6489,69 @@ function calcTotal(){
     const t = document.getElementById('ev_total_noPark');
     if(t) t.value = houseVal || '';
   }
+  const lo = parseFloat(document.getElementById('ev_unitprice_lo')?.value) || 0;
+  const tr = document.getElementById('ev_total_range');
+  if(tr) tr.value = priceRangeStr(lo, unit, area, parkVal).total;
+}
+// 行情／總價範圍文字：好賣價～行情價（萬/坪）、各乘建坪再加車位
+function fmtWan(n){ return n ? Math.round(n).toLocaleString('en-US') : ''; }
+function priceRangeStr(lo, hi, area, parkVal){
+  const a=lo&&area?lo*area+(parkVal||0):0, b=hi&&area?hi*area+(parkVal||0):0;
+  const unit = lo&&hi ? `${lo}～${hi}` : (hi||lo||'');
+  const total = a&&b ? `${fmtWan(a)}～${fmtWan(b)}` : (fmtWan(b||a));
+  return {unit, total};
+}
+// 門牌 → 「台北市 中山區」
+function regionFromAddr(addr){
+  const m=String(addr||'').match(/^\s*([一-鿿]{2,3}[市縣])\s*([一-鿿]{1,3}[區鄉鎮市])/);
+  return m ? `${m[1]} ${m[2]}` : '';
+}
+// 客戶年紀：用基本頁的出生年月日（民國）
+function clientAgeStr(c){
+  const y=parseInt(c&&c.birthY)||0; if(!y) return '';
+  const m=parseInt(c.birthM)||1, d=parseInt(c.birthD)||1;
+  const t=new Date(); let age=t.getFullYear()-(y+1911);
+  if(t.getMonth()+1<m||(t.getMonth()+1===m&&t.getDate()<d)) age--;
+  return (age>0&&age<120) ? `${age} 歲` : '';
+}
+// 案源評估：純文字排版（空行位置照老闆定的範本，一行都不能動）
+function evalReportText(d){
+  const L=[];
+  L.push(`客戶名稱：${d.name||''}`);
+  L.push(`身分證字號：${d.idno||''}`);
+  L.push('');
+  L.push(`區域：${d.region||''}`);
+  L.push(`地段：${d.section||''}`);
+  L.push(`地號：${d.landNo||''}`);
+  L.push(`土地：${d.landArea||''}`);
+  L.push(`土地使用分區：${d.landzone||''}`);
+  L.push('');
+  L.push(`建號：${d.buildNo||''}`);
+  L.push(`地址：${d.addr||''}`);
+  L.push(`社區名稱：${d.community||''}`);
+  L.push(`建物：${d.building||''}`);
+  L.push(`車位：${d.parking||''}`);
+  L.push(`總樓層：${d.floors||''}`);
+  L.push(`屋齡：${d.age||''}`);
+  L.push('');
+  L.push(`土增稅：${d.tax||''}`);
+  (d.loanLines||[]).forEach(x=>L.push(x));
+  L.push(`私人：${d.privateLine||''}`);
+  L.push('');
+  L.push(`屋況：${d.condition||''}`);
+  L.push(`抗性：${d.resistance||''}`);
+  L.push(`凶宅查詢：${d.jinzhai||''}`);
+  L.push('');
+  L.push(`行情：${d.unitRange||''}`);
+  L.push(`總價：${d.totalRange||''}`);
+  L.push('');
+  L.push(`客戶職業、收入：${d.job||''}`);
+  L.push(`客戶年紀：${d.clientAge||''}`);
+  L.push(`借款用途：${d.purpose||''}`);
+  L.push('');
+  L.push(`客戶需求：${d.need||''}`);
+  L.push(`備註：${d.note||''}`);
+  return L.join('\n');
 }
 
 function generateReport(clientId) {
@@ -6251,12 +6561,13 @@ function generateReport(clientId) {
   const g = id => document.getElementById(id)?.value || '';
   const gn = id => parseFloat(document.getElementById(id)?.value) || 0;
 
-  const hasParkRpt = g('ev_parking') !== '無' && g('ev_parkarea');
+  const hasParkRpt = (g('ev_parking') !== '無' || gn('ev_parkarea') > 0) && gn('ev_parkarea') > 0;   // 車位坪 > 0 就當有車位
   const parkTitleRpt = g('ev_park_title') === '獨立' ? '獨立權狀' : '非獨立權狀';
   const parkValRpt = g('ev_park_val') ? `，估值${g('ev_park_val')}萬` : '';
   const parking = g('ev_parking') === '無' ? '無車位'
     : `${g('ev_parking')}車位 ${g('ev_parkarea')}坪（${parkTitleRpt}${parkValRpt}）`;
-  const totalVal = hasParkRpt ? g('ev_total') : g('ev_total_noPark');
+  const sepParkRpt = hasParkRpt && g('ev_park_title') === '獨立';
+  const totalVal = sepParkRpt ? g('ev_total') : g('ev_total_noPark');
 
   // 土地：多地號合併格式
   const mainLandNo=document.getElementById('fLandNo')?.value||'';
@@ -6277,49 +6588,51 @@ function generateReport(clientId) {
   }
 
   // 土增稅：優先讀「萬」欄，若空則 fallback 讀「元」欄自動換算
-  const taxGenWan  = gn('ev_tax_general')  || Math.round(gn('ev_landtax_normal') / 10000) || 0;
-  const taxSelfWan = gn('ev_tax_self')     || Math.round(gn('ev_landtax_self')   / 10000) || 0;
+  const taxGenWan  = gn('ev_tax_general')  || gn('ev_landtax_normal') || 0;   // 現在都是「元」（變數名沿用）
+  const taxSelfWan = gn('ev_tax_self')     || gn('ev_landtax_self')   || 0;
   const taxCount   = g('ev_tax_count') || '1';
   const taxStr = (taxGenWan || taxSelfWan)
-    ? `一般 ${taxGenWan}萬、自用 ${taxSelfWan}萬＜共${taxCount}筆＞`
+    ? `一般 ${fmtWan(taxGenWan)||'0'} 元、自用 ${fmtWan(taxSelfWan)||'0'} 元＜共 ${taxCount} 筆＞`
     : '—';
 
-  // 貸款狀況：逐筆列債權人（金額為實貸估值 e，可能已被手動調整過）
-  const curLoans = (properties[curPropIdx] && properties[curPropIdx].loans) || [];
-  const loanLines = curLoans.length ? curLoans.map(l=>{
+  // 貸款：銀行／法人逐家一行（金額＝實貸估值 e，可能手動調過），後面標已確認（日期）或待確認；民間合計一行；塗銷的不列
+  const curLoans = ((properties[curPropIdx] && properties[curPropIdx].loans) || []).filter(l=>!l.x);
+  const loanLines = curLoans.filter(l=>l.t!=='private').map(l=>{
     const est = getLoanE(l);
-    const typeLabel = l.t==='bank'?'銀行':l.t==='legal'?'法人':'民間';
-    return `${typeLabel}：${l.n||'—'}　${est}萬${l.a?`（抵押設定${l.a}萬）`:''}`;
-  }).join('\n') : '貸款：—';
-  const rateLine = curLoans.some(l=>l.t==='private') ? `\n民間利率：${g('ev_rate')||'—'}分` : '';
+    const tag = (l.confirmed&&l.confirmed.date) ? `（已確認 ${rocShort(l.confirmed.date)}）` : '（待確認）';
+    return `${l.n||'銀行'}：${fmtWan(est)||est} 萬${tag}`;
+  });
+  const privSum = curLoans.filter(l=>l.t==='private').reduce((t,l)=>t+(getLoanE(l)||0),0);
+  const privateLine = privSum ? `${fmtWan(privSum)} 萬${g('ev_rate')?`／${g('ev_rate')} 分`:''}` : '';
 
-  const report =
-`地段：${g('ev_district')} ${g('ev_section')}
-地號：${landNoStr}
-土地使用分區：${g('ev_landzone')||'—'}
-建號：${g('ev_buildno')||'—'}
-地址：${g('ev_addr')||'—'}
-社區名稱：${g('ev_community')||'—'}
-建物：${g('ev_buildarea')}坪（${parking}）
-土地：${landAreaStr}
-總樓層：${g('ev_floors')||'—'}層
-屋齡：${g('ev_age')||'—'}年
-土增稅：${taxStr}
-${loanLines}${rateLine}
-屋況：${g('ev_condition')||'—'}
-抗性：${g('ev_resistance')||'—'}
-凶宅查詢：${g('ev_jinzhai')||'—'}
-住宅行情：約 ${g('ev_unitprice')||'—'}萬／坪
-估算總價：約 ${totalVal||'—'}萬${hasParkRpt?`（住宅${g('ev_house_val')}萬 + 車位${g('ev_park_val')||'?'}萬）`:''}
+  const areaNum = gn('ev_buildarea');
+  const parkIncluded = hasParkRpt && g('ev_park_title') !== '獨立';
+  const pr = priceRangeStr(gn('ev_unitprice_lo'), gn('ev_unitprice'), areaNum, sepParkRpt ? gn('ev_park_val') : 0);
+  const needTxt = (g('ev_need_amt')||g('ev_need_rate')||g('ev_need_clear'))
+    ? [g('ev_need_amt')?`${g('ev_need_amt')} 萬`:'', g('ev_need_rate')?`${g('ev_need_rate')} 分`:''].filter(Boolean).join(' ') + (g('ev_need_clear')?`（${g('ev_need_clear')}）`:'')
+    : (g('ev_need')||'');
 
-客戶職業／收入：${g('ev_job')||'—'}
-借款用途：${g('ev_purpose')||'—'}
-客戶需求：${g('ev_need')||'—'}
-備註：${g('ev_note')||'—'}`;
+  const report = evalReportText({
+    name: c.name||'', idno: c.idno||'',
+    region: regionFromAddr(g('ev_addr')||c.addr) || g('ev_district'),
+    section: g('ev_section'), landNo: landNoStr==='—'?'':landNoStr, landArea: landAreaStr==='—'?'':landAreaStr.replace(/坪/g,' 坪').replace(/\s+坪/g,' 坪'),
+    landzone: g('ev_landzone'),
+    buildNo: g('ev_buildno'), addr: g('ev_addr'), community: g('ev_community'),
+    building: (()=>{ const tot=parseFloat(document.getElementById('fArea')?.value)||areaNum; return tot ? `${tot} 坪${parkIncluded?'（含車位）':''}` : ''; })(),   // 報告寫全戶面積（含車位時標註），估價仍用扣掉車位的坪
+    parking: hasParkRpt ? `${g('ev_parkarea')} 坪` : '無',
+    floors: (()=>{ const f=String(g('ev_floors')||'').trim(); if(!f) return ''; const parts=f.split(/[／/]/); return `${parts[parts.length-1].trim()} 層`; })(),   // 「所在／總」只取總樓層
+    age: g('ev_age') ? `${g('ev_age')} 年` : '',
+    tax: taxStr==='—'?'':taxStr,
+    loanLines, privateLine,
+    condition: g('ev_condition'), resistance: g('ev_resistance'), jinzhai: g('ev_jinzhai'),
+    unitRange: pr.unit ? `約 ${pr.unit} 萬/坪` : '', totalRange: pr.total ? `約 ${pr.total} 萬` : '',
+    job: g('ev_job'), clientAge: clientAgeStr(c), purpose: g('ev_purpose'),
+    need: needTxt, note: g('ev_note'),
+  });
 
   const win = window.open('', '_blank');
   win.document.write(`
-    <html><head><meta charset="UTF-8"><title>案件評估表 - ${c.name}</title>
+    <html><head><meta charset="UTF-8"><title>案源評估 - ${c.name}</title>
     <style>
       body{font-family:'Noto Sans TC',sans-serif;padding:30px;max-width:600px;margin:0 auto;color:var(--text);line-height:2}
       h3{margin-bottom:16px;font-size:16px}
@@ -6333,7 +6646,7 @@ ${loanLines}${rateLine}
         <button class="btn" style="background:#2B5BE2;color:#fff" onclick="window.print()">🖨️ 列印 / 儲存PDF</button>
         <button class="btn" style="background:#1D8C5E;color:#fff" onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent).then(()=>alert('已複製！'))">📋 複製文字</button>
       </div>
-      <h3>【案件評估表】${c.name}　${c.phone}</h3>
+      <h3>【案源評估】${c.name}　${c.phone}</h3>
       <pre>${report}</pre>
     </body></html>
   `);
@@ -6448,17 +6761,60 @@ function sSTabTo(i){
   document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===i));
 }
 
+// 記錄類型：site 現場拜訪／phone 電話／office 來公司洽談／other 其他；舊記錄沒 kind 就當電話顯示（不改資料）
+const LOG_KINDS=[['site','🏠 現場拜訪','現'],['phone','📞 電話','電'],['office','🏢 來公司','公'],['other','📝 其他','']];
+let curLogKind='phone';
+let _logEdit=null;   // {i, kind} 正在編輯的那筆
+function logKindLabel(k){ const f=LOG_KINDS.find(x=>x[0]===k); return f?f[1]:'📞 電話'; }
+function logKindTag(k){ const f=LOG_KINDS.find(x=>x[0]===k); return f&&f[2]?`【${f[2]}】`:''; }
+function renderLogKindChips(){
+  const el=document.getElementById('logKindChips'); if(!el) return;
+  el.innerHTML=LOG_KINDS.map(([k,l])=>`<button type="button" class="lk-chip${curLogKind===k?' on':''}" onclick="curLogKind='${k}';renderLogKindChips()">${l}</button>`).join('');
+}
 function renderLogs(){
   const el=document.getElementById('logList');
+  renderLogKindChips();
   // 由下往上：最新的在最下面（靠近輸入框）。反轉顯示但保留原索引給刪除用
   el.innerHTML=tempLogs.length
-    ?tempLogs.map((l,i)=>({l,i})).reverse().map(({l,i})=>`<div class="litem">
+    ?tempLogs.map((l,i)=>({l,i})).reverse().map(({l,i})=>{
+      const kind=l.kind||'phone';
+      if(_logEdit&&_logEdit.i===i){
+        return `<div class="litem lk-${_logEdit.kind} le-box">
+          <div class="lk-chips">${LOG_KINDS.map(([k,lb])=>`<button type="button" class="lk-chip${_logEdit.kind===k?' on':''}" onclick="_logEdit.kind='${k}';renderLogs()">${lb}</button>`).join('')}</div>
+          <input type="date" id="leDate" value="${calEsc(l.date||'')}"/>
+          <textarea id="leText">${calEsc(l.text||'')}</textarea>
+          <div style="display:flex;gap:6px;justify-content:flex-end"><button type="button" class="le-btn" style="background:var(--s2);color:var(--t2)" onclick="cancelLogEdit()">取消</button><button type="button" class="le-btn" style="background:var(--accent);color:#fff" onclick="saveLogEdit(${i})">儲存</button></div>
+        </div>`;
+      }
+      return `<div class="litem lk-${kind}">
         <button class="ldel" onclick="removeLog(${i})">✕</button>
-        <div class="ldate">${l.date}</div>
-        <div class="ltext">${l.text}</div>
-      </div>`).join('')
+        <div class="ldate">${l.date}${l.time?' '+l.time:''}<span class="lkind">${logKindLabel(kind)}</span></div>
+        <div class="ltext" onclick="editLog(${i})" title="點一下修改">${l.text}</div>
+      </div>`;
+    }).join('')
     :'<p style="font-size:12px;color:var(--t3);text-align:center;padding:20px 0">尚無聯絡記錄</p>';
+  if(_logEdit){ const t=document.getElementById('leText'); if(t){ t.focus(); } return; }
   const sb=el.closest('.sbody'); if(sb) sb.scrollTop = sb.scrollHeight; // 捲到最底（輸入框）
+}
+function editLog(i){
+  if(readOnlyMode){ showToast('👁 唯讀模式'); return; }
+  const l=tempLogs[i]; if(!l) return;
+  _logEdit={i, kind:l.kind||'phone'};
+  renderLogs();
+}
+function cancelLogEdit(){ _logEdit=null; renderLogs(); }
+function saveLogEdit(i){
+  const l=tempLogs[i]; if(!l||!_logEdit) return;
+  const d=(document.getElementById('leDate')||{}).value||l.date, t=((document.getElementById('leText')||{}).value||'').trim();
+  if(!t){ uiAlert('記錄內容不能空白'); return; }
+  // 改過內容＝原本那行不要再被匯入帶回來（跟刪除同一套規矩）
+  if(editId&&(d!==l.date||t!==l.text)){
+    const c=clients.find(x=>x.id===editId);
+    if(c){ if(!c.deletedLogKeys) c.deletedLogKeys=[]; const key=(l.date||'')+(l.text||'').slice(0,20); if(!c.deletedLogKeys.includes(key)) c.deletedLogKeys.push(key); }
+  }
+  l.date=d; l.text=t; l.kind=_logEdit.kind;
+  _logEdit=null; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  renderLogs();
 }
 // ── 債電（可手動編輯）───────────────────────────────────────
 // 刪掉/改掉的號碼會記進該客戶的 deletedDebtPhones（正規化後的號碼），之後總檔更新永不再帶回來
@@ -6505,12 +6861,19 @@ function addLog(){
   const d=document.getElementById('fLogDate').value;
   const t=document.getElementById('fLogText').value.trim();
   if(!d||!t){uiAlert('請填寫日期和記錄內容');return;}
-  tempLogs.unshift({date:d,text:t});
+  tempLogs.unshift({date:d,text:t,kind:curLogKind});
+  if(editId){ const cc=clients.find(x=>x.id===editId); if(cc&&cc.staleMuteUntil) cc.staleMuteUntil=''; }   // 有聯絡了，暫不追自動解除
   document.getElementById('fLogText').value='';
   formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
   renderLogs();
 }
 // 快速提醒：days=1/3/7/14/30 設成幾天後（時間保留原本的）；0=清除。基本頁與聯絡記錄頁共用
+// 填了提醒日期、時間還空白 → 預設 11:30（業主定）
+function defaultRemindTime(){
+  const f=document.getElementById('fRemind'), h=document.getElementById('fRemindHour'), m=document.getElementById('fRemindMin');
+  if(!f||!h||!m||!f.value) return;
+  if(!h.value&&!m.value){ h.value='11'; m.value='30'; }
+}
 function quickRemind(days){
   const f=document.getElementById('fRemind'); if(!f) return;
   if(!days){
@@ -6519,6 +6882,7 @@ function quickRemind(days){
   } else {
     const d=new Date(); d.setDate(d.getDate()+days);
     f.value=localDateStr(d);
+    defaultRemindTime();
     const label={1:'明天',3:'3天後',7:'1週後',14:'2週後',30:'1個月後'}[days]||days+'天後';
     showToast(`🔔 下次提醒：${label}（${f.value}）`);
     const st=document.getElementById('qrStatus'); if(st) st.textContent='✓ '+f.value;
@@ -6660,7 +7024,11 @@ function renderLoanRows(){
     if(l.x) tags.push(`<span class="ltag ltag-x">🚫 新版已塗銷 ${calEsc((l.x.date||'').slice(5))}</span>`);
     if(l.added) tags.push(`<span class="ltag ltag-new">🆕 ${calEsc((l.added.date||'').slice(5))} 新增</span>`);
     if(l.eManual) tags.push(`<span class="ltag ltag-manual">✎ 手改</span>`);
+    // 金額確認：手改設定額／實貸會自動標今天；也可以點「待確認」直接標、點「已確認」取消
+    if(l.confirmed&&l.confirmed.date) tags.push(`<span class="ltag ltag-ok" title="點一下取消確認" onclick="toggleLoanConfirm(${i})">✔ ${rocShort(l.confirmed.date)} 已確認</span>`);
+    else if(!l.x) tags.push(`<span class="ltag ltag-todo" title="點一下標成今天確認過" onclick="toggleLoanConfirm(${i})">待確認</span>`);
     if(l.aChanged) tags.push(`<span class="ltag ltag-chg">設定額 ${l.aPrev||'?'}→${l.a} 萬</span>`);
+    if(l.dPrev) tags.push(`<span class="ltag ltag-chg">📅 設定日 ${calEsc(l.dPrev)}→${calEsc(l.d||'')}</span>`);
     if(l.nameWarn) tags.push(`<span class="ltag ltag-warn">⚠️ 同登序新版債權人：${calEsc(l.nameWarn)}</span>`);
     return `<div class="loan-row${l.x?' loan-x':''}">
       <div style="display:flex;align-items:center;gap:6px">
@@ -6694,10 +7062,18 @@ function removeLoanRow(i){
   renderLoanRows();
   syncLoanTotalsToForm();
 }
+// 西元 2026-10-19 → 民國 115/10/19
+function rocShort(iso){ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]-1911}/${m[2]}/${m[3]}`:String(iso||''); }
+function toggleLoanConfirm(i){
+  const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
+  if(p.loans[i].confirmed) delete p.loans[i].confirmed; else p.loans[i].confirmed={date:TODAY};
+  p.loansManual=true; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  renderLoanRows();
+}
 function setLoanField(i,key,val){
   const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
-  if(key==='a') p.loans[i].a = parseFloat(val)||0;
-  else if(key==='e'){ p.loans[i].e = parseFloat(val)||0; p.loans[i].eManual=true; }   // 手改金額：之後任何同步都不碰
+  if(key==='a'){ p.loans[i].a = parseFloat(val)||0; p.loans[i].confirmed={date:TODAY}; }   // 手改設定額＝我們確認過，標今天
+  else if(key==='e'){ p.loans[i].e = parseFloat(val)||0; p.loans[i].eManual=true; p.loans[i].confirmed={date:TODAY}; }   // 手改金額：之後任何同步都不碰
   else if(key==='n'){ p.loans[i].n = val; if(val) p.loans[i].t = classifyCreditor(val); }
   else p.loans[i][key] = val;
   p.loansManual = true;
@@ -6750,10 +7126,17 @@ function syncDocFromProof(type){
   formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
 }
 
+// 📍 地圖：用門牌開 Google 地圖釘一根針（手機會直接開地圖 App）
+function openMapForProp(){
+  const addr=(document.getElementById('fAddr')?.value||'').trim();
+  if(!addr){ showToast('⚠️ 先填門牌地址'); return; }
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(addr), '_blank');
+}
 function openLandZoneQuery(){
-  const district = (document.getElementById('ev_district')?.value||'').trim();
-  const section  = (document.getElementById('ev_section')?.value||'').trim();
-  const landno   = (document.getElementById('ev_landno')?.value||'').trim();
+  const pick=(a,b)=>((document.getElementById(a)?.value||'').trim()||(document.getElementById(b)?.value||'').trim());
+  const district = pick('fDistrict','ev_district');
+  const section  = pick('fPurpose','ev_section');
+  const landno   = pick('fLandNo','ev_landno');
   const parts = [district, section, landno].filter(Boolean);
   if(parts.length){
     navigator.clipboard.writeText(parts.join(' ')).catch(()=>{});
@@ -6782,7 +7165,7 @@ let properties = [];
 let curPropIdx = 0;
 
 function emptyProperty(n){
-  return {pid:Date.now()+n,label:`不動產${n+1}`,addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',
+  return {pid:Date.now()+n,label:`不動產${n+1}`,addr:'',district:'',landzone:'',purpose:'',buildNo:'',landNo:'',community:'',floors:'',builtYear:'',
     area:0,mainArea:0,subArea:0,commonArea:0,parkArea:0,landArea:0,landFull:0,landShareNum:0,landShareDen:0,
     buildShareNum:0,buildShareDen:0,
     bank:0,legal:0,private:0,extraLoans:[],extraLands:[],driveUrl:'',
@@ -6813,7 +7196,7 @@ function migrateProperties(c){
     area:c.area||0,mainArea:c.mainArea||0,subArea:c.subArea||0,commonArea:c.commonArea||0,
     parkArea:c.parkArea||0,landArea:c.landArea||0,buildShareNum:c.buildShareNum||0,buildShareDen:c.buildShareDen||0,bank:c.bank||0,legal:c.legal||0,private:c.private||0,
     loans:c.loans||undefined, loansManual:c.loansManual||undefined,
-    extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',
+    extraLoans:c.extraLoans||[],driveUrl:c.driveUrl||'',community:c.community||'',floors:c.floors||'',builtYear:c.builtYear||'',
     parkType:c.parkType||'無',parkTitle:c.parkTitle||'非獨立',parkVal:c.parkVal||0,
     landtaxNormal:c.landtaxNormal||0,landtaxSelf:c.landtaxSelf||0,
     loanEstimated:c.loanEstimated, privateConfirmed:c.privateConfirmed,
@@ -6854,12 +7237,15 @@ function finishRenameTab(inp,idx){
 
 function savePropFields(){
   const p=properties[curPropIdx]; if(!p) return;
-  p.addr=document.getElementById('fAddr')?.value.trim()||'';
+  p.addr=cleanAddr(document.getElementById('fAddr')?.value||'');
   p.district=document.getElementById('fDistrict')?.value.trim()||'';
   p.landzone=document.getElementById('fLandzone')?.value.trim()||'';
   p.purpose=document.getElementById('fPurpose')?.value.trim()||'';
   p.buildNo=document.getElementById('fBuildNo')?.value.trim()||'';
   p.landNo=document.getElementById('fLandNo')?.value.trim()||'';
+  p.community=document.getElementById('fCommunity')?.value.trim()||'';
+  p.floors=document.getElementById('fFloors')?.value.trim()||'';
+  p.builtYear=document.getElementById('fBuiltYear')?.value.trim()||'';
   p.area=parseFloat(document.getElementById('fArea')?.value)||0;
   p.mainArea=parseFloat(document.getElementById('fMainArea')?.value)||0;
   p.subArea=parseFloat(document.getElementById('fSubArea')?.value)||0;
@@ -6901,6 +7287,9 @@ function loadPropFields(idx){
   document.getElementById('fPurpose').value=p.purpose||'';
   document.getElementById('fBuildNo').value=p.buildNo||'';
   document.getElementById('fLandNo').value=p.landNo||'';
+  document.getElementById('fCommunity').value=p.community||'';
+  document.getElementById('fFloors').value=p.floors||'';
+  document.getElementById('fBuiltYear').value=p.builtYear||'';
   const ca=(p.mainArea||0)+(p.subArea||0)+(p.commonArea||0);
   document.getElementById('fArea').value=p.area||(ca>0?Math.round(ca*100)/100:'');
   document.getElementById('fMainArea').value=p.mainArea||'';
@@ -7111,9 +7500,10 @@ function collectEvalData(){
     buildarea:v('ev_buildarea'), landarea:v('ev_landarea'),
     parking:v('ev_parking','無'), parkTitle:v('ev_park_title','非獨立'), parkval:v('ev_park_val'),
     floors:v('ev_floors'), age:v('ev_age'),
-    taxGeneral:v('ev_tax_general'), taxSelf:v('ev_tax_self'), taxCount:v('ev_tax_count'),
+    taxGeneralYuan:v('ev_tax_general'), taxSelfYuan:v('ev_tax_self'), taxCount:v('ev_tax_count'),
     condition:v('ev_condition'), resistance:v('ev_resistance'), jinzhai:v('ev_jinzhai'),
-    unitprice:v('ev_unitprice'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
+    unitprice:v('ev_unitprice'), unitpriceLo:v('ev_unitprice_lo'), rate:v('ev_rate'), job:v('ev_job'), need:v('ev_need'),
+    needAmt:v('ev_need_amt'), needRate:v('ev_need_rate'), needClear:v('ev_need_clear'),
     evalNote:v('ev_note'), aiEvalBasis:v('ev_ai_basis'),
   };
 }
@@ -7460,14 +7850,14 @@ async function saveClient(silent){
     // t126 新欄位（客戶層級）
     phone2:gv('fPhone2'), contactTime:gv('fContactTime'),
     company:gv('fCompany'), income:gv('fIncome'), incomeType:gv('fIncomeType'), taxed:gv('fTaxed'), marital:gv('fMarital'), spouse:gv('fSpouse'),
-    loanWant:gv('fLoanWant'), loanUse:gv('fLoanUse'), loanWhen:gv('fLoanWhen'),
+    loanWant:gv('fLoanWant'), loanRate:gv('fLoanRate'), loanUse:gv('fLoanUse'), loanWhen:gv('fLoanWhen'),
     creditBank:gv('fCreditBank'), creditPrivate:gv('fCreditPrivate'), creditBounce:gv('fCreditBounce'),
     closeReason:gv('fCloseReason'), closeNote:gv('fCloseNote'),
     docs:{...tempDocs},
     note:document.getElementById('fNote').value.trim(),
-    censusAddr:document.getElementById('fCensusAddr').value.trim(),
+    censusAddr:cleanAddr(document.getElementById('fCensusAddr').value),
     batch:batchJoin(batchList(document.getElementById('fBatch').value)),
-    addr:document.getElementById('fAddr').value.trim(),
+    addr:cleanAddr(document.getElementById('fAddr').value),
     area:parseFloat(document.getElementById('fArea').value)||0,
     mainArea:parseFloat(document.getElementById('fMainArea').value)||0,
     subArea:parseFloat(document.getElementById('fSubArea').value)||0,
@@ -7690,8 +8080,14 @@ function normBuildNo(s){
 }
 function normAddr(s){ return String(s||'').replace(/\s/g,'').replace(/台/g,'臺').slice(0,12); }
 // 地址核心：去掉縣市區鄉鎮前綴，只留街路門牌（兩邊格式不同也能對上）
+// 門牌統一寫法（存檔、匯入、整理工具都用這個）：全形數字→半形、「五樓」→「5樓」、去掉所有空白。台／臺不動。
+function cleanAddr(s){
+  const CJ={'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
+  const cj=t=>{ if(/^十/.test(t)) return 10+(CJ[t[1]]||0); if(t.length===2&&t[1]==='十') return CJ[t[0]]*10; if(t.length===3) return CJ[t[0]]*10+(CJ[t[2]]||0); return CJ[t]||0; };
+  return normalizeAddr(s).replace(/\s+/g,'').replace(/之([一二三四五六七八九十]{1,3})(?=號|樓|$|[^一-鿿])/g,(m,d)=>'之'+(cj(d)||d));   // 「之二」→「之2」
+}
 function addrCore(s){
-  const v=String(s||'').replace(/\s/g,'').replace(/台/g,'臺');
+  const v=normalizeAddr(s).replace(/\s/g,'').replace(/台/g,'臺');   // 「２０４號五樓之２」和「204號5樓之2」要算同一個
   const idx=Math.max(v.lastIndexOf('區'),v.lastIndexOf('鄉'),v.lastIndexOf('鎮'));
   return idx>=0 ? v.slice(idx+1) : v;
 }
@@ -7965,7 +8361,7 @@ function recordToProps(rec){
 
 // 把匯入不動產 src 的資料補進既有不動產 dst 的「空格」，有值的不覆蓋
 function mergePropInto(dst, src){
-  ['addr','district','landzone','purpose','buildNo','landNo'].forEach(k=>{
+  ['addr','district','landzone','purpose','buildNo','landNo','community','floors','builtYear','col4BuildNo'].forEach(k=>{   // col4BuildNo＝這間自己的建號，舊卡沒有就補上，之後才分得出同址不同戶
     if(!dst[k] && src[k]) dst[k]=src[k];
   });
   // 注意：土增稅不放這裡。放進來的話金額會先被複製，下面「土增稅」那段的 !dst.landtaxNormal 條件就失效，旗標永遠帶不過去
@@ -8468,6 +8864,113 @@ async function cleanupDirtyData(){
 
 // 🧹 一鍵清除「無效案件＋沒有任何電話」的資料
 // 注意：不看身分證！謄本所有權部本來就帶屋主身分證號，那不是聯絡方式，看了會清不掉。
+// 門牌統一半形：所有客戶地址、戶籍地址、每張不動產卡的門牌。dryRun 只算
+function normalizeAllAddrs(dryRun){
+  let n=0; const names=new Set();
+  clients.forEach(c=>{
+    const fix=(obj,k)=>{ const v=String(obj[k]||''); if(!v) return; const nv=cleanAddr(v); if(nv!==v){ n++; names.add(c.name||'(無名)'); if(!dryRun) obj[k]=nv; } };
+    fix(c,'addr'); fix(c,'censusAddr');
+    (c.properties||[]).forEach(p=>fix(p,'addr'));
+  });
+  return {n, names:[...names]};
+}
+async function cleanupAddrs(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=normalizeAllAddrs(true);
+  if(!r.n){ showToast('✅ 門牌寫法都已統一'); return; }
+  if(!(await uiConfirm(`有 ${r.n} 個地址寫法不一致（${r.names.length} 人，例如 ${r.names.slice(0,8).join('、')}${r.names.length>8?'…':''}）。\n\n會統一成：全形數字改半形、「五樓」改「5樓」、去掉空白。台／臺不改。確定？`))) return;
+  const d=normalizeAllAddrs(false);
+  saveLocal(); render();
+  showToast(`🔤 已統一 ${d.n} 個地址`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
+// 清理舊同步留下的重複聯絡記錄（2026/05～08 舊版總檔同步把「沒寫日期」的那句話每次都蓋當天日期，一句話長成十幾筆）
+// 規則：1 沒日期且 ≤2 字的雜訊丟掉；2 同一句話多筆 → 留總檔原文有寫的日期那筆，沒有就留最早那筆；
+//       3 被截斷的半句（≥8 字、有另一筆更長且以它開頭、總檔原文裡沒這半句）丟掉。丟掉的都記進 deletedLogKeys，匯入不會再帶回。
+function dedupeClientLogs(c, dryRun){
+  const logs=c.logs||[]; if(logs.length<2) return 0;
+  const norm=t=>String(t||'').trim();
+  const rawDates={}, rawTexts=new Set();
+  (c.properties||[]).forEach(p=>{ const pr=(p.companyRaw||{}).process; if(!pr) return; parseVisitLogs(pr).forEach(l=>{ const t=norm(l.text); rawTexts.add(t); if(!l.nd && !rawDates[t]) rawDates[t]=l.date; }); });
+  if(c.companyRaw&&c.companyRaw.process) parseVisitLogs(c.companyRaw.process).forEach(l=>{ const t=norm(l.text); rawTexts.add(t); if(!l.nd && !rawDates[t]) rawDates[t]=l.date; });
+  const byText={}; logs.forEach((l,i)=>{ const t=norm(l.text); (byText[t]=byText[t]||[]).push(i); });
+  const drop=new Set();
+  logs.forEach((l,i)=>{ if(!l.date && norm(l.text).length<=2) drop.add(i); });
+  Object.entries(byText).forEach(([t,idxs])=>{
+    if(idxs.length<2) return;
+    let keep=idxs.find(i=>logs[i].date===rawDates[t]);
+    if(keep==null) keep=idxs.slice().sort((a,b)=>String(logs[a].date||'9999').localeCompare(String(logs[b].date||'9999')))[0];
+    idxs.forEach(i=>{ if(i!==keep) drop.add(i); });
+  });
+  const texts=Object.keys(byText);
+  logs.forEach((l,i)=>{ if(drop.has(i)) return; const t=norm(l.text); if(t.length>=8 && !rawTexts.has(t) && texts.some(o=>o!==t && o.length>t.length && o.startsWith(t))) drop.add(i); });
+  if(!dryRun && drop.size){
+    c.deletedLogKeys=c.deletedLogKeys||[];
+    drop.forEach(i=>{ const key=(logs[i].date||'')+norm(logs[i].text).slice(0,20); if(!c.deletedLogKeys.includes(key)) c.deletedLogKeys.push(key); });
+    c.logs=logs.filter((_,i)=>!drop.has(i));
+  }
+  return drop.size;
+}
+function dedupeAllLogs(dryRun){
+  let n=0; const names=[];
+  clients.forEach(c=>{ const d=dedupeClientLogs(c, dryRun); if(d){ n+=d; names.push(`${c.name||'(無名)'}（${d}）`); } });
+  return {n, names};
+}
+// 清掉「假的」二次匯入記號：舊版跟最新一模一樣（只差空白）的版本紀錄刪掉；之後沒有任何真正不同舊版的人，把「總檔更新：…有變」的記號拿掉
+function cleanFalseReimports(dryRun){
+  const nz=v=>String(v||'').replace(/\s+/g,'');
+  let nHist=0, nMarks=0; const names=new Set();
+  clients.forEach(c=>{
+    let realDiff=false;
+    (c.properties||[]).forEach(p=>{
+      const cr=p.companyRaw||{}; const h=p.rawHistory||[]; if(!h.length) return;
+      // 他項一樣、只有所有權部不同的舊版＝持分共有人各一列（不是版本），一併清掉
+      const keep=[]; const seen=new Set([nz(cr.rights)+'|'+nz(cr.owner)]); const seenR=new Set([nz(cr.rights)]);
+      h.forEach(v=>{ const k=nz(v.rights)+'|'+nz(v.owner); if(seen.has(k) || seenR.has(nz(v.rights))){ nHist++; names.add(c.name||'(無名)'); return; } seen.add(k); seenR.add(nz(v.rights)); keep.push(v); });
+      if(keep.length) realDiff=true;
+      if(!dryRun) p.rawHistory=keep;
+    });
+    const marks=c.reimports||[];
+    const falseMarks=marks.filter(r=>/^總檔更新/.test(r.kind||'') && !realDiff);
+    if(falseMarks.length){ nMarks+=falseMarks.length; names.add(c.name||'(無名)'); if(!dryRun){ c.reimports=marks.filter(r=>!falseMarks.includes(r)); if(!c.reimports.length) delete c.reimports; } }
+  });
+  return {nHist, nMarks, names:[...names]};
+}
+async function cleanupFalseReimports(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=cleanFalseReimports(true);
+  if(!r.nHist && !r.nMarks){ showToast('✅ 沒有假的記號'); return; }
+  if(!(await uiConfirm(`會刪掉 ${r.nHist} 個「跟最新一模一樣」的舊版、拿掉 ${r.nMarks} 個沒有真正差異的 🔁 總檔更新記號（${r.names.slice(0,10).join('、')}${r.names.length>10?'…':''}）。確定？`))) return;
+  const d=cleanFalseReimports(false);
+  saveLocal(); render();
+  showToast(`🧽 已清掉 ${d.nHist} 個重複舊版、${d.nMarks} 個假記號`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
+async function cleanupDupLogs(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=dedupeAllLogs(true);
+  if(!r.n){ showToast('✅ 沒有重複的聯絡記錄'); return; }
+  if(!(await uiConfirm(`找到 ${r.names.length} 人、共 ${r.n} 筆重複或殘缺的聯絡記錄：\n\n${r.names.slice(0,12).join('、')}${r.names.length>12?' …等':''}\n\n同一句話只留一筆（優先留總檔有寫日期的那筆）、被截斷的半句和沒日期的雜訊刪掉，刪掉的以後匯入不會再回來。確定？`,{danger:true}))) return;
+  const d=dedupeAllLogs(false);
+  saveLocal(); render();
+  showToast(`🧹 已清掉 ${d.n} 筆重複聯絡記錄（${d.names.length} 人）`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
+async function cleanupDuplicateProps(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=mergeDuplicateProperties(true);
+  if(!r.props){ showToast('✅ 沒有重複的不動產'); return; }
+  const preview=r.names.slice(0,15).join('、');
+  if(!(await uiConfirm(`找到 ${r.clients} 人、${r.props} 張重複的不動產卡：\n\n${preview}${r.names.length>15?' …等':''}\n\n會留比較完整的那張，另一張的資料只補空白、抵押列去重後合併、舊謄本留進版本紀錄。確定合併？`))) return;
+  const done=mergeDuplicateProperties(false);
+  saveLocal(); render();
+  showToast(`🏚️ 已合併 ${done.clients} 人、${done.props} 張重複不動產`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
 async function cleanupInvalidEmpty(){
   const targets=clients.filter(c=>{
     if((c.heat||'')!=='無效案件') return false;
@@ -8712,13 +9215,23 @@ function openBatchTag(){
   renderBatchTagList();
   document.getElementById('batchTagBg').classList.add('open');
 }
-function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); _importNewIds=null; }
+function closeBatchTag(){ document.getElementById('batchTagBg').classList.remove('open'); _importNewIds=null; _importBrandNew=null; _importRevivedIds=null; const rw=document.getElementById('batchTagReviveWrap'); if(rw) rw.style.display='none'; }
 // 「本次匯入新增的人」的 id 集合；非 null 時批次視窗只顯示這些人（既有的人不混進來）
-let _importNewIds=null;
+let _importNewIds=null;   // 本次匯入的人（新建＋併入）
+let _importBrandNew=null; // 其中這次新建的
+let _importRevivedIds=null; // 其中原無效案件但這次謄本有變的
+let _lastImportInfo=null;
 // 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
-function openBatchTagForImport(newIds){
+function openBatchTagForImport(info){
   openBatchTag();
-  _importNewIds = newIds || null;   // openBatchTag 之後再設,避免被清掉
+  // 相容：舊呼叫傳 Set；新呼叫傳 {ids, newIds, revivedIds}
+  const isSet = info instanceof Set;
+  _importNewIds = isSet ? info : ((info&&info.ids)||null);   // openBatchTag 之後再設,避免被清掉
+  _importBrandNew = isSet ? info : ((info&&info.newIds)||null);
+  _importRevivedIds = isSet ? null : ((info&&info.revivedIds)||null);
+  _batchTagChecked = new Set(_importNewIds ? [..._importNewIds] : []);   // 這批的人預設全勾，批次名才會掛到每個人
+  const rw=document.getElementById('batchTagReviveWrap'), rn=document.getElementById('batchTagReviveN'), rc=document.getElementById('batchTagRevive');
+  if(rw){ const n=_importRevivedIds?_importRevivedIds.size:0; rw.style.display=n?'flex':'none'; if(rn) rn.textContent=n; if(rc) rc.checked=false; }
   const t=document.getElementById('batchTagTodayOnly');
   if(t){ t.checked=true; }
   // 預設批次名稱：查詢匯出檔 → 「包區 民國年/月 檔名」；分類預設待分類。都可以改
@@ -8762,10 +9275,18 @@ async function batchTagApply(){
   const label=document.getElementById('batchTagInput').value.trim();
   const n=_batchTagChecked.size;
   const _heatPick=(document.getElementById('batchTagHeat')||{}).value||'';
-  if(!(await uiConfirm((label?`把 ${n} 筆客戶標記為批次「${label}」`:`清除 ${n} 筆客戶的批次標記`)+(_heatPick?`，分類改為「${_heatPick}」`:'')+'？'))) return;
+  const inImport=!!_importNewIds;   // 匯入後的視窗：分類只套用到這次新建的人，併入的既有客戶分類不動
+  const reviveOn=!!(document.getElementById('batchTagRevive')||{}).checked && _importRevivedIds && _importRevivedIds.size;
+  const heatNote=_heatPick?(inImport?`，這次新建的人分類改為「${_heatPick}」（併入的既有客戶不動）`:`，分類改為「${_heatPick}」`):'';
+  if(!(await uiConfirm((label?`把 ${n} 筆客戶標記為批次「${label}」`:`清除 ${n} 筆客戶的批次標記`)+heatNote+(reviveOn?`，原無效有變的 ${_importRevivedIds.size} 人改回待分類`:'')+'？'))) return;
   const repl=!!(document.getElementById('batchTagReplace')||{}).checked;
   const heatPick=(document.getElementById('batchTagHeat')||{}).value||'';
-  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){ if(!label||repl) batchSetAll(c,label); else batchAdd(c,label); if(heatPick){ c.heat=heatPick; if(heatPick!=='待分類') c.heatManual=true; } c.updatedAt=TODAY; } });
+  clients.forEach(c=>{ if(_batchTagChecked.has(c.id)){
+    if(!label||repl) batchSetAll(c,label); else batchAdd(c,label);
+    const isNew=!inImport || (_importBrandNew&&_importBrandNew.has(c.id)) || c.createdAt===TODAY;
+    if(heatPick && isNew){ c.heat=heatPick; if(heatPick!=='待分類') c.heatManual=true; }
+    if(reviveOn && _importRevivedIds.has(c.id)){ c.heat='待分類'; c.heatManual=false; }
+    c.updatedAt=TODAY; } });
   saveLocal();
   render();
   closeBatchTag();
