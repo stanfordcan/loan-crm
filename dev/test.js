@@ -274,6 +274,7 @@ eval(['normBuildNo','addrCore','addrHit','samePropertyCard','propIdOf','propList
 eval(['cleanAddr'].map(ext).join(String.fromCharCode(10)));
 ok(cleanAddr('臺北市松山區民生東路五段２０４號五樓之２')==='臺北市松山區民生東路五段204號5樓之2','全形數字與中文樓層統一');
 ok(cleanAddr('新北市五股區 成泰路三段２２１巷１０號')==='新北市五股區成泰路三段221巷10號','去空白');
+ok(cleanAddr('新北市中和區壽德街２６號八樓之二')==='新北市中和區壽德街26號8樓之2' && cleanAddr('路1號之十二')==='路1號之12','之二→之2');
 ok(cleanAddr('台北市大安區安和路二段60號')==='台北市大安區安和路二段60號','台不改、已經乾淨的不變');
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

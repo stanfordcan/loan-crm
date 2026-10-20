@@ -8053,7 +8053,11 @@ function normBuildNo(s){
 function normAddr(s){ return String(s||'').replace(/\s/g,'').replace(/台/g,'臺').slice(0,12); }
 // 地址核心：去掉縣市區鄉鎮前綴，只留街路門牌（兩邊格式不同也能對上）
 // 門牌統一寫法（存檔、匯入、整理工具都用這個）：全形數字→半形、「五樓」→「5樓」、去掉所有空白。台／臺不動。
-function cleanAddr(s){ return normalizeAddr(s).replace(/\s+/g,''); }
+function cleanAddr(s){
+  const CJ={'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
+  const cj=t=>{ if(/^十/.test(t)) return 10+(CJ[t[1]]||0); if(t.length===2&&t[1]==='十') return CJ[t[0]]*10; if(t.length===3) return CJ[t[0]]*10+(CJ[t[2]]||0); return CJ[t]||0; };
+  return normalizeAddr(s).replace(/\s+/g,'').replace(/之([一二三四五六七八九十]{1,3})(?=號|樓|$|[^一-鿿])/g,(m,d)=>'之'+(cj(d)||d));   // 「之二」→「之2」
+}
 function addrCore(s){
   const v=normalizeAddr(s).replace(/\s/g,'').replace(/台/g,'臺');   // 「２０４號五樓之２」和「204號5樓之2」要算同一個
   const idx=Math.max(v.lastIndexOf('區'),v.lastIndexOf('鄉'),v.lastIndexOf('鎮'));
