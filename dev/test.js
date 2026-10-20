@@ -154,7 +154,7 @@ ok(JSON.stringify(shareFromOwner('持分 10000分之235'))==='{"num":235,"den":1
 ok(JSON.stringify(shareFromOwner('全部 1 分之 1  26.17 坪'))==='{"num":1,"den":1}','有空白的 1 分之 1');
 ok(JSON.stringify(shareFromOwner('沒有持分字樣'))==='{"num":0,"den":0}','抓不到 → 0/0');
 // t141：多批次
-eval(['batchList','batchJoin','batchAdd','batchSetAll','suggestBatchName'].map(ext).join(String.fromCharCode(10)));
+eval(['batchList','batchJoin','batchAdd','batchSetAll','suggestBatchName','batchNameFromFile'].map(ext).join(String.fromCharCode(10)));
 {
   ok(JSON.stringify(batchList('A、B,，C ; A'))==='["A","B","C"]','batchList 拆「、,，;」並去重');
   const c={batch:'新鑫 115/03/18 (5)'};
@@ -165,6 +165,15 @@ eval(['batchList','batchJoin','batchAdd','batchSetAll','suggestBatchName'].map(e
   ok(suggestBatchName('115_03 松山區包區')==='包區 115/03 松山區','包區改名建議');
   ok(suggestBatchName('ACER中人件')==='中人 ACER' && suggestBatchName('kira案件')==='中人 kira','中人改名建議');
   ok(suggestBatchName('Ashley')==='Ashley','認不得的維持原名');
+  // t172：匯入檔名 → 預設批次名（檔名有日期用檔名的，沒有用今天）
+  const NOW=new Date(2026,9,20);
+  ok(batchNameFromFile('1150318_資料 (5).xlsx',NOW)==='包區 115/03 (5)','七碼民國日期 1150318');
+  ok(batchNameFromFile('115_03 松山區包區.xlsx',NOW)==='包區 115/03 松山區','115_03 ＋尾巴包區拿掉');
+  ok(batchNameFromFile('1158大安包區.xlsx',NOW)==='包區 115/08 大安','四碼 1158 → 115/08');
+  ok(batchNameFromFile('11510大安.xlsx',NOW)==='包區 115/10 大安','五碼 11510 → 115/10');
+  ok(batchNameFromFile('2026-10 中山區.xlsx',NOW)==='包區 115/10 中山區','西元年月轉民國');
+  ok(batchNameFromFile('大安區.xlsx',NOW)==='包區 115/10 大安區','沒日期用今天');
+  ok(batchNameFromFile('大安區(2).xlsx',NOW)==='包區 115/10 大安區(2)','括號編號不是日期');
 }
 // t144：債電 → tel: 號碼
 eval(ext('debtPhoneTel'));

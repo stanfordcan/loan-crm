@@ -27,8 +27,8 @@
 - L6643: </style></head>
 - L6644: <body>
 - L6651: </body></html>
-- L9424: </script>
-- L9425: </body>
+- L9435: </script>
+- L9436: </body>
 
 ## 函式索引（行號｜名稱｜說明）
 
@@ -590,29 +590,30 @@
 - L9166 `batchJoin(arr)`
 - L9167 `batchAdd(c,b)`
 - L9168 `batchSetAll(c,label)`
-- L9170 `suggestBatchName(b)` — 批次改名建議：新鑫「1150318_資料 (5)」→「新鑫 115/03/18 (5)」（同月多份，保留日）；「115_03 松山區包區」→「包區 115/03 松山區」；「X中人
-- L9178 `allBatches()`
-- L9179 `batchFilterPass(c)`
-- L9180 `refreshBatchDatalist()`
-- L9185 `renderBatchCheckboxes()`
-- L9194 `onBatchChange()`
-- L9195 `clearBatchFilter()`
-- L9200 `renderBatchTagCatBar()`
-- L9204 `toggleBatchTagCat(h)`
-- L9206 `openBatchTag()`
-- L9218 `closeBatchTag()`
-- L9225 `openBatchTagForImport(info)` — 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
-- L9244 `batchTagVisible()`
-- L9254 `updateBatchTagCount(visLen)`
-- L9255 `renderBatchTagList()`
-- L9271 `toggleBatchTagPick(id,on)`
-- L9272 `batchTagSelectAll(v)`
-- L9273 `batchTagApply()`
+- L9171 `batchNameFromFile(fname,now)` — 匯入檔名 → 預設批次名「包區 民國年/月 剩下的字」：檔名有日期就用檔名的（1150318、115_03、115-03、1158、11510、2026-10、20261019 都
+- L9181 `suggestBatchName(b)`
+- L9189 `allBatches()`
+- L9190 `batchFilterPass(c)`
+- L9191 `refreshBatchDatalist()`
+- L9196 `renderBatchCheckboxes()`
+- L9205 `onBatchChange()`
+- L9206 `clearBatchFilter()`
+- L9211 `renderBatchTagCatBar()`
+- L9215 `toggleBatchTagCat(h)`
+- L9217 `openBatchTag()`
+- L9229 `closeBatchTag()`
+- L9236 `openBatchTagForImport(info)` — 從總檔更新後自動開啟，預設只看「本次匯入新增的人」，方便直接圈這批標來源
+- L9255 `batchTagVisible()`
+- L9265 `updateBatchTagCount(visLen)`
+- L9266 `renderBatchTagList()`
+- L9282 `toggleBatchTagPick(id,on)`
+- L9283 `batchTagSelectAll(v)`
+- L9284 `batchTagApply()`
 
-### Init time dropdowns  (L9304)
-- L9305 `initTimeDropdowns()` — ── Init time dropdowns ───────────────────────────────────
+### Init time dropdowns  (L9315)
+- L9316 `initTimeDropdowns()` — ── Init time dropdowns ───────────────────────────────────
 
-### Drag to resize sheet (mobile)  (L9315)
+### Drag to resize sheet (mobile)  (L9326)
 
 ## 重要畫面元件 id（L 行號）
 - #mainApp L1211

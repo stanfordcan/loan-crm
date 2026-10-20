@@ -2164,7 +2164,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t171 (匯入小結:併入的人只給數字,不再列一串名字;只有這次真的有變的人才列名) 2026.10.20';
+const APP_VERSION = '🧪測試版 t172 (XLS匯入預設批次名:檔名有日期就用檔名的,沒有才用今天;日期與「包區」字樣從名字裡拿掉) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -9167,6 +9167,17 @@ function batchJoin(arr){ return [...new Set((arr||[]).map(x=>String(x||'').trim(
 function batchAdd(c,b){ b=String(b||'').trim(); if(!c||!b) return false; const l=batchList(c); if(l.includes(b)) return false; l.push(b); c.batch=batchJoin(l); if(!c.firstBatch) c.firstBatch=l[0]; return true; }
 function batchSetAll(c,label){ const l=batchList(label); c.batch=batchJoin(l); if(!c.firstBatch && l.length) c.firstBatch=l[0]; }
 // 批次改名建議：新鑫「1150318_資料 (5)」→「新鑫 115/03/18 (5)」（同月多份，保留日）；「115_03 松山區包區」→「包區 115/03 松山區」；「X中人件」→「中人 X」
+// 匯入檔名 → 預設批次名「包區 民國年/月 剩下的字」：檔名有日期就用檔名的（1150318、115_03、115-03、1158、11510、2026-10、20261019 都認），沒有才用今天；日期與尾巴「包區」從剩下的字拿掉
+function batchNameFromFile(fname, now){
+  let f=String(fname||'').replace(/\.xlsx?$/i,'').trim(), y=null, mo=null, m;
+  const take=(mm)=>{ f=(f.slice(0,mm.index)+' '+f.slice(mm.index+mm[0].length)); };
+  if((m=f.match(/(?:^|[^\d])(20\d{2})[-_./年]?(0[1-9]|1[0-2])(?:[-_./月]?(0[1-9]|[12]\d|3[01]))?(?![\d])/))){ y=+m[1]-1911; mo=+m[2]; take({index:m.index+m[0].search(/\d/),0:m[0].slice(m[0].search(/\d/))}); }
+  else if((m=f.match(/(?:^|[^\d])(1[0-3]\d)[-_./年]?(0[1-9]|1[0-2])(?:[-_./月]?(0[1-9]|[12]\d|3[01]))?(?![\d])/))){ y=+m[1]; mo=+m[2]; take({index:m.index+m[0].search(/\d/),0:m[0].slice(m[0].search(/\d/))}); }
+  else if((m=f.match(/(?:^|[^\d])(1[0-3]\d)([1-9])(?![\d])/))){ y=+m[1]; mo=+m[2]; take({index:m.index+m[0].search(/\d/),0:m[0].slice(m[0].search(/\d/))}); }
+  if(y===null){ const d=now||new Date(); y=d.getFullYear()-1911; mo=d.getMonth()+1; }
+  let rest=f.replace(/[_\-.\s]+/g,' ').trim().replace(/\s*包區\s*$/,'').replace(/^\s*資料\s*/,'').trim();
+  return `包區 ${y}/${String(mo).padStart(2,'0')}${rest?' '+rest:''}`;
+}
 function suggestBatchName(b){
   b=String(b||'').trim(); let m;
   if((m=b.match(/^(\d{3})(\d{2})(\d{2})_?資料\s*[（(]\s*(\d+)\s*[)）]$/))) return `新鑫 ${m[1]}/${m[2]}/${m[3]} (${m[4]})`;
@@ -9234,9 +9245,9 @@ function openBatchTagForImport(info){
   if(rw){ const n=_importRevivedIds?_importRevivedIds.size:0; rw.style.display=n?'flex':'none'; if(rn) rn.textContent=n; if(rc) rc.checked=false; }
   const t=document.getElementById('batchTagTodayOnly');
   if(t){ t.checked=true; }
-  // 預設批次名稱：查詢匯出檔 → 「包區 民國年/月 檔名」；分類預設待分類。都可以改
+  // 預設批次名稱：查詢匯出檔 → 「包區 民國年/月 檔名」，檔名有日期就用檔名的（batchNameFromFile）；分類預設待分類。都可以改
   const inp=document.getElementById('batchTagInput'), hs=document.getElementById('batchTagHeat');
-  if(inp){ if(_lastImportFile){ const d=new Date(); inp.value=`包區 ${d.getFullYear()-1911}/${String(d.getMonth()+1).padStart(2,'0')} ${_lastImportFile}`; } else inp.value=''; }
+  if(inp){ inp.value=_lastImportFile?batchNameFromFile(_lastImportFile):''; }
   if(hs){ hs.value=(_lastImportFile && typeof _xlsFormat!=='undefined' && _xlsFormat==='export')?'待分類':''; }
   _lastImportFile='';
   renderBatchTagList();
