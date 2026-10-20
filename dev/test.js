@@ -324,7 +324,10 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(geoGrade('臺北市大安區光復南路460號','106台灣臺北市大安區光信里光復南路458-460號')==='精準','評等：範圍寫法 458-460 含 460→精準');
   ok(geoGrade('臺北市大安區安和路二段92號','106台灣臺北市大安區義安里安和路二段88~92號')==='精準','評等：範圍寫法 88~92 含 92→精準');
   ok(geoGrade('臺北市大安區復興南路一段173號','105台灣臺北市松山區中崙里復興南路一段17-3號')==='不準','評等：釘到別區→不準');
-  ok(geoGrade('臺北市大安區和平東路二段265巷25弄7號','106台灣臺北市大安區群賢里和平東路二段265巷25號')==='不準','評等：弄被丟掉→不準');
+  ok(geoGrade('臺北市大安區和平東路二段265巷25弄7號','106台灣臺北市大安區群賢里和平東路二段265巷25號')==='隔壁','評等 t177：弄被丟、釘在弄口→隔壁');
+  ok(geoGrade('臺北市大安區和平東路二段265巷25弄7號','106台灣臺北市大安區群賢里和平東路二段265巷30號')==='不準','評等 t177：弄被丟、號也對不上→不準');
+  ok(geoGrade('臺北市大安區市民大道四段106號','106台灣臺北市大安區建安里市民大道四段106號')==='精準','評等 t177：「大安區市民大道」區名不被切成「大安區市」');
+  ok(geoParts('臺北市大安區市民大道四段106號').dist==='大安區' && geoParts('106台灣臺北市大安區建安里市民大道四段106號').dist==='大安區' && geoParts('新竹縣竹北市光明六路1號').dist==='竹北市','geoParts：區名最短匹配、縣轄市也認');
   ok(geoGrade('臺北市大安區新生南路三段2號','106台灣臺北市大安區龍坡里新生南路三段2-3號')==='精準','評等：2-3 是範圍含 2→精準');
   ok(geoGrade('臺北市大安區永康街7巷19之1號','106台灣臺北市大安區福住里永康街7巷19號八樓號')==='隔壁','評等：之號被丟→隔壁');
   const _c=clients; clients=[
@@ -334,6 +337,11 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   const need=propsNeedingGeo();
   ok(need.length===3 && need.map(t=>t.q).join('|')==='臺北市大安區敦化南路一段233巷63號|臺北市大安區建國南路二段33號|臺北市中山區民權東路一段72號','要查的：沒查過、門牌改過的；查過且沒改、空白、補不出縣市的都跳過');
   ok(propsNeedingGeo(new Set([2])).length===1,'只看指定客戶');
+  clients[0].properties[1].geo={grade:'不準',q:'臺北市大安區建國南路二段31號',addr:'106台灣臺北市大安區龍圖里建國南路二段31號',ts:'2026-10-20'};
+  ok(propsNeedingGeo().length===4 && propsNeedingGeo().some(t=>t.q==='臺北市大安區建國南路二段31號'),'t177 以前誤判不準、現在規則判得過的→重查');
+  clients[0].properties[1].geo={grade:'不準',q:'臺北市大安區建國南路二段31號',addr:'105台灣臺北市松山區xx路1號',ts:'2026-10-20'};
+  ok(propsNeedingGeo().length===3,'t177 真的不準的不重查');
+  clients[0].properties[1].geo={q:'臺北市大安區建國南路二段31號',grade:'精準'};
   ok(propsNeedingGeo(null,'大安區').length===2 && propsNeedingGeo(null,'中山區').length===1 && propsNeedingGeo(null,'台北市大安區').length===2,'t174 只查某一區（台→臺也認）');
   clients[0].batch='包區 115/10 大安區'; clients[1].batch='新鑫 115/03/18 (5)、包區 115/10 大安區';
   eval(ext('allBatches'));

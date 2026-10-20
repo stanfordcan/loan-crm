@@ -2165,7 +2165,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t176 (查座標:那批都查過時改列出不準/查無的清單,不用靠截圖) 2026.10.20';
+const APP_VERSION = '🧪測試版 t177 (座標守門修正:「大安區市民大道」區名切錯害誤判不準;弄被 Google 丟掉但釘在弄口改判隔壁;以前誤判的再按查座標會自動重查) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7178,7 +7178,7 @@ function geoParts(s){
   s=s.replace(/號[^號]*號$/,'號');
   // 區名：先剝掉 Google 前面的郵遞區號＋「臺灣」、再剝縣市，剩下開頭那段「xx區／xx鄉／xx鎮／xx市」才是區（直接找「區」會抓到「市大安區」）
   s=s.replace(/^\d*臺灣/,'').replace(GEO_CITY_RE,'');
-  const g=s.match(/^([一-鿿]{1,3}[區鄉鎮市])/);
+  const g=s.match(/^([一-鿿]{1,3}?[區鄉鎮市])/);   // 最短匹配：「大安區市民大道」要切出「大安區」不是「大安區市」
   const lane=s.match(/(\d+)巷/), alley=s.match(/(\d+)弄/);
   const no=rng?null:s.match(/(\d+)(?:之(\d+))?號/);
   return {dist:g?g[1]:'', lane:lane?lane[1]:'', alley:alley?alley[1]:'', no:rng?'':(no?no[1]:''), sub:no?(no[2]||''):'', rng:rng?[+rng[1],+rng[2]]:null};
@@ -7186,7 +7186,12 @@ function geoParts(s){
 function geoGrade(q, addr){
   const a=geoParts(q), b=geoParts(addr);
   if(!b.dist && !b.no && !b.rng) return '不準';
-  if(a.dist!==b.dist || a.lane!==b.lane || a.alley!==b.alley) return '不準';
+  if(a.dist!==b.dist || a.lane!==b.lane) return '不準';
+  if(a.alley!==b.alley){
+    // 查「265巷25弄7號」Google 沒有這條弄、回「265巷25號」＝釘在 25 弄的巷口，差幾十公尺 → 隔壁
+    if(a.alley && !b.alley && !b.rng && b.no===a.alley) return '隔壁';
+    return '不準';
+  }
   if(b.rng){ const n=+a.no; return (n>=b.rng[0] && n<=b.rng[1]) ? '精準' : '不準'; }
   if(a.no!==b.no) return '不準';
   return a.sub===b.sub ? '精準' : '隔壁';
@@ -7206,7 +7211,8 @@ function propsNeedingGeo(onlyIds, scope){
       if(area && !String((p.addr||'')+'|'+(p.district||'')+'|'+(c.district||'')).replace(/台/g,'臺').includes(area)) return;
       const r=addrForGeo(p.addr, p.district||c.district||'');
       if(!r.q || r.level==='不準' || r.level==='無地址') return;
-      if(p.geo && (p.geo.q===r.q || p.geo.grade==='手填')) return;   // 手填的不被自動查蓋掉
+      if(p.geo && p.geo.grade==='手填') return;   // 手填的不被自動查蓋掉
+      if(p.geo && p.geo.q===r.q){ if(!(p.geo.grade==='不準' && p.geo.addr && geoGrade(p.geo.q,p.geo.addr)!=='不準')) return; }   // 查過且沒改就跳過；但以前誤判不準、現在規則判得過的，重查補座標
       out.push({c,p,i,q:r.q});
     });
   });
