@@ -308,6 +308,13 @@ eval(['parseRightsLoans','cleanCreditorName','classifyCreditor','defaultLoanE','
   const p6={loans:[{n:'中租',a:700,t:'legal',s:'0013-000',e:583,x:{date:'2026-10-20',src:'手動'}}]};
   smartMergeLoans(p6,[{n:'中租',a:700,t:'legal',s:'0013-000',e:583}],'總檔','2026-10-21',{});
   ok(p6.loans[0].x && p6.loans[0].x.src==='手動','t203 就算 removedSeqs 沒記到，手動塗銷也不取消');
+  // t204：手改設定額／設定日期後，總檔帶不同值也不動
+  const p7={loans:[{n:'永豐',a:3800,t:'bank',s:'0011-000',e:3000,d:'110/01/01',aManual:true,dManual:true}]};
+  const r7=smartMergeLoans(p7,[{n:'永豐',a:3600,t:'bank',s:'0011-000',e:3000,d:'108/12/11'}],'總檔','2026-10-21',{});
+  ok(p7.loans[0].a===3800 && p7.loans[0].d==='110/01/01' && r7.changed===0 && r7.dated===0 && !p7.loans[0].aChanged,'t204 手改設定額／日期不被總檔蓋');
+  const p8={loans:[{n:'永豐',a:3800,t:'bank',s:'0011-000',e:3000,d:'110/01/01'}]};
+  smartMergeLoans(p8,[{n:'永豐',a:3600,t:'bank',s:'0011-000',e:3000,d:'108/12/11'}],'總檔','2026-10-21',{});
+  ok(p8.loans[0].a===3600 && p8.loans[0].d==='108/12/11' && p8.loans[0].aPrev===3800,'t204 沒手改的照舊跟謄本走');
   const p4={loans:[],removedSeqs:['0013-000']}; smartMergeLoans(p4,[{n:'中租',a:700,t:'legal',s:'0013-000',e:583}],'總檔','2026-10-20',{});
   ok(p4.loans.length===0,'t201 空清單第一次帶進來也會過濾');
   ok(p2.loans.length===3 && r2.added===1 && p2.loans[0].n==='民間甲（手加）' && p2.loans[0].a===100 && !p2.loans[0].x && p2.loans[2].s==='0006000','t200 手加筆登序對上 → 不重複、不動；對不上的新筆照加');
