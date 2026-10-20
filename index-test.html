@@ -2205,7 +2205,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t179 (🗺️ 地圖與路線:☰ 選單或勾人「上地圖」;有座標的不動產一間一針、同址併一針、顏色＝分類;點針看人/撥號/開面板/加路線;針可拖到正確位置存手填;路線可排最近順序、一鍵開 Google 導航(10 站一段);未上圖的列清單) 2026.10.20';
+const APP_VERSION = '🧪測試版 t180 (路線「最近順序」加交叉解開:排完整條不折返;路線顯示全程公里數) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7566,14 +7566,37 @@ function routeAddInView(){
   showToast(`➕ 加了 ${n} 站，共 ${_route.length} 站`); mapRender();
 }
 function geoDist(a,b){ const dx=(a.lng-b.lng)*Math.cos((a.lat+b.lat)/2*Math.PI/180)*111.32, dy=(a.lat-b.lat)*110.57; return Math.sqrt(dx*dx+dy*dy); }   // 公里，平面近似夠用
-// 最近順序：從第一站出發，每次走到最近的下一站
+// 最近順序：從第一站出發，每次走到最近的下一站；排完再跑「交叉解開」（2-opt）：路線上有兩段交叉就把中間那段反過來，直到沒得改，整條會變直、不折返
 function routeNearestOrder(keys, pts){
   if(keys.length<3) return keys.slice();
   const left=keys.slice(1), out=[keys[0]];
   while(left.length){ const cur=pts[out[out.length-1]]; let bi=0, bd=Infinity; left.forEach((k,i)=>{ const d=geoDist(cur,pts[k]); if(d<bd){ bd=d; bi=i; } }); out.push(left.splice(bi,1)[0]); }
-  return out;
+  return routeUncross(out, pts);
 }
-function routeOptimize(){ if(_route.length<3){ showToast('至少 3 站才需要排'); return; } _route=routeNearestOrder(_route,_mapPts); showToast('🔀 已排成最近順序'); mapRender(); }
+function routeUncross(order, pts){
+  const r=order.slice(), n=r.length; if(n<4) return r;
+  const d=(a,b)=>geoDist(pts[a],pts[b]);
+  let improved=true, guard=0;
+  while(improved && guard++<50){
+    improved=false;
+    for(let i=0;i<n-2;i++){
+      for(let j=i+2;j<n;j++){
+        const a=r[i], b=r[i+1], c=r[j], e=r[j+1];   // 第一站固定當起點；最後一站沒有下一段
+        const before=d(a,b)+(e?d(c,e):0), after=d(a,c)+(e?d(b,e):0);
+        if(after<before-1e-6){ const seg=r.slice(i+1,j+1).reverse(); r.splice(i+1,j-i,...seg); improved=true; }
+      }
+    }
+  }
+  return r;
+}
+function routeLength(keys, pts){ let t=0; for(let i=1;i<keys.length;i++) t+=geoDist(pts[keys[i-1]],pts[keys[i]]); return t; }
+function routeOptimize(){
+  if(_route.length<3){ showToast('至少 3 站才需要排'); return; }
+  const before=routeLength(_route,_mapPts);
+  _route=routeNearestOrder(_route,_mapPts);
+  const after=routeLength(_route,_mapPts);
+  showToast(`🔀 已排好：全程約 ${after.toFixed(1)} 公里${before>after+0.05?`（原本 ${before.toFixed(1)}）`:''}`); mapRender();
+}
 // Google 地圖導航網址：一段最多 10 站（起點用「目前位置」，中途最多 9 個），超過就分段，下一段的起點＝上一段的終點
 function routeNavUrls(keys, pts){
   const urls=[]; const ll=k=>pts[k].lat+','+pts[k].lng;
@@ -7595,7 +7618,8 @@ function routeOpenNav(seg){
 function renderRouteList(){
   const el=document.getElementById('routeList'); if(!el) return;
   const rc=document.getElementById('routeCount'); if(rc) rc.textContent=`${_route.length} 站`;
-  if(!_route.length){ el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">點地圖上的針 →「加入路線」，或按「畫面內全加」</div>'; return; }
+  if(!_route.length){ el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">點地圖上的針 →「加入路線」，或把地圖縮放到今天要跑的那一區再按「畫面內全加」（10～20 站一天剛好）</div>'; return; }
+  if(rc) rc.textContent=`${_route.length} 站・約 ${routeLength(_route,_mapPts).toFixed(1)} 公里（直線）`;
   const urls=routeNavUrls(_route,_mapPts);
   el.innerHTML=_route.map((k,i)=>{ const pt=_mapPts[k]; if(!pt) return ''; const names=pt.entries.map(e=>e.c.name||'').join('、'); const addr=pt.entries[0].p.addr||'';
     return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">

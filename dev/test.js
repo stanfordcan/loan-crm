@@ -372,7 +372,7 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
 }
 // t179：地圖與路線（純函式：分組、最近順序、導航網址分段）
 {
-  eval([ext('geoKey'),ext('mapGroupPoints'),ext('geoDist'),ext('routeNearestOrder'),ext('routeNavUrls')].join('\n'));
+  eval([ext('geoKey'),ext('mapGroupPoints'),ext('geoDist'),ext('routeUncross'),ext('routeLength'),ext('routeNearestOrder'),ext('routeNavUrls')].join('\n'));
   const L=[
     {id:1,name:'甲',heat:'覆訪',properties:[{addr:'A1',geo:{lat:25.04,lng:121.54,grade:'精準'}},{addr:'A2',geo:{lat:25.04,lng:121.54,grade:'隔壁'}}]},
     {id:2,name:'乙',heat:'追很緊',properties:[{addr:'B',geo:{lat:25.05,lng:121.55,grade:'手填'}}]},
@@ -386,6 +386,13 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   const pts={a:{lat:25.00,lng:121.50},b:{lat:25.10,lng:121.50},c:{lat:25.01,lng:121.50},d:{lat:25.05,lng:121.50}};
   ok(routeNearestOrder(['a','b','c','d'],pts).join('')==='acdb','最近順序：a→c→d→b');
   ok(routeNearestOrder(['a','b'],pts).join('')==='ab','兩站不動');
+  // 交叉解開：一排在同一條直線上的點，最近法會先往右走完再折回左邊；解開後應該從起點一路往一個方向
+  const line={s:{lat:25,lng:121.50},p1:{lat:25,lng:121.51},p2:{lat:25,lng:121.52},p3:{lat:25,lng:121.53},q1:{lat:25,lng:121.49},q2:{lat:25,lng:121.48}};
+  const nn=routeNearestOrder(['s','p1','p2','p3','q1','q2'],line);
+  ok(nn[0]==='s' && routeLength(nn,line)<=routeLength(['s','p1','p2','p3','q1','q2'],line)+1e-9,'t180 起點固定、解開後不比原本長');
+  const cross={a:{lat:25.00,lng:121.50},b:{lat:25.01,lng:121.51},c:{lat:25.00,lng:121.51},d:{lat:25.01,lng:121.50}};   // a→b→c→d 是打叉的
+  const un=routeUncross(['a','b','c','d'],cross);
+  ok(routeLength(un,cross)<routeLength(['a','b','c','d'],cross) && un[0]==='a','t180 打叉的路線會被解開、起點不變');
   const keys=Array.from({length:12},(_,i)=>'k'+i); const P={}; keys.forEach((k,i)=>P[k]={lat:25+i*0.01,lng:121.5});
   const urls=routeNavUrls(keys,P);
   ok(urls.length===2 && !urls[0].includes('origin=') && urls[0].includes('destination=25.09,121.5') && decodeURIComponent(urls[0]).split('|').length===9,'導航網址：10 站一段、第一段起點＝目前位置、9 個中途點');
