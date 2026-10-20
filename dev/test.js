@@ -424,5 +424,23 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(savedToRouteKeys(sv,RC,RP2)[0]===geoKey({lat:25.03,lng:121.56}),'載回：那個人的座標改過就用新的');
   ok(savedToRouteKeys(sv,RC.filter(c=>c.id!==2),RP2).length===1,'載回：人被刪了就略過那站');
 }
+// t188：AI 匯入客戶層級欄位（只補空白、選項驗證、finProofs/docs）
+{
+  const extConst=n=>{ const i=html.indexOf('const '+n+'='); if(i<0) throw new Error('找不到 '+n); const j=html.indexOf(';\n',i); return html.slice(i,j+1); };
+  eval([extConst('CREDIT_OPTS'),extConst('AI_CLIENT_OPTS'),ext('applyAiClientFields')].join('\n'));
+  const rec={phone2:'LINE:abc',company:'台積電',income:'8',incomeType:'薪轉',taxed:'有',marital:'已婚',spouse:'知情',loanWant:'300',loanWhen:'一週內',creditBank:'正常',creditPrivate:'小額、汽機車貸款、亂填',creditBounce:'無',closeReason:'亂填',finProofs:[{type:'存摺(近6個月)',value:'8萬'},{type:'存摺(近6個月)',value:'8萬'}],docs:{'身分證':'got','權狀':'skip','亂填文件':'maybe'}};
+  const c={finProofs:[]}; const n=applyAiClientFields(rec,c);
+  ok(c.phone2==='LINE:abc'&&c.company==='台積電'&&c.income==='8'&&c.incomeType==='薪轉'&&c.marital==='已婚'&&c.spouse==='知情'&&c.loanWant==='300'&&c.loanWhen==='一週內'&&c.creditBank==='正常','新客戶：欄位都進去');
+  ok(c.creditPrivate==='小額、汽機車貸款' && c.closeReason===undefined,'選項驗證：其他借款只留選項裡的、結案原因亂填就丟');
+  ok(c.finProofs.length===1 && c.finProofs[0].value==='8萬','finProofs 去重');
+  ok(c.docs['身分證']==='got' && c.docs['權狀']==='skip' && !('亂填文件' in c.docs),'docs 只收 got/skip');
+  const ex={company:'舊公司',income:'',marital:'單身',finProofs:[{type:'存摺(近6個月)',value:'8萬'}],docs:{'身分證':'skip'}};
+  applyAiClientFields(rec,ex);
+  ok(ex.company==='舊公司' && ex.income==='8' && ex.marital==='單身' && ex.spouse===undefined && ex.docs['身分證']==='skip' && ex.docs['權狀']==='skip' && ex.finProofs.length===1,'既有客戶：已填的不覆蓋、空白才補、單身不帶配偶、文件已標過不改');
+  ok(applyAiClientFields({creditPrivate:'無、小額'},{}).valueOf()===1,'「無」跟別的一起給→只留別的');
+  const c2={}; applyAiClientFields({creditPrivate:'無、小額'},c2); ok(c2.creditPrivate==='小額','「無」跟小額一起→小額');
+  const c3={}; applyAiClientFields({creditPrivate:'不詳'},c3); ok(c3.creditPrivate==='不詳','「不詳」單獨可以');
+  ok(applyAiClientFields({},{})===0 && applyAiClientFields(null,{})===0,'空的不動');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

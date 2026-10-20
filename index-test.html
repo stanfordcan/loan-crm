@@ -2230,7 +2230,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t187 (手機地圖改「跑路線模式」:只留關閉、找人、📂 路線、站名、✔ 跑過、開導航;批次/篩選/查地址/鎖定/存/排序/清空收進「⋯ 進階」;電腦版不變) 2026.10.20';
+const APP_VERSION = '🧪測試版 t188 (AI 匯入會讀第 15 條客戶層級欄位了:phone2/公司/收入/婚姻/借款需求/信用/文件清單/結案等 18 欄,只補空白、選項外的值丟掉;提示詞同步進 repo) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -8949,6 +8949,48 @@ function emptyProp(){
     parkType:'無',parkTitle:'非獨立',parkVal:0,landtaxNormal:0,landtaxSelf:0};
 }
 
+// AI 匯入的客戶層級欄位（提示詞第 15 條）→ 只補空白：既有客戶已填的永不覆蓋；有選項的欄位值不在選項裡就丟掉（不亂塞）。
+// finProofs 陣列去重後附加；docs 只補沒標過的文件；creditPrivate 只留選項裡有的、「無」「不詳」只能單獨。回填了幾個欄位
+const AI_CLIENT_OPTS={
+  incomeType:['薪轉','現金','混合（部分薪轉）'], taxed:['有','無','不詳'], marital:['單身','已婚','離異','喪偶'], spouse:['知情','不知情'],
+  loanWhen:['急（3 天內）','一週內','一個月內','不急'], creditBank:['正常','有遲繳','協商中','更生／清算','不詳'], creditBounce:['無','有退票','不詳'],
+  closeReason:['估值不足','信用太差','利率談不攏','被同業搶走','客戶放棄','聯絡不上','資料不實','已向銀行貸到','其他'],
+};
+function applyAiClientFields(rec, c){
+  if(!rec||!c) return 0;
+  let n=0;
+  const keys=[...EXTRA_FIELDS, 'jobYears'];
+  keys.forEach(k=>{
+    let v=rec[k]; if(v==null) return;
+    v=String(v).trim(); if(!v) return;
+    if(String(c[k]||'').trim()) return;   // 只補空白
+    if(AI_CLIENT_OPTS[k] && !AI_CLIENT_OPTS[k].includes(v)) return;
+    if(k==='creditPrivate'){
+      const toks=[...new Set(v.split(/[、,，/／]/).map(t=>t.trim()).filter(t=>CREDIT_OPTS.includes(t)))];
+      if(!toks.length) return;
+      v=(toks.includes('無')||toks.includes('不詳'))&&toks.length>1 ? toks.filter(t=>t!=='無'&&t!=='不詳').join('、') : toks.join('、');
+    }
+    if(k==='spouse' && (String(c.marital||'').trim()||String(rec.marital||'').trim())!=='已婚') return;   // 配偶只在已婚時有意義；客戶已填的婚姻優先
+    c[k]=v; n++;
+  });
+  if(Array.isArray(rec.finProofs)){
+    c.finProofs=Array.isArray(c.finProofs)?c.finProofs:[];
+    rec.finProofs.forEach(f=>{
+      if(!f) return; const t=String(f.type||'').trim(), val=String(f.value||'').trim(); if(!t&&!val) return;
+      if(c.finProofs.some(x=>String(x.type||'').trim()===t && String(x.value||'').trim()===val)) return;
+      c.finProofs.push({type:t, value:val}); n++;
+    });
+  }
+  if(rec.docs && typeof rec.docs==='object' && !Array.isArray(rec.docs)){
+    c.docs=(c.docs&&typeof c.docs==='object')?c.docs:{};
+    Object.keys(rec.docs).forEach(d=>{
+      const st=String(rec.docs[d]||'').trim(); const name=String(d||'').trim();
+      if(!name || (st!=='got'&&st!=='skip') || c.docs[name]) return;
+      c.docs[name]=st; n++;
+    });
+  }
+  return n;
+}
 function recordToProps(rec){
   const props=Array.isArray(rec.properties)?rec.properties:[];
   if(!props.length) return [];
@@ -9099,6 +9141,7 @@ function doAiImport(){
         match.note=(match.note? match.note+'\n':'')+String(r.note).trim();
       }
       if(r.loanPurpose && !match.loanPurpose) match.loanPurpose=String(r.loanPurpose).trim();
+      applyAiClientFields(r, match);   // 第 15 條客戶層級欄位：只補空白
       // 分類以預覽下拉為準（預設已帶入該客戶目前分類，使用者改了就照改）
       if(chosenHeat) match.heat=chosenHeat;
       const evUp=mapEval(r);
@@ -9143,6 +9186,7 @@ function doAiImport(){
         loanPurpose:String(r.loanPurpose||'').trim(), evalData:mapEval(r)||{}, driveUrl:'',
         properties:newProps.length?newProps:[emptyProp()],
       };
+      applyAiClientFields(r, c);   // 第 15 條客戶層級欄位
       clients.push(c);
       added++;
     }
