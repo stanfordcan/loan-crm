@@ -1839,6 +1839,7 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
       <button onclick="openBatchMgr()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏷️ 批次管理（改名／合併）<br><span style="font-size:10px;font-weight:400;opacity:.8">列出所有批次與建議名稱，確認後一次改</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="cleanupFalseReimports()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧽 清掉假的 🔁 記號<br><span style="font-size:10px;font-weight:400;opacity:.8">舊版跟最新一模一樣的版本刪掉、沒有真正差異的「總檔更新」記號拿掉（先列數量再確認）</span></button>
       <button onclick="cleanupDupLogs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理重複聯絡記錄<br><span style="font-size:10px;font-weight:400;opacity:.8">同一句話多筆只留一筆、被截斷的半句與沒日期的雜訊刪掉（先列清單再確認）</span></button>
       <button onclick="cleanupAddrs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔤 門牌統一寫法<br><span style="font-size:10px;font-weight:400;opacity:.8">全形數字→半形、五樓→5樓、去空白；客戶地址、戶籍、每張不動產都統一（先列數量再確認）</span></button>
       <button onclick="cleanupDuplicateProps()" style="width:100%;background:var(--obg);color:var(--orange);border:1px solid var(--obd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏚️ 合併重複的不動產<br><span style="font-size:10px;font-weight:400;opacity:.8">同一人底下同建號、或門牌只差全形半形／中文數字的，併成一張（先列清單再確認）</span></button>
@@ -2162,7 +2163,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t168 (設定頁多「清理重複聯絡記錄」:舊同步留下的同一句話十幾筆、被截斷的半句、沒日期的雜訊,先列清單再確認,清掉的匯入不會再回來) 2026.10.20';
+const APP_VERSION = '🧪測試版 t169 (假的🔁記號修正:比對時空白不算、同一次匯入裡只有所有權部不同是共有人列不算變動、同一次裡內容看過的列不再把最新版蓋回舊的;設定頁多「清掉假的🔁記號」把一模一樣的舊版和沒差異的記號拿掉) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3506,7 +3507,7 @@ function foldPropInto(keep, other){
   (other.loans||[]).forEach(l=>{ const hit=kl.some(k=>(l.s&&k.s&&k.s===l.s)||keyNA(k)===keyNA(l)); if(!hit) kl.push({...l}); });
   keep.loans=kl; const t=loansToTotals(kl); keep.bank=t.bank; keep.legal=t.legal; keep.private=t.private;
   keep.rawHistory=[...(keep.rawHistory||[]), ...(other.rawHistory||[])];
-  if(other.companyRaw){ const o=other.companyRaw; if(!keep.companyRaw) keep.companyRaw=o; else keep.rawHistory.push({at:o.importedAt||'', src:o.importedSrc||'', cols:o.cols||null, owner:o.owner||'', rights:o.rights||'', buildInfo:o.buildInfo||''}); }
+  if(other.companyRaw){ const o=other.companyRaw; const nz=v=>String(v||'').replace(/\s+/g,''); const kc=keep.companyRaw||{}; if(!keep.companyRaw) keep.companyRaw=o; else if(!(nz(o.rights)===nz(kc.rights)&&nz(o.owner)===nz(kc.owner)) && !keep.rawHistory.some(h=>nz(h.rights)===nz(o.rights)&&nz(h.owner)===nz(o.owner))) keep.rawHistory.push({at:o.importedAt||'', src:o.importedSrc||'', cols:o.cols||null, owner:o.owner||'', rights:o.rights||'', buildInfo:o.buildInfo||''}); }
   if(keep.rawHistory.length>10) keep.rawHistory=keep.rawHistory.slice(-10);
   if(!keep.col4BuildNo && other.col4BuildNo) keep.col4BuildNo=other.col4BuildNo;
   if(!keep.evalData && other.evalData) keep.evalData=other.evalData;
@@ -4037,38 +4038,42 @@ function processCompanyData(raw) {
         np.label=propLabel(np)||('不動產'+(existing.properties.length+1));
         if(dup){
           // 同一間：先看原文有沒有變（所有權部／他項權利部）。
-          // 規則（業主 2026/10/20 定）：總檔同一間房若有好幾列（例如新鑫日期一列舊一列新），以「設定日期較新」那列為主；
-          // 舊的那列留進版本紀錄當舊版，不要求業主刪總檔。跨次匯入的變動照舊：上一版進 rawHistory、換成新版、抵押列依登序合併。
+          // 規則（業主 2026/10/20 定）：
+          //  ‧ 比對時空白全部不算（總檔同一句有的有空格有的沒有，不是變動）。
+          //  ‧ 同一次匯入裡同一間有好幾列：他項不同 → 以文字裡最晚的日期新的那列為主，舊的那列收進版本紀錄；
+          //    只有所有權部不同、他項一樣 → 是持分共有人各一列，不是版本，不換、不記號。
+          //  ‧ 跨次匯入內容變了 → 上一版進版本紀錄、換成新版、記 🔁。只有真的留進一個新版本才算「有變」。
           const prev=dup.companyRaw||{};
-          const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
+          const norm=v=>String(v||'').replace(/\s+/g,'');
           const sameRun = prev.importRun===runId;
           const seenR=new Set([norm(prev.rights), ...((prev.altRights||[]).map(norm))]);
           const seenO=new Set([norm(prev.owner), ...((prev.altOwners||[]).map(norm))]);
-          const kinds=[];
-          if(!seenR.has(norm(companyRaw.rights))) kinds.push('他項權利部');
-          if(!seenO.has(norm(companyRaw.owner))) kinds.push('所有權部');
-          // 他項文字裡最晚的民國日期，當這一版的「新舊」依據
-          const latestDate=txt=>{ const t=String(txt||''); const ds=[...t.matchAll(/(\d{3})-(\d{2})-(\d{2})/g)].map(m=>m[1]+m[2]+m[3]).concat([...t.matchAll(/民國\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>m[1].padStart(3,'0')+m[2].padStart(2,'0')+m[3].padStart(2,'0'))); return ds.length?ds.sort().slice(-1)[0]:''; };   // 「106-03-28」與「民國114年07月02日」兩種寫法都算
-          const incNewer = latestDate(companyRaw.rights) >= latestDate(prev.rights);
-          const sameRunOlder = sameRun && kinds.length>0 && !incNewer;   // 同一次裡又來一列、內容不同、日期比較舊 → 當舊版收起來
-          const pushHist=(v)=>{ const h=dup.rawHistory=dup.rawHistory||[]; const nr=norm(v.rights), no=norm(v.owner); if(h.some(x=>norm(x.rights)===nr&&norm(x.owner)===no)) return false; h.push({at:v.importedAt||v.at||'', src:v.importedSrc||v.src||'', cols:v.cols||null, owner:v.owner||'', rights:v.rights||'', buildInfo:v.buildInfo||''}); h.sort((x,y)=>latestDate(x.rights).localeCompare(latestDate(y.rights))); if(h.length>10) dup.rawHistory=h.slice(-10); return true; };
-          if(sameRunOlder){
-            // 比較舊的那列：只留進版本紀錄、其餘欄位補空白；目前版本與抵押列維持較新那列
+          const diffR=!seenR.has(norm(companyRaw.rights)), diffO=!seenO.has(norm(companyRaw.owner));
+          const kinds=[]; if(diffR) kinds.push('他項權利部'); if(diffO) kinds.push('所有權部');
+          // 版本新舊：他項＋所有權部＋標示部文字裡最晚的民國日期（「106-03-28」「民國114年07月02日」都認）
+          const latestDate=v=>{ const t=[v.rights,v.owner,v.buildInfo].map(x=>String(x||'')).join('\n'); const ds=[...t.matchAll(/(\d{3})-(\d{2})-(\d{2})/g)].map(m=>m[1]+m[2]+m[3]).concat([...t.matchAll(/(?:民國)?\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>m[1].padStart(3,'0')+m[2].padStart(2,'0')+m[3].padStart(2,'0'))); return ds.length?ds.sort().slice(-1)[0]:''; };
+          const pushHist=(v)=>{ const h=dup.rawHistory=dup.rawHistory||[]; const nr=norm(v.rights), no=norm(v.owner); if(nr===norm((dup.companyRaw||{}).rights) && no===norm((dup.companyRaw||{}).owner) && v!==dup.companyRaw) return false; if(h.some(x=>norm(x.rights)===nr&&norm(x.owner)===no)) return false; h.push({at:v.importedAt||v.at||'', src:v.importedSrc||v.src||'', cols:v.cols||null, owner:v.owner||'', rights:v.rights||'', buildInfo:v.buildInfo||''}); h.sort((x,y)=>latestDate(x).localeCompare(latestDate(y))); if(h.length>10) dup.rawHistory=h.slice(-10); return true; };
+          const addAlt=(obj)=>{ obj.altRights=[...new Set([...(obj.altRights||[]), companyRaw.rights||'', prev.rights||''])].filter(Boolean).slice(-10); obj.altOwners=[...new Set([...(obj.altOwners||[]), companyRaw.owner||'', prev.owner||''])].filter(Boolean).slice(-10); };
+          let mode;   // 'same' 內容看過＝不動；'sibling' 只有所有權不同＝共有人列；'older' 同一次的舊列；'update' 換成新版
+          if(!diffR && !diffO) mode='same';
+          else if(sameRun){
+            if(!diffR) mode='sibling';
+            else mode = (latestDate(companyRaw) > latestDate(prev)) ? 'update' : 'older';
+          } else mode='update';
+          if(mode==='same' || mode==='sibling'){
+            addAlt(prev);                      // 看過的版本／共有人記在目前這版上，下次比對才認得
+            mergePropInto(dup, np);
+            if(mode==='sibling' && !sameRun){ /* 跨次只換了所有權部（例如共有人順序）：不當變動 */ }
+          } else if(mode==='older'){
             if(companyRaw.cols||companyRaw.rights||companyRaw.owner) pushHist(companyRaw);
-            prev.altRights=[...new Set([...(prev.altRights||[]), companyRaw.rights||''])].filter(Boolean).slice(-10);
-            prev.altOwners=[...new Set([...(prev.altOwners||[]), companyRaw.owner||''])].filter(Boolean).slice(-10);
+            addAlt(prev);
             mergePropInto(dup, np);
           } else {
-            if(sameRun){   // 同一次：把這次看過的版本累積起來，下次比對用
-              companyRaw.altRights=[...new Set([...(prev.altRights||[]), prev.rights||''])].filter(Boolean).slice(-10);
-              companyRaw.altOwners=[...new Set([...(prev.altOwners||[]), prev.owner||''])].filter(Boolean).slice(-10);
-            }
-            // 真的有新版本才算「有變」（上一版成功留進版本紀錄）；同一次多列輪流覆蓋、或回到已看過的版本，都不算
-            const changed = kinds.length>0 && !!(prev.cols||prev.rights||prev.owner) && pushHist(prev);
+            addAlt(companyRaw);                // 新版帶著舊版的清單
+            const changed = !!(prev.cols||prev.rights||prev.owner) && pushHist(prev);
             if(changed) rawChangedN++;
             companyRaw.importedAt=TODAY; companyRaw.importedSrc=importSrc; companyRaw.importRun=runId;
             dup.companyRaw=companyRaw;
-            // 抵押列：依登序聰明合併（既有/手改不動、新增標記、塗銷反灰不計入、設定日期更新）。同一次的重複列（遮罩共有人）不塗銷
             const lr=smartMergeLoans(dup, loans, importSrc, TODAY, {noCancel:sameRun, run:runId});   // 同一次的重複列不塗銷，塗銷只看跨次
             loanAddedN+=lr.added; loanCancelledN+=lr.cancelled;
             mergePropInto(dup, np);
@@ -8905,6 +8910,37 @@ function dedupeAllLogs(dryRun){
   let n=0; const names=[];
   clients.forEach(c=>{ const d=dedupeClientLogs(c, dryRun); if(d){ n+=d; names.push(`${c.name||'(無名)'}（${d}）`); } });
   return {n, names};
+}
+// 清掉「假的」二次匯入記號：舊版跟最新一模一樣（只差空白）的版本紀錄刪掉；之後沒有任何真正不同舊版的人，把「總檔更新：…有變」的記號拿掉
+function cleanFalseReimports(dryRun){
+  const nz=v=>String(v||'').replace(/\s+/g,'');
+  let nHist=0, nMarks=0; const names=new Set();
+  clients.forEach(c=>{
+    let realDiff=false;
+    (c.properties||[]).forEach(p=>{
+      const cr=p.companyRaw||{}; const h=p.rawHistory||[]; if(!h.length) return;
+      // 他項一樣、只有所有權部不同的舊版＝持分共有人各一列（不是版本），一併清掉
+      const keep=[]; const seen=new Set([nz(cr.rights)+'|'+nz(cr.owner)]); const seenR=new Set([nz(cr.rights)]);
+      h.forEach(v=>{ const k=nz(v.rights)+'|'+nz(v.owner); if(seen.has(k) || seenR.has(nz(v.rights))){ nHist++; names.add(c.name||'(無名)'); return; } seen.add(k); seenR.add(nz(v.rights)); keep.push(v); });
+      if(keep.length) realDiff=true;
+      if(!dryRun) p.rawHistory=keep;
+    });
+    const marks=c.reimports||[];
+    const falseMarks=marks.filter(r=>/^總檔更新/.test(r.kind||'') && !realDiff);
+    if(falseMarks.length){ nMarks+=falseMarks.length; names.add(c.name||'(無名)'); if(!dryRun){ c.reimports=marks.filter(r=>!falseMarks.includes(r)); if(!c.reimports.length) delete c.reimports; } }
+  });
+  return {nHist, nMarks, names:[...names]};
+}
+async function cleanupFalseReimports(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=cleanFalseReimports(true);
+  if(!r.nHist && !r.nMarks){ showToast('✅ 沒有假的記號'); return; }
+  if(!(await uiConfirm(`會刪掉 ${r.nHist} 個「跟最新一模一樣」的舊版、拿掉 ${r.nMarks} 個沒有真正差異的 🔁 總檔更新記號（${r.names.slice(0,10).join('、')}${r.names.length>10?'…':''}）。確定？`))) return;
+  const d=cleanFalseReimports(false);
+  saveLocal(); render();
+  showToast(`🧽 已清掉 ${d.nHist} 個重複舊版、${d.nMarks} 個假記號`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 async function cleanupDupLogs(){
   if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
