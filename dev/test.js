@@ -416,6 +416,14 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(lastSiteVisit(V)==='2026-10-05' && visitedWithin(V,30) && !visitedWithin(V,10) && lastSiteVisit({logs:[]})==='' && !visitedWithin({},30),'跑過判定：只看現場拜訪的記錄');
   const M=[{name:'a',logs:[],staleMuteUntil:'2026-12-01'},{name:'b',logs:[{date:TODAY,text:'x',kind:'site'}]}];
   ok(markVisitedClients(M)===1 && M[0].logs[0].kind==='site' && M[0].logs[0].date===TODAY && M[0].staleMuteUntil==='' && M[1].logs.length===1,'記跑過：寫今天現場拜訪、解除暫不追、今天記過的不重複');
+  // t199：跑過判定＝路線建立日之後有現場拜訪；取消打勾後要有更新的記錄才重新打勾
+  eval([ext('siteLogCount'),ext('visitDoneSince')].join('\n'));
+  const W={id:9,logs:[{date:'2026-10-20',text:'到場',kind:'site'},{date:'2026-10-18',text:'電話',kind:'phone'}]};
+  ok(visitDoneSince(W,'2026-10-19',{})===true && visitDoneSince(W,'2026-10-21',{})===false && visitDoneSince({id:1,logs:[]},'2026-10-19',{})===false,'t199 跑過＝建立日之後有現場拜訪');
+  const undo={9:{d:'2026-10-20',n:1}};
+  ok(visitDoneSince(W,'2026-10-19',undo)===false,'t199 取消打勾後不算跑過');
+  W.logs.unshift({date:'2026-10-20',text:'再去一次',kind:'site'});
+  ok(visitDoneSince(W,'2026-10-19',undo)===true,'t199 取消後同一天再寫一筆現場拜訪→重新打勾');
   // t186：存路線／載回
   eval([ext('routeToSaved'),ext('savedToRouteKeys')].join('\n'));
   const RC=[{id:1,name:'甲',properties:[{addr:'A',geo:{lat:25.04,lng:121.55,grade:'精準'}}]},{id:2,name:'乙',properties:[{addr:'B0'},{addr:'B',geo:{lat:25.02,lng:121.55,grade:'隔壁'}}]},{id:3,name:'丙',properties:[{addr:'C',geo:{lat:25.06,lng:121.52,grade:'精準'}}]}];

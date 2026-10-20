@@ -1365,7 +1365,7 @@ async function applyUrlSettings() {
   .rt-names a{color:var(--accent);text-decoration:none}
   .rt-addr{color:var(--t3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
   .rt-done{flex-shrink:0;border:1px solid var(--gbd);background:var(--gbg);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;line-height:1.25;padding:5px 10px;font-family:inherit;min-width:52px}
-  .rt-done:disabled{opacity:.7;cursor:default}
+  .rt-done.is-done{opacity:.75;background:var(--s2);color:var(--t2);border-color:var(--border)}
   .rt-person{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;font-size:14px;line-height:1.3;padding:2px 0}
   .rt-person a{color:var(--accent);text-decoration:none}
   .rt-floor{font-weight:400;font-size:12px;color:var(--t3);margin-left:6px}
@@ -2283,7 +2283,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t198 (路線一站多人:門牌只到「號」,每個人名字後面帶自己的樓層) 2026.10.20';
+const APP_VERSION = '🧪測試版 t199 (路線:「跑過」改成開面板寫現場拜訪記錄,存檔就算跑過;跑過了再按一次可取消打勾(記錄不刪),再寫新記錄會重新打勾;導航只帶沒跑過的站、標題顯示剩幾站) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7563,18 +7563,18 @@ async function saveCurrentRoute(){
   if(!_route.length){ showToast('⚠️ 路線是空的'); return; }
   const cur=savedRoutes.find(r=>r.id===_routeLoadedId);
   if(cur && await uiConfirm(`更新「${cur.name}」這條路線？（取消＝另存新的）`,{ok:'更新',cancel:'另存新的'})){
-    const nr=routeToSaved(cur.name,_route,_routePts,cur.created); cur.stops=nr.stops; saveSavedRoutes(); renderSavedRouteSelect(); showToast(`💾 已更新「${cur.name}」`); return;
+    const nr=routeToSaved(cur.name,_route,_routePts,cur.created); cur.stops=nr.stops; cur.undone={..._routeUndone}; saveSavedRoutes(); renderSavedRouteSelect(); showToast(`💾 已更新「${cur.name}」`); return;
   }
   const d=new Date(); const def=`${d.getMonth()+1}/${d.getDate()} ${(document.getElementById('mapBatch')?.value||'').replace(/^.*?\s/,'')||'路線'}`;
   const name=await uiPrompt('路線名稱：', def); if(name===null) return;
-  const nr=routeToSaved(name,_route,_routePts); savedRoutes.unshift(nr); _routeLoadedId=nr.id; _routeCreated=nr.created;
+  const nr=routeToSaved(name,_route,_routePts); nr.undone={..._routeUndone}; savedRoutes.unshift(nr); _routeLoadedId=nr.id; _routeCreated=nr.created;
   saveSavedRoutes(); renderSavedRouteSelect(); mapRender(); showToast(`💾 已存「${nr.name}」，手機開地圖就能載入`);
 }
 function loadSavedRoute(id){
-  if(!id){ _routeLoadedId=null; _routeCreated=''; renderSavedRouteSelect(); return; }
+  if(!id){ _routeLoadedId=null; _routeCreated=''; _routeUndone={}; renderSavedRouteSelect(); mapRender(); return; }
   const r=savedRoutes.find(x=>x.id===id); if(!r) return;
   const keys=savedToRouteKeys(r, clients, _routePts);
-  _route=keys; _routeLoadedId=r.id; _routeCreated=r.created;
+  _route=keys; _routeLoadedId=r.id; _routeCreated=r.created; _routeUndone={...(r.undone||{})};
   renderSavedRouteSelect(); _mapFitted=false; mapRender();
   showToast(`📂 載入「${r.name}」${keys.length<r.stops.length?`（${r.stops.length-keys.length} 站找不到人或沒座標，略過）`:''}`);
 }
@@ -7698,23 +7698,39 @@ function markVisitedClients(list){
   });
   return n;
 }
-// 一站多人：只記你按的那個人
-async function routeMarkVisitedOne(cid){
-  if(readOnlyMode){ showToast('👁 唯讀模式不能記'); return; }
+// 跑過＝路線建立日之後有「現場拜訪」的聯絡記錄；業主要自己寫內容，所以「跑過」是開面板到聯絡記錄頁、類型預選現場拜訪
+// 取消打勾只動這條路線（_routeUndone 記住取消當下的最後拜訪日與筆數），記錄不刪；之後再寫新的現場拜訪會重新打勾
+let _routeUndone={};
+function siteLogCount(c){ return (c&&c.logs||[]).filter(l=>l&&l.kind==='site').length; }
+function visitDoneSince(c, since, undo){
+  const d=lastSiteVisit(c); if(!d || d<(since||TODAY)) return false;
+  if(undo && undo[c.id]){ const u=undo[c.id]; return d>u.d || siteLogCount(c)>u.n; }
+  return true;
+}
+function routeDoneFor(c){ return visitDoneSince(c, _routeCreated||TODAY, _routeUndone); }
+function openVisitLog(cid){
   const c=clients.find(x=>x.id===cid); if(!c) return;
-  const n=markVisitedClients([c]);
-  if(n){ saveLocal(); showToast(`✔ 已記「現場拜訪」：${dispName(c)}`); } else showToast('今天已經記過了');
+  if(readOnlyMode){ showToast('👁 唯讀模式不能寫記錄'); return; }
+  closeMapView(); openEdit(cid);
+  const nb=document.querySelectorAll('.stab'); if(nb[2]) sSTab(2, nb[2]);
+  curLogKind='site'; if(typeof renderLogKindChips==='function') renderLogKindChips();
+  setTimeout(()=>{ const d=document.getElementById('fLogDate'); if(d && !d.value) d.value=TODAY; const t=document.getElementById('fLogText'); if(t) t.focus(); }, 350);
+  showToast(`✍ 寫「${dispName(c)}」的現場拜訪記錄，存檔後這站就算跑過；右下「回地圖」回來`);
+}
+function routeToggleDone(cid){
+  const c=clients.find(x=>x.id===cid); if(!c) return;
+  if(routeDoneFor(c)){ _routeUndone[c.id]={d:lastSiteVisit(c), n:siteLogCount(c)}; showToast(`↩ 已取消「${dispName(c)}」的打勾（記錄沒刪）`); }
+  else if(_routeUndone[c.id]){ delete _routeUndone[c.id]; showToast(`✔ 「${dispName(c)}」重新打勾`); }
+  else { openVisitLog(cid); return; }
+  const cur=savedRoutes.find(r=>r.id===_routeLoadedId); if(cur){ cur.undone={..._routeUndone}; saveSavedRoutes(); }
   mapRender();
 }
-async function routeMarkVisited(k){
-  if(readOnlyMode){ showToast('👁 唯讀模式不能記'); return; }
+function routeMarkVisitedOne(cid){ routeToggleDone(cid); }
+function routeMarkVisited(k){
   const pt=_routePts[k]||_mapPts[k]; if(!pt) return;
   const people=[...new Set(pt.entries.map(e=>e.c))];
   if(people.length>1){ showToast('這一站有好幾個人，請按名字旁邊各自的「跑過」'); return; }
-  const n=markVisitedClients(people);
-  if(n){ saveLocal(); showToast(`✔ 已記「現場拜訪」：${people.map(dispName).join('、')}`); }
-  else showToast('今天已經記過了');
-  mapRender();
+  routeToggleDone(people[0].id);
 }
 function mapPinIcon(hex, stop, visited){
   return {path:google.maps.SymbolPath.CIRCLE, scale:stop?12:(visited?9:8), fillColor:hex, fillOpacity:visited?.45:.95, strokeColor:visited?'#0F7A55':'#fff', strokeWeight:visited?3:2};
@@ -7797,7 +7813,7 @@ function mapFocus(k){
 function routeAdd(k){ if(!_route.includes(k)) _route.push(k); if(_mapInfo) _mapInfo.close(); mapRender(); }
 function routeRemove(k){ _route=_route.filter(x=>x!==k); if(_mapInfo) _mapInfo.close(); mapRender(); }
 function routeMove(i,d){ const j=i+d; if(j<0||j>=_route.length) return; const t=_route[i]; _route[i]=_route[j]; _route[j]=t; mapRender(); }
-function routeClear(){ _route=[]; _routeLoadedId=null; _routeCreated=''; renderSavedRouteSelect(); mapRender(); }
+function routeClear(){ _route=[]; _routeLoadedId=null; _routeCreated=''; _routeUndone={}; renderSavedRouteSelect(); mapRender(); }
 function routeAddInView(){
   if(!_gmap) return; const b=_gmap.getBounds(); if(!b) return;
   let n=0; Object.entries(_mapPts).forEach(([k,pt])=>{ if(!_route.includes(k) && b.contains({lat:pt.lat,lng:pt.lng})){ _route.push(k); n++; } });
@@ -7847,23 +7863,27 @@ function routeNavUrls(keys, pts){
   }
   return urls;
 }
+function routeStopDone(k){ const pt=_routePts[k]; return !!pt && [...new Set(pt.entries.map(e=>e.c))].every(routeDoneFor); }
+function routePending(){ return _route.filter(k=>_routePts[k] && !routeStopDone(k)); }
 function routeOpenNav(seg){
   if(!_route.length){ showToast('⚠️ 先把點加進路線'); return; }
-  const urls=routeNavUrls(_route,_routePts); seg=seg||0;
+  const keys=routePending();   // 跑過的不帶進導航
+  if(!keys.length){ showToast('✅ 這條路線全部跑過了'); return; }
+  const urls=routeNavUrls(keys,_routePts); seg=seg||0;
   window.open(urls[seg],'_blank');
-  if(urls.length>1 && seg===0) showToast(`路線 ${_route.length} 站分 ${urls.length} 段，先開第 1 段；其他段在路線清單下面`);
+  if(urls.length>1 && seg===0) showToast(`還沒跑的 ${keys.length} 站分 ${urls.length} 段，先開第 1 段；其他段在路線清單下面`);
 }
 function renderRouteList(){
   const el=document.getElementById('routeList'); if(!el) return;
   const rc=document.getElementById('routeCount'); if(rc) rc.textContent=`${_route.length} 站`;
   if(!_route.length){ el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">點地圖上的針 →「加入路線」，或把地圖縮放到今天要跑的那一區再按「畫面內全加」（10～20 站一天剛好）</div>'; return; }
-  if(rc) rc.textContent=`${_route.length} 站・約 ${routeLength(_route,_routePts).toFixed(1)} 公里（直線）`;
-  const urls=routeNavUrls(_route,_routePts);
+  const pend=routePending();
+  if(rc) rc.textContent=`${_route.length} 站${pend.length<_route.length?`・剩 ${pend.length}`:''}・約 ${routeLength(pend.length?pend:_route,_routePts).toFixed(1)} 公里（直線）`;
+  const urls=routeNavUrls(pend.length?pend:_route,_routePts);
   el.innerHTML=_route.map((k,i)=>{ const pt=_routePts[k]; if(!pt) return '';
     const addr=pt.entries[0].p.addr||'';
-    const since=_routeCreated||TODAY;
-    const done=pt.entries.every(e=>lastSiteVisit(e.c)>=since);
     const people=[...new Set(pt.entries.map(e=>e.c))];
+    const done=people.every(routeDoneFor);
     // 多人同一棟：門牌只顯示到「號」，各人名字後面帶自己的樓層（陳先生 5樓、馬小姐 4樓）
     const splitFloor=a=>{ const m=String(a||'').match(/^(.*?\d+(?:之\d+)?號)(.*)$/); return m?{core:m[1],floor:m[2].trim()}:{core:String(a||''),floor:''}; };
     const stopAddr=people.length>1?splitFloor(addr).core:addr;
@@ -7873,10 +7893,10 @@ function renderRouteList(){
       <div class="rt-mid">
         ${people.length===1
           ? `<div class="rt-names" style="${done?'text-decoration:line-through':''}"><a href="#" onclick="closeMapView();openEdit(${people[0].id});return false" title="開這個人的面板看資料">${calEsc(dispName(people[0]))}</a></div>`
-          : people.map(c=>{ const d1=lastSiteVisit(c)>=since; const fl=floorOf(c); return `<div class="rt-person"><a href="#" onclick="closeMapView();openEdit(${c.id});return false" title="開這個人的面板看資料" style="${d1?'text-decoration:line-through;opacity:.6':''}">${calEsc(dispName(c))}${fl?`<span class="rt-floor">${calEsc(fl)}</span>`:''}</a><button class="rt-done rt-done-sm" onclick="routeMarkVisitedOne(${c.id})" ${d1?'disabled':''}>${d1?'✔ 跑過了':'✔ 跑過'}</button></div>`; }).join('')}
+          : people.map(c=>{ const d1=routeDoneFor(c); const fl=floorOf(c); return `<div class="rt-person"><a href="#" onclick="closeMapView();openEdit(${c.id});return false" title="開這個人的面板看資料" style="${d1?'text-decoration:line-through;opacity:.6':''}">${calEsc(dispName(c))}${fl?`<span class="rt-floor">${calEsc(fl)}</span>`:''}</a><button class="rt-done rt-done-sm${d1?' is-done':''}" onclick="routeMarkVisitedOne(${c.id})" title="${d1?'再按一次取消打勾（記錄不會刪）':'開面板寫現場拜訪記錄'}">${d1?'✔ 跑過了':'✍ 跑過'}</button></div>`; }).join('')}
         <div class="rt-addr" onclick="mapFocus('${k}')" title="地圖跳到這一站" style="cursor:pointer">${calEsc(stopAddr)}</div>
       </div>
-      ${people.length===1?`<button class="rt-done" onclick="routeMarkVisited('${k}')" ${done?'disabled':''}>${done?'✔<br>跑過了':'✔<br>跑過'}</button>`:''}
+      ${people.length===1?`<button class="rt-done${done?' is-done':''}" onclick="routeMarkVisited('${k}')" title="${done?'再按一次取消打勾（記錄不會刪）':'開面板寫現場拜訪記錄'}">${done?'✔<br>跑過了':'✍<br>跑過'}</button>`:''}
       <div class="map-adv rt-mv"><button onclick="routeMove(${i},-1)">▲</button><button onclick="routeMove(${i},1)">▼</button></div>
       <button class="map-adv rt-x" onclick="routeRemove('${k}')">✕</button></div>`; }).join('')
     +(urls.length>1?`<div style="margin-top:8px;font-size:12px;color:var(--t2)">分 ${urls.length} 段：${urls.map((u,i)=>`<button onclick="routeOpenNav(${i})" class="bb-btn" style="margin:2px">第 ${i+1} 段</button>`).join('')}</div>`:'');
