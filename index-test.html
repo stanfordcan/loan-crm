@@ -1759,7 +1759,7 @@ async function applyUrlSettings() {
               <span style="width:52px;flex-shrink:0">登序</span><span style="flex:1.3">債權人名稱</span><span style="flex:0 0 88px">金額(萬)</span><span style="flex:0 0 64px">分類</span><span style="width:18px;flex-shrink:0"></span>
             </div>
             <div id="loanRowList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
-            <button onclick="addLoanRow()" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit;width:100%">＋ 新增債權</button>
+            <div style="display:flex;gap:6px"><button onclick="addLoanRow()" style="flex:1;font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">＋ 新增債權</button><button onclick="confirmAllLoans()" title="光特複查過、跟這裡一樣：全部標今天已確認" style="flex:1;font-size:12px;color:var(--green);background:var(--gbg);border:1px solid var(--gbd);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-family:inherit">✔ 今天複查過，全部已確認</button></div>
             <div id="bankLegalHint" style="display:none;margin:8px 0 0"></div>
             <div id="privateHint" style="display:none;margin:8px 0 0"></div>
             <div class="frow cmp" style="margin-top:10px;margin-bottom:0"><label>其他貸款</label>
@@ -2283,7 +2283,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t202 (匯入小結「有變 N 人」只點名這一次真的動到的人,同一天早上那次的記號不再重複列出) 2026.10.20';
+const APP_VERSION = '🧪測試版 t203 (抵押列給光特複查用:每列「塗銷」鈕手動標塗銷(留歷史、舊總檔不復活)、「今天複查過全部已確認」一鍵標日期;手動標的塗銷同步不取消) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -3465,7 +3465,7 @@ function smartMergeLoans(p, incoming, src, date, opts){
     if(!m && !l.s){ m=inc.find((x,i)=>!used.has(i)&&!x.s&&keyNA(x)===keyNA(l)) || inc.find((x,i)=>!used.has(i)&&keyNA(x)===keyNA(l)); }
     if(m){
       used.add(inc.indexOf(m));
-      if(l.x){ delete l.x; }                                  // 之前被標塗銷、這版又出現 → 取消塗銷
+      if(l.x && l.x.src!=='手動'){ delete l.x; }             // 之前被標塗銷、這版又出現 → 取消塗銷（手動標的不取消：那是光特查到的最新狀態）
       if(m.d && l.d!==m.d){ if(l.d) l.dPrev=l.d; l.d=m.d; dated++; }   // 設定日期更新（例如新鑫重設），舊日期留著顯示
       if(isPlaceholderLoanName(l.n) && m.n) l.n=m.n;
       if(!l.s && m.s) l.s=m.s;
@@ -7147,7 +7147,7 @@ function renderLoanRows(){
     const l=p.loans[i];
     const est = getLoanE(l);
     const tags=[];
-    if(l.x) tags.push(`<span class="ltag ltag-x">🚫 新版已塗銷 ${calEsc((l.x.date||'').slice(5))}</span>`);
+    if(l.x) tags.push(`<span class="ltag ltag-x">🚫 ${l.x.src==='手動'?'手動標塗銷':'新版已塗銷'} ${calEsc((l.x.date||'').slice(5))}</span>`);
     if(l.added) tags.push(`<span class="ltag ltag-new">🆕 ${calEsc((l.added.date||'').slice(5))} 新增</span>`);
     if(l.eManual) tags.push(`<span class="ltag ltag-manual">✎ 手改</span>`);
     // 金額確認：手改設定額／實貸會自動標今天；也可以點「待確認」直接標、點「已確認」取消
@@ -7166,7 +7166,7 @@ function renderLoanRows(){
           <option value="legal" ${l.t==='legal'?'selected':''}>法人</option>
           <option value="private" ${l.t==='private'?'selected':''}>民間</option>
         </select>
-        ${l.x?`<button onclick="removeLoanRow(${i})" title="看過了，從清單拿掉" style="flex-shrink:0;background:var(--rbg);color:var(--red);border:1px solid var(--rbd);border-radius:var(--rs);padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">確認移除</button>`:`<button onclick="removeLoanRow(${i})" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1">✕</button>`}
+        ${l.x?`<button onclick="removeLoanRow(${i})" title="看過了，從清單拿掉" style="flex-shrink:0;background:var(--rbg);color:var(--red);border:1px solid var(--rbd);border-radius:var(--rs);padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">確認移除</button>`:`<button onclick="markLoanCancelled(${i})" title="光特查到這筆已塗銷：標塗銷反灰留著當歷史，之後舊總檔不會把它復活" style="flex-shrink:0;background:var(--s2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">塗銷</button><button onclick="removeLoanRow(${i})" title="直接從清單拿掉（登序會記住，舊總檔不會復活）" style="width:18px;flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1">✕</button>`}
       </div>
       ${(l.a||tags.length)?`<div style="font-size:10px;color:var(--t3);margin:2px 0 0 58px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">${l.a?`<span>${l.d?calEsc(l.d)+' ':''}抵押設定 ${l.a}萬</span>`:''}${tags.join('')}</div>`:''}
     </div>`;
@@ -7180,6 +7180,23 @@ function addLoanRow(){
   p.loansManual=true;
   renderLoanRows();
   syncLoanTotalsToForm();
+}
+// 手動標塗銷（光特查到已塗銷）：反灰留著、不計入總額；登序記進 removedSeqs，之後舊總檔再帶來不會復活也不會取消塗銷
+function markLoanCancelled(i){
+  const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
+  const l=p.loans[i]; l.x={date:TODAY, src:'手動'};
+  const seq=String(l.s||'').trim();
+  if(seq){ p.removedSeqs=Array.isArray(p.removedSeqs)?p.removedSeqs:[]; if(!p.removedSeqs.includes(seq)) p.removedSeqs.push(seq); }
+  p.loansManual=true; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  renderLoanRows(); syncLoanTotalsToForm();
+  showToast(`🚫 已標塗銷${seq?'（登序 '+seq+'）':''}，總額已扣除；要從清單拿掉按「確認移除」`);
+}
+// 光特複查過、跟系統一樣 → 全部標今天已確認（塗銷的不標）
+function confirmAllLoans(){
+  const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans.length){ showToast('這間沒有抵押列'); return; }
+  let n=0; p.loans.forEach(l=>{ if(!l.x){ l.confirmed={date:TODAY}; n++; } });
+  p.loansManual=true; formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  renderLoanRows(); showToast(`✔ ${n} 筆標為今天已確認`);
 }
 function removeLoanRow(i){
   const p=properties[curPropIdx]; if(!p||!p.loans||!p.loans[i]) return;
