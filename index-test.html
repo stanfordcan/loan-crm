@@ -2243,7 +2243,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t189 (地圖:沒全名的顯示「陳先生／陳小姐」(清單、資訊窗、提示都一致);手機路線清單重排:每站兩行卡、右側大顆「✔ 跑過」、導航鈕固定在路線標題排) 2026.10.20';
+const APP_VERSION = '🧪測試版 t190 (查地址:手打的地址沒寫區就不拿區來判不準,只比路巷弄號) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7265,7 +7265,7 @@ function geoParts(s){
 function geoGrade(q, addr){
   const a=geoParts(q), b=geoParts(addr);
   if(!b.dist && !b.no && !b.rng) return '不準';
-  if(a.dist!==b.dist || a.lane!==b.lane) return '不準';
+  if((a.dist && a.dist!==b.dist) || a.lane!==b.lane) return '不準';   // 查的地址沒寫區（手打查地址常這樣）就不比區，只比路巷弄號
   if(a.alley!==b.alley){
     // 查「265巷25弄7號」Google 沒有這條弄、回「265巷25號」＝釘在 25 弄的巷口，差幾十公尺 → 隔壁
     if(a.alley && !b.alley && !b.rng && b.no===a.alley) return '隔壁';
