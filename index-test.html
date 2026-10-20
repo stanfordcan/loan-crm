@@ -1333,6 +1333,8 @@ async function applyUrlSettings() {
   #mapView{display:none;position:fixed;inset:0;z-index:9300;background:var(--bg);flex-direction:column}
   #mapBody{flex:1;display:flex;min-height:0}
   #gmap{flex:1;min-height:0}
+  .map-adv-btn{display:none}
+  @media (max-width:700px){ .map-adv-btn{display:inline-block} #mapView:not(.adv) .map-adv{display:none !important} }
   #routePanel select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
   #routePanel{width:290px;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-height:0}
   #mapTop select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
@@ -1342,33 +1344,34 @@ async function applyUrlSettings() {
   <div id="mapTop" style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap">
     <button class="bb-btn" onclick="closeMapView()">✕ 關閉</button>
     <button class="bb-btn" id="mapSelChip" onclick="mapClearSel()" style="display:none;background:var(--obg);color:var(--orange);border-color:var(--obd)" title="從主畫面勾人「上地圖」進來的；按一下回到全部客戶">只看勾選的 0 人 ✕</button>
-    <button class="bb-btn" id="mapLockBtn" onclick="toggleMapLock()" title="鎖定時圖釘只能點、不能拖；要改座標才解鎖">🔒 鎖定</button>
+    <button class="bb-btn map-adv" id="mapLockBtn" onclick="toggleMapLock()" title="鎖定時圖釘只能點、不能拖；要改座標才解鎖">🔒 鎖定</button>
     <input id="mapSearch" placeholder="🔍 找人：姓名／電話" oninput="mapSearchChanged()" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;width:150px"/>
-    <input id="mapAddrSearch" placeholder="📍 查地址，Enter 定位" onkeydown="if(event.key==='Enter'){event.preventDefault();mapSearchAddress();}" title="打任何地址，Google 定位後放一根紅針，拿來對照客戶的針準不準" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;width:190px"/>
-    <select id="mapBatch" onchange="mapRefit()" title="只看某個批次（只列有定位過的批次）"><option value="">全部批次</option></select>
-    <select id="mapVisited" onchange="mapRender()" title="跑過＝30 天內有「現場拜訪」的聯絡記錄">
+    <input id="mapAddrSearch" class="map-adv" placeholder="📍 查地址，Enter 定位" onkeydown="if(event.key==='Enter'){event.preventDefault();mapSearchAddress();}" title="打任何地址，Google 定位後放一根紅針，拿來對照客戶的針準不準" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;width:190px"/>
+    <select id="mapBatch" class="map-adv" onchange="mapRefit()" title="只看某個批次（只列有定位過的批次）"><option value="">全部批次</option></select>
+    <select id="mapVisited" class="map-adv" onchange="mapRender()" title="跑過＝30 天內有「現場拜訪」的聯絡記錄">
       <option value="all">跑過沒跑過都看</option>
       <option value="no">只看沒跑過的</option>
       <option value="yes">只看跑過的</option>
     </select>
-    <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="mapStaleOnly" onchange="mapRender()"/>只看久未聯絡</label>
-    <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer" title="預設不上圖，要看再勾"><input type="checkbox" id="mapClosedToo" onchange="mapRender()"/>含已簽約／無效</label>
-    <span id="mapCount" style="font-size:12px;color:var(--t2)"></span>
-    <button class="bb-btn" id="mapMissingBtn" onclick="mapShowMissing()" title="有門牌但沒座標的：不準／查無／還沒查">未上圖 0</button>
-    <button class="bb-btn" onclick="mapRefit()" title="把畫面縮放到看得到所有點">⤢ 全部看到</button>
+    <label class="map-adv" style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="mapStaleOnly" onchange="mapRender()"/>只看久未聯絡</label>
+    <label class="map-adv" style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer" title="預設不上圖，要看再勾"><input type="checkbox" id="mapClosedToo" onchange="mapRender()"/>含已簽約／無效</label>
+    <span id="mapCount" class="map-adv" style="font-size:12px;color:var(--t2)"></span>
+    <button class="bb-btn map-adv" id="mapMissingBtn" onclick="mapShowMissing()" title="有門牌但沒座標的：不準／查無／還沒查">未上圖 0</button>
+    <button class="bb-btn map-adv" onclick="mapRefit()" title="把畫面縮放到看得到所有點">⤢ 全部看到</button>
+    <button class="bb-btn map-adv-btn" id="mapAdvBtn" onclick="toggleMapAdv()" title="手機預設只留跑路線要用的；排路線、篩選、查地址在這裡">⋯ 進階</button>
   </div>
   <div id="mapBody">
     <div id="gmap"></div>
     <div id="routePanel">
       <div style="padding:8px 10px 4px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">🧭 路線 <span id="routeCount" style="font-weight:400;color:var(--t3);font-size:12px">0 站</span><span style="flex:1"></span>
         <select id="routeSaved" onchange="loadSavedRoute(this.value)" title="載入存過的路線（電腦排好、手機點一下就能跑）" style="max-width:150px"><option value="">📂 路線…</option></select>
-        <button class="bb-btn" onclick="saveCurrentRoute()" title="把現在這條路線存起來，所有裝置都看得到" style="padding:4px 8px">💾 存</button>
-        <button class="bb-btn" id="routeDelBtn" onclick="deleteLoadedRoute()" title="刪掉載入的這條路線" style="padding:4px 8px;display:none;background:var(--rbg);color:var(--red);border-color:var(--rbd)">🗑</button>
-        <button class="bb-btn" onclick="routeClear()" style="padding:4px 8px">清空</button></div>
+        <button class="bb-btn map-adv" onclick="saveCurrentRoute()" title="把現在這條路線存起來，所有裝置都看得到" style="padding:4px 8px">💾 存</button>
+        <button class="bb-btn map-adv" id="routeDelBtn" onclick="deleteLoadedRoute()" title="刪掉載入的這條路線" style="padding:4px 8px;display:none;background:var(--rbg);color:var(--red);border-color:var(--rbd)">🗑</button>
+        <button class="bb-btn map-adv" onclick="routeClear()" style="padding:4px 8px">清空</button></div>
       <div id="routeLoadedName" style="display:none;padding:0 10px 4px;font-size:12px;color:var(--accent);font-weight:600"></div>
       <div style="display:flex;gap:4px;padding:0 10px 6px;flex-wrap:wrap">
-        <button class="bb-btn" onclick="routeAddInView()" title="把地圖畫面內看得到的點全部加進路線" style="padding:5px 8px">➕ 畫面內全加</button>
-        <button class="bb-btn" onclick="routeOptimize()" title="從第一站起每次走最近的一站" style="padding:5px 8px">🔀 最近順序</button>
+        <button class="bb-btn map-adv" onclick="routeAddInView()" title="把地圖畫面內看得到的點全部加進路線" style="padding:5px 8px">➕ 畫面內全加</button>
+        <button class="bb-btn map-adv" onclick="routeOptimize()" title="從第一站起每次走最近的一站" style="padding:5px 8px">🔀 最近順序</button>
         <button class="bb-btn" onclick="routeOpenNav()" style="background:var(--accent);color:#fff;border-color:var(--accent);padding:5px 8px">🚗 開 Google 導航</button>
       </div>
       <div id="routeList" style="flex:1;overflow:auto;padding:0 10px 10px"></div>
@@ -2227,7 +2230,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t186 (地圖:「📍 查地址」打任何地址 Google 定位放紅針,可對照客戶的針,紅針才對就一鍵套用到剛點的那個人;路線可「💾 存」成路線、📂 下拉載入,跟著帳號雲端同步:電腦排、手機載入就跑;跑過看聯絡記錄算,哪台記的都同步) 2026.10.20';
+const APP_VERSION = '🧪測試版 t187 (手機地圖改「跑路線模式」:只留關閉、找人、📂 路線、站名、✔ 跑過、開導航;批次/篩選/查地址/鎖定/存/排序/清空收進「⋯ 進階」;電腦版不變) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7554,6 +7557,7 @@ async function applyTempToKey(){
   const nk=geoKey(pos); _route=_route.map(x=>x===k?nk:x); _lastInfoKey=nk;
   saveLocal(); removeTempMarker(); mapRender(); showToast(`📍 已套用：${names}`);
 }
+function toggleMapAdv(){ const v=document.getElementById('mapView'); v.classList.toggle('adv'); const b=document.getElementById('mapAdvBtn'); if(b) b.textContent=v.classList.contains('adv')?'⋯ 收起':'⋯ 進階'; }
 function toggleMapLock(){ _mapLocked=!_mapLocked; renderMapLock(); mapRender(); showToast(_mapLocked?'🔒 圖釘已鎖定，不能拖':'🔓 已解鎖，拖圖釘可改座標（放開會先問你）'); }
 function renderMapLock(){ const b=document.getElementById('mapLockBtn'); if(!b) return; b.textContent=_mapLocked?'🔒 鎖定':'🔓 可拖'; b.style.background=_mapLocked?'':'var(--obg)'; b.style.color=_mapLocked?'':'var(--orange)'; b.style.borderColor=_mapLocked?'':'var(--obd)'; }
 function geoKey(g){ return (+g.lat).toFixed(6)+','+(+g.lng).toFixed(6); }
@@ -7580,6 +7584,7 @@ async function openMapView(opts){
   const v=document.getElementById('mapView'); if(!v) return;
   renderMapSelChip();
   _mapLocked=true; renderMapLock();   // 每次開地圖都回到鎖定，手機才不會誤拖
+  if(!opts.keep){ v.classList.remove('adv'); const ab=document.getElementById('mapAdvBtn'); if(ab) ab.textContent='⋯ 進階'; }   // 手機每次開都回到跑路線模式
   v.style.display='flex'; updateMapBackBtn();
   renderMapBatchSelect(); renderSavedRouteSelect();
   try{ await loadGeoLib(); }catch(e){ showToast('⚠️ 地圖載入失敗，請檢查網路'); return; }
@@ -7785,11 +7790,11 @@ function renderRouteList(){
       <span style="background:${done?'var(--green)':'var(--accent)'};color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${done?'✓':i+1}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:600;${done?'text-decoration:line-through':''}">${[...new Set(pt.entries.map(e=>e.c))].map(c=>`<a href="#" onclick="closeMapView();openEdit(${c.id});return false" title="開這個人的面板看資料" style="color:var(--accent);text-decoration:none">📋 ${calEsc(c.name||'(無名)')}</a>`).join('、')}</div><div style="color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc(addr)}</div>
         <button onclick="routeMarkVisited('${k}')" ${done?'disabled':''} style="margin-top:3px;border:1px solid var(--gbd);background:var(--gbg);color:var(--green);border-radius:6px;cursor:pointer;font-size:11px;padding:2px 8px;font-family:inherit">${done?'✔ 跑過了':'✔ 跑過'}</button></div>
-      <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+      <div class="map-adv" style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
         <button onclick="routeMove(${i},-1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▲</button>
         <button onclick="routeMove(${i},1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▼</button>
       </div>
-      <button onclick="routeRemove('${k}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 2px">✕</button></div>`; }).join('')
+      <button class="map-adv" onclick="routeRemove('${k}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 2px">✕</button></div>`; }).join('')
     +(urls.length>1?`<div style="margin-top:8px;font-size:12px;color:var(--t2)">分 ${urls.length} 段：${urls.map((u,i)=>`<button onclick="routeOpenNav(${i})" class="bb-btn" style="margin:2px">第 ${i+1} 段</button>`).join('')}</div>`:'');
 }
 
