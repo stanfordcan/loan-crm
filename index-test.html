@@ -1576,7 +1576,7 @@ async function applyUrlSettings() {
           <!-- 位置與標示 -->
           <div class="prop-card prop-full">
             <div class="prop-card-hd">📍 位置與標示</div>
-            <div class="frow cmp"><label>門牌地址</label><div style="display:flex;gap:6px"><input id="fAddr" placeholder="" style="flex:1;min-width:0" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/><button type="button" class="inl-btn" onclick="openMapForProp()" title="在 Google 地圖釘出這個門牌">📍 地圖</button></div><div style="display:flex;gap:8px;align-items:center;margin-top:3px"><span id="geoTag"></span><button type="button" class="inl-btn" onclick="regeocodeCurrent()" title="用這個門牌向 Google 查座標（精準／隔壁／不準）" style="font-size:11px;padding:2px 7px">🔄 查座標</button></div></div>
+            <div class="frow cmp"><label>門牌地址</label><div style="display:flex;gap:6px"><input id="fAddr" placeholder="" style="flex:1;min-width:0" oninput="syncToEval('ev_addr', this.value);autoFillDistrict(this.value)"/><button type="button" class="inl-btn" onclick="openMapForProp()" title="在 Google 地圖釘出這個門牌">📍 地圖</button></div><div style="display:flex;gap:8px;align-items:center;margin-top:3px"><span id="geoTag"></span><button type="button" class="inl-btn" onclick="regeocodeCurrent()" title="用這個門牌向 Google 查座標（精準／隔壁／不準）" style="font-size:11px;padding:2px 7px">🔄 查座標</button><button type="button" class="inl-btn" onclick="pasteGeoCurrent()" title="只有地號、沒門牌的：貼 Google 地圖網址或座標" style="font-size:11px;padding:2px 7px">✏️ 貼座標</button></div></div>
             <div class="fg2">
               <div class="frow cmp"><label>地段（區）</label><input id="fDistrict" placeholder="例：松山區" oninput="syncToEval('ev_district', this.value)"/></div>
               <div class="frow cmp"><label>地段號</label><input id="fPurpose" placeholder="" oninput="syncToEval('ev_section', this.value)"/></div>
@@ -1843,7 +1843,7 @@ async function applyUrlSettings() {
       <button onclick="cleanupDupLogs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理重複聯絡記錄<br><span style="font-size:10px;font-weight:400;opacity:.8">同一句話多筆只留一筆、被截斷的半句與沒日期的雜訊刪掉（先列清單再確認）</span></button>
       <button onclick="cleanupAddrs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔤 門牌統一寫法<br><span style="font-size:10px;font-weight:400;opacity:.8">全形數字→半形、五樓→5樓、去空白；客戶地址、戶籍、每張不動產都統一（先列數量再確認）</span></button>
       <button onclick="cleanupDuplicateProps()" style="width:100%;background:var(--obg);color:var(--orange);border:1px solid var(--obd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏚️ 合併重複的不動產<br><span style="font-size:10px;font-weight:400;opacity:.8">同一人底下同建號、或門牌只差全形半形／中文數字的，併成一張（先列清單再確認）</span></button>
-      <button onclick="geocodeTool()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">📍 查座標（還沒查過的不動產）<br><span style="font-size:10px;font-weight:400;opacity:.8">向 Google 查門牌座標，存在各筆不動產上，給排路線用；每月前 1 萬次免費。不準的會列出來</span></button>
+      <button onclick="geocodeTool()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">📍 查座標（還沒查過的不動產）<br><span style="font-size:10px;font-weight:400;opacity:.8">先問要查哪一區，向 Google 查門牌座標，存在各筆不動產上，給排路線用；每月前 1 萬次免費。不準的會列出來</span></button>
       <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
       <button onclick="var d=document.getElementById('oldDataTools');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.arr').textContent=open?'▴':'▾'" style="width:100%;background:var(--s2);color:var(--t2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
         <span>🧰 舊資料整理（一次性）</span><span class="arr" style="font-size:11px">▾</span>
@@ -2165,7 +2165,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t173 (查座標:設定頁一鍵查所有沒查過的不動產、匯入後自動查這批、面板門牌旁顯示精準/隔壁/不準並可重查;不準的不存座標) 2026.10.20';
+const APP_VERSION = '🧪測試版 t174 (查座標可只查某一區(預設大安區);只有地號沒門牌的可在面板「貼座標」:貼 Google 地圖網址或 25.03,121.55 存成「手填」,自動查不會蓋掉) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7192,15 +7192,17 @@ function geoGrade(q, addr){
   return a.sub===b.sub ? '精準' : '隔壁';
 }
 // 哪些不動產要查：有門牌、還沒查過、或門牌改了（存的 q 跟現在算的不一樣）。onlyIds 給就只看那些客戶
-function propsNeedingGeo(onlyIds){
+function propsNeedingGeo(onlyIds, area){
   const out=[];
+  area=String(area||'').replace(/\s+/g,'').replace(/台/g,'臺');
   clients.forEach(c=>{
     if(onlyIds && !onlyIds.has(c.id)) return;
     (c.properties||[]).forEach((p,i)=>{
       if(!p.addr) return;
+      if(area && !String((p.addr||'')+'|'+(p.district||'')+'|'+(c.district||'')).replace(/台/g,'臺').includes(area)) return;
       const r=addrForGeo(p.addr, p.district||c.district||'');
       if(!r.q || r.level==='不準' || r.level==='無地址') return;
-      if(p.geo && p.geo.q===r.q) return;
+      if(p.geo && (p.geo.q===r.q || p.geo.grade==='手填')) return;   // 手填的不被自動查蓋掉
       out.push({c,p,i,q:r.q});
     });
   });
@@ -7269,9 +7271,12 @@ function geoSummaryText(st, total){
 // 設定頁按鈕：查所有還沒查過／門牌改過的不動產
 async function geocodeTool(){
   if(readOnlyMode){ showToast('👁 唯讀模式不能查'); return; }
-  const targets=propsNeedingGeo();
-  if(!targets.length){ showToast('✅ 所有有門牌的不動產都查過座標了'); return; }
-  if(!(await uiConfirm(`有 ${targets.length} 間不動產還沒查座標（或門牌改過）。\n\n會逐間向 Google 查，每月前 1 萬次免費；查完座標存在各筆不動產上，不準的會列出來。\n\n開始？`,{ok:'開始查'}))) return;
+  const area=await uiPrompt('要查哪一區？（例：大安區；留空＝全部）', localStorage.getItem('crm_geo_area')||'大安區');
+  if(area===null) return;
+  try{ localStorage.setItem('crm_geo_area', area); }catch(e){}
+  const targets=propsNeedingGeo(null, area);
+  if(!targets.length){ showToast(`✅ ${area?area+'的':''}有門牌的不動產都查過座標了`); return; }
+  if(!(await uiConfirm(`${area?area+'有 ':'有 '}${targets.length} 間不動產還沒查座標（或門牌改過）。\n\n會逐間向 Google 查，每月前 1 萬次免費；查完座標存在各筆不動產上，不準的會列出來。\n\n開始？`,{ok:'開始查'}))) return;
   showToast(`📍 查座標中… 0／${targets.length}`);
   const st=await geocodeProps(targets,(d,n)=>{ if(d%10===0||d===n) showToast(`📍 查座標中… ${d}／${n}`); });
   if(st.done){ saveLocal(); render(); if(editId && typeof loadPropFields==='function') loadPropFields(curPropIdx); }
@@ -7291,7 +7296,7 @@ function geocodeAfterImport(ids){
 function geoTagHtml(p){
   const g=p&&p.geo;
   if(!g) return '<span style="font-size:11px;color:var(--t3)">座標未查</span>';
-  const col={'精準':'var(--green)','隔壁':'var(--orange)','不準':'var(--red)','查無':'var(--t3)'}[g.grade]||'var(--t3)';
+  const col={'精準':'var(--green)','隔壁':'var(--orange)','不準':'var(--red)','查無':'var(--t3)','手填':'var(--accent)'}[g.grade]||'var(--t3)';
   const tip=g.addr?`Google：${g.addr}`:'';
   return `<span title="${calEsc(tip)}" style="font-size:11px;color:${col};font-weight:600">📍${g.grade}</span>`;
 }
@@ -7300,12 +7305,33 @@ function renderGeoTag(){
   const p=properties[curPropIdx];
   el.innerHTML=p?geoTagHtml(p):'';
 }
+// 手動貼座標：接受「25.0304,121.5521」或 Google 地圖網址（@25.03,121.55 或 q=25.03,121.55 或 !3d25.03!4d121.55）。回 {lat,lng} 或 null
+function parseLatLng(txt){
+  txt=String(txt||'').trim(); if(!txt) return null;
+  let m=txt.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || txt.match(/[@=](-?\d+\.\d+),(-?\d+\.\d+)/) || txt.match(/^(-?\d+\.\d+)\s*[,，\s]\s*(-?\d+\.\d+)$/);
+  if(!m) return null;
+  let lat=+m[1], lng=+m[2];
+  if(lat>90 && lng<=90){ const t=lat; lat=lng; lng=t; }   // 貼反了（121,25）也認
+  if(!(lat>=21 && lat<=27 && lng>=118 && lng<=123)) return null;   // 台灣範圍外當貼錯
+  return {lat:+lat.toFixed(7), lng:+lng.toFixed(7)};
+}
+async function pasteGeoCurrent(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能改'); return; }
+  const p=properties[curPropIdx]; if(!p) return;
+  const txt=await uiPrompt('貼 Google 地圖的網址或座標（例 25.0304,121.5521）。只有地號、沒門牌的用這個。', p.geo&&p.geo.lat?`${p.geo.lat},${p.geo.lng}`:'');
+  if(txt===null) return;
+  const ll=parseLatLng(txt);
+  if(!ll){ showToast('⚠️ 看不懂這串，要像 25.0304,121.5521 或 Google 地圖網址'); return; }
+  p.geo={lat:ll.lat, lng:ll.lng, grade:'手填', q:'', addr:'', ts:TODAY};
+  renderGeoTag(); formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();
+  showToast(`📍 手填座標 ${ll.lat}, ${ll.lng}`);
+}
 async function regeocodeCurrent(){
   if(readOnlyMode){ showToast('👁 唯讀模式不能查'); return; }
   const p=properties[curPropIdx]; if(!p) return;
   const addr=cleanAddr(document.getElementById('fAddr')?.value||'');
   const r=addrForGeo(addr, document.getElementById('fDistrict')?.value||'');
-  if(!r.q || r.level==='不準' || r.level==='無地址'){ showToast('⚠️ 這個門牌不能查：'+(r.notes[0]||'缺門牌號')); return; }
+  if(!r.q || r.level==='不準' || r.level==='無地址'){ showToast('⚠️ 這個門牌不能查：'+(r.notes[0]||'缺門牌號')+'。只有地號的請按「✏️ 貼座標」'); return; }
   showToast('📍 查座標中…');
   const st=await geocodeProps([{c:{name:''},p,q:r.q}]);
   renderGeoTag(); formDirty=true; if(typeof scheduleDraftSave==='function') scheduleDraftSave();

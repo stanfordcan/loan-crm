@@ -334,6 +334,15 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   const need=propsNeedingGeo();
   ok(need.length===3 && need.map(t=>t.q).join('|')==='臺北市大安區敦化南路一段233巷63號|臺北市大安區建國南路二段33號|臺北市中山區民權東路一段72號','要查的：沒查過、門牌改過的；查過且沒改、空白、補不出縣市的都跳過');
   ok(propsNeedingGeo(new Set([2])).length===1,'只看指定客戶');
+  ok(propsNeedingGeo(null,'大安區').length===2 && propsNeedingGeo(null,'中山區').length===1 && propsNeedingGeo(null,'台北市大安區').length===2,'t174 只查某一區（台→臺也認）');
+  clients[0].properties[0].geo={lat:25,lng:121,grade:'手填',q:'',ts:'2026-10-20'};
+  ok(propsNeedingGeo(null,'大安區').length===1,'t174 手填的不會被自動查蓋掉');
+  eval(ext('parseLatLng'));
+  ok(JSON.stringify(parseLatLng('25.0304377,121.5521032'))==='{"lat":25.0304377,"lng":121.5521032}','貼座標：逗號分隔');
+  ok(JSON.stringify(parseLatLng('https://www.google.com/maps/place/xx/@25.0304377,121.5521032,17z/data=!3m1!4b1'))==='{"lat":25.0304377,"lng":121.5521032}','貼座標：Google 地圖網址 @lat,lng');
+  ok(JSON.stringify(parseLatLng('https://www.google.com/maps/place/xx/data=!3d25.0304377!4d121.5521032'))==='{"lat":25.0304377,"lng":121.5521032}','貼座標：網址 !3d!4d');
+  ok(JSON.stringify(parseLatLng('121.5521032, 25.0304377'))==='{"lat":25.0304377,"lng":121.5521032}','貼座標：貼反了也認');
+  ok(parseLatLng('35.6,139.7')===null && parseLatLng('abc')===null,'貼座標：台灣以外或看不懂→null');
   clients=_c;
 }
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
