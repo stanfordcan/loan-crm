@@ -2282,7 +2282,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t195 (路線:一站多人時每個人各自一顆「跑過」,去了誰按誰;全部按完整站才打勾) 2026.10.20';
+const APP_VERSION = '🧪測試版 t196 (座標守門:區寫錯但巷弄號全對→隔壁照存;Google 回簡體字也認;舊的不準重查會自動套新規則) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7292,7 +7292,7 @@ function addrForGeo(raw, district){
 }
 // 拆地址成 區／巷／弄／主號／之號，給 geoGrade 比對用。Google 回傳的「458-460號」「88~92號」是範圍寫法，含在內就算對；「5 之1號」有空白也認
 function geoParts(s){
-  s=String(s||'').replace(/\s+/g,'').replace(/台/g,'臺');
+  s=String(s||'').replace(/\s+/g,'').replace(/台/g,'臺').replace(/区/g,'區').replace(/冈/g,'岡').replace(/庄/g,'莊');   // Google 偶爾回簡體
   const rng=s.match(/(\d+)[-~～](\d+)號/);
   s=s.replace(/號[^號]*號$/,'號');
   // 區名：先剝掉 Google 前面的郵遞區號＋「臺灣」、再剝縣市，剩下開頭那段「xx區／xx鄉／xx鎮／xx市」才是區（直接找「區」會抓到「市大安區」）
@@ -7305,7 +7305,9 @@ function geoParts(s){
 function geoGrade(q, addr){
   const a=geoParts(q), b=geoParts(addr);
   if(!b.dist && !b.no && !b.rng) return '不準';
-  if((a.dist && a.dist!==b.dist) || a.lane!==b.lane) return '不準';   // 查的地址沒寫區（手打查地址常這樣）就不比區，只比路巷弄號
+  // 區寫錯（新店區其實是文山區、「華區」少個萬字）但巷弄號之號全對 → Google 釘對了，算隔壁照存；區對不上又有別的不對才是真不準
+  if(a.dist && a.dist!==b.dist){ return (a.lane===b.lane && a.alley===b.alley && !b.rng && a.no===b.no && a.sub===b.sub && a.no) ? '隔壁' : '不準'; }
+  if(a.lane!==b.lane) return '不準';
   if(a.alley!==b.alley){
     // 查「265巷25弄7號」Google 沒有這條弄、回「265巷25號」＝釘在 25 弄的巷口，差幾十公尺 → 隔壁
     if(a.alley && !b.alley && !b.rng && b.no===a.alley) return '隔壁';
