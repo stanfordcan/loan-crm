@@ -370,5 +370,27 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(parseLatLng('35.6,139.7')===null && parseLatLng('abc')===null,'貼座標：台灣以外或看不懂→null');
   clients=_c;
 }
+// t179：地圖與路線（純函式：分組、最近順序、導航網址分段）
+{
+  eval([ext('geoKey'),ext('mapGroupPoints'),ext('geoDist'),ext('routeNearestOrder'),ext('routeNavUrls')].join('\n'));
+  const L=[
+    {id:1,name:'甲',heat:'覆訪',properties:[{addr:'A1',geo:{lat:25.04,lng:121.54,grade:'精準'}},{addr:'A2',geo:{lat:25.04,lng:121.54,grade:'隔壁'}}]},
+    {id:2,name:'乙',heat:'追很緊',properties:[{addr:'B',geo:{lat:25.05,lng:121.55,grade:'手填'}}]},
+    {id:3,name:'丙',heat:'覆訪',properties:[{addr:'C',geo:{grade:'不準',q:'x'}},{addr:'D'}]},
+    {id:4,name:'丁',heat:'無效案件',properties:[{addr:'E',geo:{lat:25.06,lng:121.56,grade:'精準'}}]},
+  ];
+  const r=mapGroupPoints(L,new Set(['覆訪','追很緊']),false);
+  ok(Object.keys(r.pts).length===2 && r.pts[geoKey({lat:25.04,lng:121.54})].entries.length===2,'地圖分組：同座標併一針、不準的不上圖、分類篩掉無效');
+  ok(r.missing.length===2 && r.missing.map(m=>m.why).join(',')==='不準,未查','未上圖：不準＋沒查的都列出來');
+  ok(Object.keys(mapGroupPoints(L,new Set(['覆訪','追很緊']),true,c=>c.id===2).pts).length===1,'只看久未聯絡：用傳進來的判斷');
+  const pts={a:{lat:25.00,lng:121.50},b:{lat:25.10,lng:121.50},c:{lat:25.01,lng:121.50},d:{lat:25.05,lng:121.50}};
+  ok(routeNearestOrder(['a','b','c','d'],pts).join('')==='acdb','最近順序：a→c→d→b');
+  ok(routeNearestOrder(['a','b'],pts).join('')==='ab','兩站不動');
+  const keys=Array.from({length:12},(_,i)=>'k'+i); const P={}; keys.forEach((k,i)=>P[k]={lat:25+i*0.01,lng:121.5});
+  const urls=routeNavUrls(keys,P);
+  ok(urls.length===2 && !urls[0].includes('origin=') && urls[0].includes('destination=25.09,121.5') && decodeURIComponent(urls[0]).split('|').length===9,'導航網址：10 站一段、第一段起點＝目前位置、9 個中途點');
+  ok(urls[1].includes('origin=25.09,121.5') && urls[1].includes('destination=25.11,121.5'),'第二段起點＝第一段終點');
+  ok(routeNavUrls(['k0'],P)[0]==='https://www.google.com/maps/dir/?api=1&destination=25,121.5&travelmode=driving','單站只有終點');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);

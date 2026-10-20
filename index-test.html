@@ -1226,6 +1226,8 @@ async function applyUrlSettings() {
     <button class="imenu-item" id="tenBtn" onclick="closeMainMenu();openTenModal()">📄 謄本匯入</button>
     <button class="imenu-item" id="aiBtn" onclick="closeMainMenu();openAiImport()">🤖 AI 匯入</button>
     <div class="menu-sep"></div>
+    <button class="imenu-item" id="mapBtn" onclick="closeMainMenu();openMapView()">🗺️ 地圖與路線</button>
+    <div class="menu-sep"></div>
     <button class="imenu-item" id="inboxBtn" style="display:none;color:var(--red)" onclick="closeMainMenu();openInbox()">📨 待審<span id="inboxCount"></span></button>
     <button class="imenu-item" id="blBtn" onclick="closeMainMenu();openBlacklist()">🚫 黑名單<span id="blCount"></span></button>
     <div class="menu-sep"></div>
@@ -1308,9 +1310,47 @@ async function applyUrlSettings() {
     <button class="bb-btn" onclick="withSel(ltExportCompany)" title="匯出公司格式（25欄）Excel，版面照總檔">📤 公司格式</button>
     <button class="bb-btn" onclick="withSel(ltExportNoticeData)" title="匯出通知單資料">📬 通知單</button>
     <button class="bb-btn" onclick="withSel(ltPrintNotice)" title="列印投遞通知單">🖨️ 列印</button>
-    <button class="bb-btn" onclick="withSel(mapFromSelection)" title="地圖名單 CSV（給 Google 我的地圖），只預勾目前選取的人">🗺️ 地圖</button>
+    <button class="bb-btn" onclick="withSel(()=>openMapView({ids:_ltChecked}))" title="把勾選的人放到地圖上排路線">🗺️ 上地圖</button>
+    <button class="bb-btn" onclick="withSel(mapFromSelection)" title="地圖名單 CSV（給 Google 我的地圖），只預勾目前選取的人">📄 地圖CSV</button>
     <button class="bb-btn" onclick="batchClearReimport()" title="把勾選的人身上的 🔁 二次匯入記號清掉（例如只是補持分重匯）" style="background:var(--obg);color:var(--orange);border-color:var(--obd)">清除 🔁 記號</button>
     <button class="bb-btn" onclick="batchDeleteSelected()" title="刪除勾選的客戶（不加黑名單）" style="background:var(--rbg);color:var(--red);border-color:var(--rbd)">🗑️ 刪除勾選</button>
+  </div>
+</div>
+
+<!-- 🗺️ 地圖與路線（t179）：有座標的不動產上圖、點針加路線、拖針改座標、開 Google 導航 -->
+<style>
+  #mapView{display:none;position:fixed;inset:0;z-index:9300;background:var(--bg);flex-direction:column}
+  #mapBody{flex:1;display:flex;min-height:0}
+  #gmap{flex:1;min-height:0}
+  #routePanel{width:290px;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-height:0}
+  #mapTop select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
+  @media (max-width:700px){ #mapBody{flex-direction:column} #routePanel{width:auto;height:38%;border-left:none;border-top:1px solid var(--border)} }
+</style>
+<div id="mapView">
+  <div id="mapTop" style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap">
+    <button class="bb-btn" onclick="closeMapView()">✕ 關閉</button>
+    <select id="mapScope" onchange="mapRefit()" title="要上圖的人">
+      <option value="list">目前清單（含搜尋／批次／縣市篩選）</option>
+      <option value="all">全部客戶</option>
+      <option value="sel">只看勾選的人</option>
+    </select>
+    <div id="gmCats" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <label style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="mapStaleOnly" onchange="mapRender()"/>只看久未聯絡</label>
+    <span id="mapCount" style="font-size:12px;color:var(--t2)"></span>
+    <button class="bb-btn" id="mapMissingBtn" onclick="mapShowMissing()" title="有門牌但沒座標的：不準／查無／還沒查">未上圖 0</button>
+    <button class="bb-btn" onclick="mapRefit()" title="把畫面縮放到看得到所有點">⤢ 全部看到</button>
+  </div>
+  <div id="mapBody">
+    <div id="gmap"></div>
+    <div id="routePanel">
+      <div style="padding:8px 10px 4px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px">🧭 路線 <span id="routeCount" style="font-weight:400;color:var(--t3);font-size:12px">0 站</span><span style="flex:1"></span><button class="bb-btn" onclick="routeClear()" style="padding:4px 8px">清空</button></div>
+      <div style="display:flex;gap:4px;padding:0 10px 6px;flex-wrap:wrap">
+        <button class="bb-btn" onclick="routeAddInView()" title="把地圖畫面內看得到的點全部加進路線" style="padding:5px 8px">➕ 畫面內全加</button>
+        <button class="bb-btn" onclick="routeOptimize()" title="從第一站起每次走最近的一站" style="padding:5px 8px">🔀 最近順序</button>
+        <button class="bb-btn" onclick="routeOpenNav()" style="background:var(--accent);color:#fff;border-color:var(--accent);padding:5px 8px">🚗 開 Google 導航</button>
+      </div>
+      <div id="routeList" style="flex:1;overflow:auto;padding:0 10px 10px"></div>
+    </div>
   </div>
 </div>
 
@@ -2165,7 +2205,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t178 (查不到的門牌用旁邊的號代查:173→171/175/169/177,對上就存成「隔壁」並標用哪個號;舊的不準再按查座標會自動補試) 2026.10.20';
+const APP_VERSION = '🧪測試版 t179 (🗺️ 地圖與路線:☰ 選單或勾人「上地圖」;有座標的不動產一間一針、同址併一針、顏色＝分類;點針看人/撥號/開面板/加路線;針可拖到正確位置存手填;路線可排最近順序、一鍵開 Google 導航(10 站一段);未上圖的列清單) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4320,6 +4360,7 @@ const BTN_DEFS=[
   {id:'xlsBtn',        label:'📥 XLS 匯入'},
   {id:'tenBtn',        label:'📄 謄本匯入'},
   {id:'aiBtn',         label:'🤖 AI 匯入'},
+  {id:'mapBtn',        label:'🗺️ 地圖與路線'},
   {id:'blBtn',         label:'🚫 黑名單'},
   {id:'selectModeBtn', label:'☑ 選取（搜尋列）'},
   {id:'urlSettingsBtn',label:'⚙️ 設定'},
@@ -7393,6 +7434,179 @@ async function regeocodeCurrent(){
   if(st.stopped) showToast('⚠️ '+geoStopText(st.stopped));
   else if(p.geo&&p.geo.grade==='不準') showToast(`⚠️ 不準：Google 找到的是「${p.geo.addr}」，座標沒存`);
   else showToast(`📍 ${p.geo?p.geo.grade:'查無'}${p.geo&&p.geo.addr?'：'+p.geo.addr:''}`);
+}
+
+// ===== 🗺️ 地圖與路線（t179）=====
+// 有座標（精準／隔壁／手填）的不動產上圖，一間一針、同座標併成一針；點針看人、加進路線；針可以拖到正確位置（存成手填）；
+// 路線可排最近順序，一鍵開 Google 地圖導航（一段最多 10 站，超過自動分段）。不準／查無／沒查的列在「未上圖」。
+const MAP_HEAT_HEX={'追很緊':'#2C63CF','覆訪':'#A25F00','已簽約':'#0F7A55','無效案件':'#6F7889','新鑫':'#6941C6','待分類':'#8B6E4E'};
+let _gmap=null, _mapInfo=null, _mapMarkers={}, _mapPts={}, _gmCats=new Set(['待分類','覆訪','追很緊','新鑫']), _mapSelIds=null, _route=[], _mapMissing=[];
+function geoKey(g){ return (+g.lat).toFixed(6)+','+(+g.lng).toFixed(6); }
+// 目前主清單的人（搜尋／分類／批次／縣市篩選後），跟畫面上看到的一樣
+function currentListClients(){
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  let list=applyListFilters([...clients]);
+  if(q) list=list.filter(c=>clientMatchesQuery(c,q));
+  list=list.filter(batchFilterPass);
+  if(selectedCities.size>0) list=list.filter(c=>{ const addr=c.addr||''; return ALL_CITIES.some(city=>selectedCities.has(city)&&(addr.startsWith(city)||addr.startsWith(city.replace('台','臺')))); });
+  return list;
+}
+// 把客戶清單變成地圖上的點：{key:{lat,lng,entries:[{c,p,i}]}}；missing＝有門牌但沒座標的 [{c,p,why}]
+function mapGroupPoints(list, cats, staleOnly, stalePred){
+  const pts={}, missing=[];
+  list.forEach(c=>{
+    if(cats && cats.size && !cats.has(c.heat||'待分類')) return;
+    if(staleOnly && !(stalePred?stalePred(c):false)) return;
+    (c.properties||[]).forEach((p,i)=>{
+      const g=p.geo;
+      if(g && g.lat && g.lng && g.grade!=='不準'){ const k=geoKey(g); if(!pts[k]) pts[k]={lat:+g.lat,lng:+g.lng,entries:[]}; pts[k].entries.push({c,p,i}); }
+      else if(p.addr) missing.push({c,p,why:g?g.grade:'未查'});
+    });
+  });
+  return {pts,missing};
+}
+async function openMapView(opts){
+  opts=opts||{};
+  _mapSelIds=opts.ids?new Set(opts.ids):null;
+  const v=document.getElementById('mapView'); if(!v) return;
+  const sc=document.getElementById('mapScope'); if(sc){ sc.value=_mapSelIds?'sel':'list'; sc.querySelector('option[value=sel]').disabled=!_mapSelIds; }
+  v.style.display='flex';
+  renderGmCats();
+  try{ await loadGeoLib(); }catch(e){ showToast('⚠️ 地圖載入失敗，請檢查網路'); return; }
+  if(!_gmap){
+    _gmap=new google.maps.Map(document.getElementById('gmap'),{center:{lat:25.04,lng:121.54},zoom:12,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:'greedy'});
+    _mapInfo=new google.maps.InfoWindow();
+  }
+  mapRender();
+}
+function closeMapView(){ const v=document.getElementById('mapView'); if(v) v.style.display='none'; if(_mapInfo) _mapInfo.close(); }
+function renderGmCats(){
+  const el=document.getElementById('gmCats'); if(!el) return;
+  el.innerHTML=Object.keys(hOrd).map(h=>{ const on=_gmCats.has(h); return `<button onclick="toggleGmCat('${h}')" style="font-size:11px;padding:3px 8px;border-radius:12px;cursor:pointer;font-family:inherit;border:1px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--abg)':'var(--s2)'};color:${on?'var(--accent)':'var(--t3)'}">${on?'✓ ':''}${h}</button>`; }).join('');
+}
+function toggleGmCat(h){ if(_gmCats.has(h)) _gmCats.delete(h); else _gmCats.add(h); renderGmCats(); mapRender(); }
+function mapScopeList(){
+  const sc=document.getElementById('mapScope')?.value||'list';
+  if(sc==='all') return [...clients];
+  if(sc==='sel' && _mapSelIds) return clients.filter(c=>_mapSelIds.has(c.id));
+  return currentListClients();
+}
+function mapPinIcon(hex, stop){
+  return {path:google.maps.SymbolPath.CIRCLE, scale:stop?12:8, fillColor:hex, fillOpacity:.95, strokeColor:'#fff', strokeWeight:2};
+}
+function mapRender(){
+  if(!_gmap) return;
+  Object.values(_mapMarkers).forEach(m=>m.setMap(null)); _mapMarkers={};
+  const staleOnly=!!document.getElementById('mapStaleOnly')?.checked;
+  const {pts,missing}=mapGroupPoints(mapScopeList(), _gmCats, staleOnly, c=>isStale(c)||isNever(c));
+  _mapPts=pts; _mapMissing=missing;
+  _route=_route.filter(k=>pts[k]);
+  const bounds=new google.maps.LatLngBounds(); let n=0;
+  Object.entries(pts).forEach(([k,pt])=>{
+    const stopIdx=_route.indexOf(k);
+    const heat=pt.entries[0].c.heat||'待分類';
+    const m=new google.maps.Marker({position:{lat:pt.lat,lng:pt.lng}, map:_gmap, icon:mapPinIcon(MAP_HEAT_HEX[heat]||'#6F7889', stopIdx>=0),
+      label:stopIdx>=0?{text:String(stopIdx+1),color:'#fff',fontSize:'11px',fontWeight:'700'}:null,
+      title:pt.entries.map(e=>e.c.name||'').join('、'), draggable:!readOnlyMode});
+    m.addListener('click',()=>mapOpenInfo(k));
+    m.addListener('dragend',(ev)=>mapDragEnd(k, ev.latLng.lat(), ev.latLng.lng()));
+    _mapMarkers[k]=m; bounds.extend(m.getPosition()); n++;
+  });
+  if(n && !_mapFitted){ _gmap.fitBounds(bounds, 40); _mapFitted=true; }
+  const cnt=document.getElementById('mapCount'); if(cnt) cnt.textContent=`${n} 個點、${Object.values(pts).reduce((a,p)=>a+p.entries.length,0)} 間`;
+  const mb=document.getElementById('mapMissingBtn'); if(mb) mb.textContent=`未上圖 ${missing.length}`;
+  renderRouteList();
+}
+let _mapFitted=false;
+function mapRefit(){ _mapFitted=false; mapRender(); }
+function mapEntryHtml(e){
+  const c=e.c, p=e.p, g=p.geo||{};
+  const tel=String(c.phone||'').replace(/\D/g,'');
+  const last=lastLogDate(c);
+  return `<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px;line-height:1.5">
+    <div><b style="font-size:13px">${calEsc(c.name||'(無名)')}</b> <span style="color:#fff;background:${MAP_HEAT_HEX[c.heat]||'#6F7889'};border-radius:8px;padding:0 6px;font-size:10px">${calEsc(c.heat||'待分類')}</span> <span style="color:#888;font-size:10px">📍${g.grade||''}${g.via?`（用${g.via}代查）`:''}</span></div>
+    <div>${calEsc(p.addr||'')}</div>
+    <div style="color:#666">${last?`最後聯絡 ${last}（${daysSince(last)} 天前）`:'從未聯絡'}${c.remind?`・提醒 ${c.remind}`:''}</div>
+    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+      ${tel?`<a href="tel:${tel}" style="text-decoration:none;color:#0F7A55;font-weight:600">📞 ${tel}</a>`:''}
+      <a href="#" onclick="closeMapView();openEdit(${c.id});return false" style="text-decoration:none;color:#2C63CF;font-weight:600">📋 開面板</a>
+    </div></div>`;
+}
+function mapOpenInfo(k){
+  const pt=_mapPts[k]; if(!pt||!_mapInfo) return;
+  const inRoute=_route.includes(k);
+  const html=`<div style="max-width:260px;font-family:inherit">${pt.entries.map(mapEntryHtml).join('')}
+    <div style="margin-top:6px"><button onclick="${inRoute?`routeRemove('${k}')`:`routeAdd('${k}')`}" style="background:${inRoute?'#FDECEC':'#2C63CF'};color:${inRoute?'#D22B2B':'#fff'};border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">${inRoute?'➖ 移出路線':'➕ 加入路線'}</button></div></div>`;
+  _mapInfo.setContent(html); _mapInfo.open({map:_gmap, anchor:_mapMarkers[k]});
+}
+// 拖針：這個點上所有不動產的座標改成拖到的位置，存成手填
+async function mapDragEnd(k, lat, lng){
+  const pt=_mapPts[k]; if(!pt) return;
+  if(readOnlyMode){ mapRender(); return; }
+  const names=pt.entries.map(e=>e.c.name||'').join('、');
+  if(!(await uiConfirm(`把「${names}」的座標改成拖到的位置？（存成手填，之後自動查不會蓋掉）`))){ mapRender(); return; }
+  pt.entries.forEach(e=>{ e.p.geo={lat:+lat.toFixed(7), lng:+lng.toFixed(7), grade:'手填', q:'', addr:'', ts:TODAY}; });
+  const nk=geoKey({lat,lng}); _route=_route.map(x=>x===k?nk:x);
+  saveLocal(); showToast(`📍 已改成手填座標：${names}`);
+  mapRender();
+}
+async function mapShowMissing(){
+  if(!_mapMissing.length){ showToast('✅ 這個範圍的不動產都上圖了'); return; }
+  const lines=_mapMissing.slice(0,25).map(m=>`${m.why}｜${m.c.name||'(無名)'}：${m.p.addr}`);
+  await uiAlert(`未上圖 ${_mapMissing.length} 間（不準／查無／還沒查）：\n`+lines.join('\n')+(_mapMissing.length>25?'\n…':'')+'\n\n還沒查的到設定頁按「📍 查座標」；不準的開面板「🔄 查座標」或「✏️ 貼座標」。');
+}
+// ── 路線 ──
+function routeAdd(k){ if(!_route.includes(k)) _route.push(k); if(_mapInfo) _mapInfo.close(); mapRender(); }
+function routeRemove(k){ _route=_route.filter(x=>x!==k); if(_mapInfo) _mapInfo.close(); mapRender(); }
+function routeMove(i,d){ const j=i+d; if(j<0||j>=_route.length) return; const t=_route[i]; _route[i]=_route[j]; _route[j]=t; mapRender(); }
+function routeClear(){ _route=[]; mapRender(); }
+function routeAddInView(){
+  if(!_gmap) return; const b=_gmap.getBounds(); if(!b) return;
+  let n=0; Object.entries(_mapPts).forEach(([k,pt])=>{ if(!_route.includes(k) && b.contains({lat:pt.lat,lng:pt.lng})){ _route.push(k); n++; } });
+  showToast(`➕ 加了 ${n} 站，共 ${_route.length} 站`); mapRender();
+}
+function geoDist(a,b){ const dx=(a.lng-b.lng)*Math.cos((a.lat+b.lat)/2*Math.PI/180)*111.32, dy=(a.lat-b.lat)*110.57; return Math.sqrt(dx*dx+dy*dy); }   // 公里，平面近似夠用
+// 最近順序：從第一站出發，每次走到最近的下一站
+function routeNearestOrder(keys, pts){
+  if(keys.length<3) return keys.slice();
+  const left=keys.slice(1), out=[keys[0]];
+  while(left.length){ const cur=pts[out[out.length-1]]; let bi=0, bd=Infinity; left.forEach((k,i)=>{ const d=geoDist(cur,pts[k]); if(d<bd){ bd=d; bi=i; } }); out.push(left.splice(bi,1)[0]); }
+  return out;
+}
+function routeOptimize(){ if(_route.length<3){ showToast('至少 3 站才需要排'); return; } _route=routeNearestOrder(_route,_mapPts); showToast('🔀 已排成最近順序'); mapRender(); }
+// Google 地圖導航網址：一段最多 10 站（起點用「目前位置」，中途最多 9 個），超過就分段，下一段的起點＝上一段的終點
+function routeNavUrls(keys, pts){
+  const urls=[]; const ll=k=>pts[k].lat+','+pts[k].lng;
+  for(let i=0;i<keys.length;i+=10){
+    const seg=keys.slice(i,i+10);
+    const origin=i===0?'':'&origin='+ll(keys[i-1]);
+    const dest=ll(seg[seg.length-1]);
+    const wps=seg.slice(0,-1).map(ll).join('|');
+    urls.push(`https://www.google.com/maps/dir/?api=1${origin}&destination=${dest}${wps?'&waypoints='+encodeURIComponent(wps):''}&travelmode=driving`);
+  }
+  return urls;
+}
+function routeOpenNav(seg){
+  if(!_route.length){ showToast('⚠️ 先把點加進路線'); return; }
+  const urls=routeNavUrls(_route,_mapPts); seg=seg||0;
+  window.open(urls[seg],'_blank');
+  if(urls.length>1 && seg===0) showToast(`路線 ${_route.length} 站分 ${urls.length} 段，先開第 1 段；其他段在路線清單下面`);
+}
+function renderRouteList(){
+  const el=document.getElementById('routeList'); if(!el) return;
+  const rc=document.getElementById('routeCount'); if(rc) rc.textContent=`${_route.length} 站`;
+  if(!_route.length){ el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:10px 0">點地圖上的針 →「加入路線」，或按「畫面內全加」</div>'; return; }
+  const urls=routeNavUrls(_route,_mapPts);
+  el.innerHTML=_route.map((k,i)=>{ const pt=_mapPts[k]; if(!pt) return ''; const names=pt.entries.map(e=>e.c.name||'').join('、'); const addr=pt.entries[0].p.addr||'';
+    return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:600">${calEsc(names)}</div><div style="color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc(addr)}</div></div>
+      <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+        <button onclick="routeMove(${i},-1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▲</button>
+        <button onclick="routeMove(${i},1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▼</button>
+      </div>
+      <button onclick="routeRemove('${k}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 2px">✕</button></div>`; }).join('')
+    +(urls.length>1?`<div style="margin-top:8px;font-size:12px;color:var(--t2)">分 ${urls.length} 段：${urls.map((u,i)=>`<button onclick="routeOpenNav(${i})" class="bb-btn" style="margin:2px">第 ${i+1} 段</button>`).join('')}</div>`:'');
 }
 
 // 📍 地圖：用門牌開 Google 地圖釘一根針（手機會直接開地圖 App）
