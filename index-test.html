@@ -2161,7 +2161,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t165 (門牌統一寫法:存檔、匯入時自動把全形數字改半形、五樓改5樓、去空白;設定頁多「門牌統一寫法」一次整理舊資料) 2026.10.20';
+const APP_VERSION = '🧪測試版 t166 (總檔同一間房有兩列、內容不一樣時,🔁記號直接寫「總檔同一間有兩列,請到總檔刪掉其中一列」,公司資料分頁的版本切換會多一顆「總檔另一列」可以看差在哪) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -4045,6 +4045,13 @@ function processCompanyData(raw) {
           if(sameRun){   // 同一次：把這次看過的版本累積起來，下次比對用
             companyRaw.altRights=[...new Set([...(prev.altRights||[]), prev.rights||''])].filter(Boolean).slice(-10);
             companyRaw.altOwners=[...new Set([...(prev.altOwners||[]), prev.owner||''])].filter(Boolean).slice(-10);
+            // 同一次裡同一間兩列內容不一樣 → 總檔本身有兩列（例如新鑫日期一列舊一列新）。另一列留著給版本切換看，記號講白
+            companyRaw.altVersions=[...(prev.altVersions||[])];
+            if(kinds.length && (prev.cols||prev.rights||prev.owner)){
+              companyRaw.altVersions.push({at:prev.importedAt||TODAY, src:prev.importedSrc||importSrc, cols:prev.cols||null, owner:prev.owner||'', rights:prev.rights||'', buildInfo:prev.buildInfo||''});
+              companyRaw.altVersions=companyRaw.altVersions.slice(-5);
+              markReimport(existing, '總檔同一間有兩列', '總檔同一間房有兩列、'+kinds.join('、')+'不一樣，請到總檔刪掉其中一列');
+            }
           }   // 同一次匯入裡同一間又出現（遮罩同名多列）→ 不算變動、不塗銷
           if(kinds.length && !sameRun && (prev.cols||prev.rights||prev.owner)){
             (dup.rawHistory=dup.rawHistory||[]).push({at:prev.importedAt||'', src:prev.importedSrc||'', cols:prev.cols||null, owner:prev.owner||'', rights:prev.rights||'', buildInfo:prev.buildInfo||''});
@@ -6674,12 +6681,13 @@ function renderCompanyPanel(){
   const hist = Array.isArray(p.rawHistory) ? p.rawHistory : [];
   // 版本切換：0=最新，1..n=rawHistory 由新到舊；舊版用「跟它的下一版（較新）」比，差異欄標色
   if(_companyVerIdx>hist.length) _companyVerIdx=0;
-  const versions=[latest, ...hist.slice().reverse()];
+  const alts=((latest&&latest.altVersions)||[]).map(a=>({...a,_alt:true}));   // 同一次總檔更新裡同一間的另一列
+  const versions=[latest, ...alts, ...hist.slice().reverse()];
   const r = versions[_companyVerIdx] || latest;
-  const newer = _companyVerIdx>0 ? versions[_companyVerIdx-1] : null;
+  const newer = _companyVerIdx>0 ? (versions[_companyVerIdx]._alt ? latest : versions.slice(0,_companyVerIdx).filter(v=>!v._alt).slice(-1)[0]||latest) : null;
   const bNo = p.buildNo || (_companyPropIdx===0 ? (c.buildNo||'') : '');
   const lNo = p.landNo || (_companyPropIdx===0 ? (c.landNo||'') : '');
-  const vLab=(v,i)=>{ const d=v&&(v.importedAt||v.at)?String(v.importedAt||v.at).slice(5):''; const sr=v&&(v.importedSrc||v.src)?String(v.importedSrc||v.src).replace(/^XLS：/,'').slice(0,12):''; return (i===0?'最新':'舊版')+(d?' '+d:'')+(sr?'・'+calEsc(sr):''); };
+  const vLab=(v,i)=>{ const d=v&&(v.importedAt||v.at)?String(v.importedAt||v.at).slice(5):''; const sr=v&&(v.importedSrc||v.src)?String(v.importedSrc||v.src).replace(/^XLS：/,'').slice(0,12):''; return (i===0?'最新':(v&&v._alt?'總檔另一列':'舊版'))+(d?' '+d:'')+(sr?'・'+calEsc(sr):''); };
   const verBar = versions.length>1 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${versions.map((v,i)=>`<button onclick="_companyVerIdx=${i};renderCompanyPanel()" style="border:none;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;${i===_companyVerIdx?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--t2)'}">${vLab(v,i)}</button>`).join('')}<span style="font-size:10px;color:var(--t3);align-self:center">舊版中<span style="background:var(--obg);padding:0 4px;border-radius:4px">橘底</span>＝跟較新版不同的欄</span></div>` : '';
   if(r && r.cols && r.cols.length){
     // 照總檔欄位順序（電 → 金主門牌）完整顯示，有內容才列

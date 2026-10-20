@@ -26,6 +26,8 @@ tryRun(ctx=>{
   const run=(code)=>vm.runInContext(code,ctx);
   ctx.__bk=JSON.parse(JSON.stringify(BK)); ctx.__rows=ROWS;
   run("clients=__bk.clients.filter(c=>c.name&&c.name!=='（未知）'); nextId=__bk.nextId||1;");
+  // 模擬業主已在畫面上刪掉林家豪那四筆垃圾記錄（刪除會記進 deletedLogKeys）
+  run("(function(){const c=clients.find(x=>x.name==='林家豪'); if(!c) return; c.deletedLogKeys=c.deletedLogKeys||[]; c.logs=(c.logs||[]).filter(l=>{ const bad=/A127277917|820523/.test(l.text||''); if(bad) c.deletedLogKeys.push((l.date||'')+(l.text||'').slice(0,20)); return !bad; }); })()");
   const before=run("clients.length");
   const snap=(label)=>{
     console.log(`\n===== ${label} =====`);
@@ -36,7 +38,8 @@ tryRun(ctx=>{
     console.log('今天新增的抵押列：', run("clients.flatMap(c=>(c.properties||[]).flatMap(p=>(p.loans||[]).filter(l=>l.added&&l.added.date===TODAY).map(l=>c.name+'：'+(l.s||'-')+' '+(l.n||'')+' '+(l.a||0))))").join(' / '));
     WATCH.forEach(n=>{
       ctx.__n=n; const info=run("(function(){const c=clients.find(x=>x.name===__n); if(!c) return null; return {reimports:c.reimports||[], props:(c.properties||[]).map(p=>({label:p.label,addr:p.addr,importRun:(p.companyRaw||{}).importRun,importedAt:(p.companyRaw||{}).importedAt,rawHist:(p.rawHistory||[]).length,loans:(p.loans||[]).map(l=>(l.s||'-')+' '+(l.n||'')+' '+(l.a||0)+(l.x?' x'+l.x.date:'')+(l.added?' +':''))}))};})()");
-      console.log(`— ${n} —`, JSON.stringify(info,null,1).slice(0,1500));
+      ctx.__n=n; const lg=run("(function(){const c=clients.find(x=>x.id&&x.name===__n); return c?{logs:(c.logs||[]).length, reimports:(c.reimports||[]).map(r=>r.kind+'｜'+r.detail), propAddrs:(c.properties||[]).map(p=>p.addr), altVersions:(c.properties||[]).map(p=>((p.companyRaw||{}).altVersions||[]).length)}:null;})()");
+      console.log(`— ${n} —`, JSON.stringify(lg));
     });
   };
   const propSnap=()=>run("Object.fromEntries(clients.map(c=>[c.id,(c.properties||[]).map(p=>p.addr+'|'+(p.col4BuildNo||'')+'|'+(p.buildNo||''))]))");
