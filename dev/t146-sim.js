@@ -29,7 +29,7 @@ function partsOf(col){ return [...store.keys()].filter(k=>k.startsWith('users/u/
 const toasts=[];
 globalThis.toasts=toasts;
 const base=`
-var clients=[], nextId=1, currentUser={uid:'u'}, readOnlyMode=false, memos=[], nextMemoId=1, customDocs=[], GAS_URL='', COMPANY_URL='', CLAUDE_API_KEY='';
+var clients=[], nextId=1, currentUser={uid:'u'}, readOnlyMode=false, memos=[], nextMemoId=1, customDocs=[], savedRoutes=[], GAS_URL='', COMPANY_URL='', CLAUDE_API_KEY='';
 var _chunkCounts={dataParts:0,backupParts:0}, _saveWarned=false, _saveSeq=0, backupWarned=false, _cloudBytes=null;
 var CLOUD_CHUNK=500000, LEGACY_DATA_MAX=900000, LOCAL_KEY='loan_crm_fb_v1';
 var localStorage={_s:{},getItem(k){return k in this._s?this._s[k]:null;},setItem(k,v){this._s[k]=String(v);},removeItem(k){delete this._s[k];}};

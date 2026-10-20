@@ -899,6 +899,7 @@ async function saveToFirestore(ts, prePacked) {
       data: legacy, dataN, dataTs: ts,
       memos: memosStr,
       customDocs: JSON.stringify((typeof customDocs!=='undefined'&&Array.isArray(customDocs))?customDocs:[]),
+      savedRoutes: JSON.stringify((typeof savedRoutes!=='undefined'&&Array.isArray(savedRoutes))?savedRoutes:[]),
       gasUrl: GAS_URL || '',
       companyUrl: COMPANY_URL || '',
       claudeKey: CLAUDE_API_KEY || '',
@@ -1037,6 +1038,7 @@ async function loadFromFirestore() {
       if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
       if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
       applyCloudCustomDocs(raw.customDocs);
+      if(typeof applyCloudSavedRoutes==='function') applyCloudSavedRoutes(raw.savedRoutes);
       // 載入備忘錄（雲端）
       if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
       // 載入客戶資料
@@ -1076,6 +1078,7 @@ async function syncFromFirestoreIfNewer() {
     if (raw.companyUrl) COMPANY_URL = raw.companyUrl;
     if (raw.claudeKey)  CLAUDE_API_KEY = raw.claudeKey;
     applyCloudCustomDocs(raw.customDocs);
+    if(typeof applyCloudSavedRoutes==='function') applyCloudSavedRoutes(raw.savedRoutes);
     if (raw.memos) { try{ const md=JSON.parse(raw.memos); if(Array.isArray(md.memos)){ memos=md.memos; nextMemoId=md.nextMemoId||1; if(typeof renderMemos==='function') renderMemos(); } }catch(e){} }
 
     // 比較時間戳（若本地 clients 是空的，不管時間戳一律從 Firestore 載入）
@@ -1113,6 +1116,11 @@ async function syncFromFirestoreIfNewer() {
 }
 
 // 自訂文件清單：雲端有就以雲端為準（跟著帳號走，手機加了電腦也看得到）
+// 存過的路線跟著帳號走（雲端有就以雲端為準），跟自訂文件清單同一套
+function applyCloudSavedRoutes(str){
+  if(!str) return;
+  try{ const a=JSON.parse(str); if(Array.isArray(a) && typeof savedRoutes!=='undefined'){ savedRoutes=a; try{ localStorage.setItem(ROUTES_KEY, JSON.stringify(savedRoutes)); }catch(e){} if(typeof renderSavedRouteSelect==='function') renderSavedRouteSelect(); } }catch(e){}
+}
 function applyCloudCustomDocs(str){
   if(!str) return;
   try{ const a=JSON.parse(str); if(Array.isArray(a) && typeof customDocs!=='undefined'){ customDocs=a; try{ localStorage.setItem(CUSTOM_DOC_KEY, JSON.stringify(customDocs)); }catch(e){} if(typeof renderDocChips==='function') renderDocChips(); } }catch(e){}
@@ -1325,6 +1333,7 @@ async function applyUrlSettings() {
   #mapView{display:none;position:fixed;inset:0;z-index:9300;background:var(--bg);flex-direction:column}
   #mapBody{flex:1;display:flex;min-height:0}
   #gmap{flex:1;min-height:0}
+  #routePanel select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
   #routePanel{width:290px;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-height:0}
   #mapTop select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none}
   @media (max-width:700px){ #mapBody{flex-direction:column} #routePanel{width:auto;height:38%;border-left:none;border-top:1px solid var(--border)} }
@@ -1335,6 +1344,7 @@ async function applyUrlSettings() {
     <button class="bb-btn" id="mapSelChip" onclick="mapClearSel()" style="display:none;background:var(--obg);color:var(--orange);border-color:var(--obd)" title="從主畫面勾人「上地圖」進來的；按一下回到全部客戶">只看勾選的 0 人 ✕</button>
     <button class="bb-btn" id="mapLockBtn" onclick="toggleMapLock()" title="鎖定時圖釘只能點、不能拖；要改座標才解鎖">🔒 鎖定</button>
     <input id="mapSearch" placeholder="🔍 找人：姓名／電話" oninput="mapSearchChanged()" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;width:150px"/>
+    <input id="mapAddrSearch" placeholder="📍 查地址，Enter 定位" onkeydown="if(event.key==='Enter'){event.preventDefault();mapSearchAddress();}" title="打任何地址，Google 定位後放一根紅針，拿來對照客戶的針準不準" style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);outline:none;width:190px"/>
     <select id="mapBatch" onchange="mapRefit()" title="只看某個批次（只列有定位過的批次）"><option value="">全部批次</option></select>
     <select id="mapVisited" onchange="mapRender()" title="跑過＝30 天內有「現場拜訪」的聯絡記錄">
       <option value="all">跑過沒跑過都看</option>
@@ -1350,7 +1360,12 @@ async function applyUrlSettings() {
   <div id="mapBody">
     <div id="gmap"></div>
     <div id="routePanel">
-      <div style="padding:8px 10px 4px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px">🧭 路線 <span id="routeCount" style="font-weight:400;color:var(--t3);font-size:12px">0 站</span><span style="flex:1"></span><button class="bb-btn" onclick="routeClear()" style="padding:4px 8px">清空</button></div>
+      <div style="padding:8px 10px 4px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">🧭 路線 <span id="routeCount" style="font-weight:400;color:var(--t3);font-size:12px">0 站</span><span style="flex:1"></span>
+        <select id="routeSaved" onchange="loadSavedRoute(this.value)" title="載入存過的路線（電腦排好、手機點一下就能跑）" style="max-width:150px"><option value="">📂 路線…</option></select>
+        <button class="bb-btn" onclick="saveCurrentRoute()" title="把現在這條路線存起來，所有裝置都看得到" style="padding:4px 8px">💾 存</button>
+        <button class="bb-btn" id="routeDelBtn" onclick="deleteLoadedRoute()" title="刪掉載入的這條路線" style="padding:4px 8px;display:none;background:var(--rbg);color:var(--red);border-color:var(--rbd)">🗑</button>
+        <button class="bb-btn" onclick="routeClear()" style="padding:4px 8px">清空</button></div>
+      <div id="routeLoadedName" style="display:none;padding:0 10px 4px;font-size:12px;color:var(--accent);font-weight:600"></div>
       <div style="display:flex;gap:4px;padding:0 10px 6px;flex-wrap:wrap">
         <button class="bb-btn" onclick="routeAddInView()" title="把地圖畫面內看得到的點全部加進路線" style="padding:5px 8px">➕ 畫面內全加</button>
         <button class="bb-btn" onclick="routeOptimize()" title="從第一站起每次走最近的一站" style="padding:5px 8px">🔀 最近順序</button>
@@ -2212,7 +2227,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t185 (地圖路線清單:點站名直接開那個人的面板,看完按右下「回地圖」) 2026.10.20';
+const APP_VERSION = '🧪測試版 t186 (地圖:「📍 查地址」打任何地址 Google 定位放紅針,可對照客戶的針,紅針才對就一鍵套用到剛點的那個人;路線可「💾 存」成路線、📂 下拉載入,跟著帳號雲端同步:電腦排、手機載入就跑;跑過看聯絡記錄算,哪台記的都同步) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -7448,6 +7463,97 @@ async function regeocodeCurrent(){
 // 路線可排最近順序，一鍵開 Google 地圖導航（一段最多 10 站，超過自動分段）。不準／查無／沒查的列在「未上圖」。
 const MAP_HEAT_HEX={'追很緊':'#2C63CF','覆訪':'#A25F00','已簽約':'#0F7A55','無效案件':'#6F7889','新鑫':'#6941C6','待分類':'#8B6E4E'};
 let _gmap=null, _mapInfo=null, _mapMarkers={}, _mapPts={}, _routePts={}, _mapSelIds=null, _route=[], _mapMissing=[], _mapLocked=true;
+// ── 存路線（t186）：電腦排好存起來、手機載入就跑。存的是每站的人（客戶 id＋第幾間不動產）＋當時座標；「跑過」看聯絡記錄算，不存在路線裡，所以哪台裝置記的都會同步
+const ROUTES_KEY='crm_saved_routes';
+let savedRoutes=[]; try{ savedRoutes=JSON.parse(localStorage.getItem(ROUTES_KEY)||'[]'); if(!Array.isArray(savedRoutes)) savedRoutes=[]; }catch(e){ savedRoutes=[]; }
+let _routeLoadedId=null, _routeCreated='';   // 載入中的路線；created＝那天之後有現場拜訪才算跑過
+function saveSavedRoutes(){
+  try{ localStorage.setItem(ROUTES_KEY, JSON.stringify(savedRoutes)); }catch(e){}
+  if(currentUser && db && !readOnlyMode){ db.collection('users').doc(currentUser.uid).set({savedRoutes: JSON.stringify(savedRoutes)},{merge:true}).catch(e=>console.error('savedRoutes sync:',e)); }
+}
+function routeToSaved(name, keys, pts, created){
+  const stops=[]; keys.forEach(k=>{ const pt=pts[k]; if(!pt) return; pt.entries.forEach(e=>stops.push({cid:e.c.id, pi:e.i, lat:pt.lat, lng:pt.lng})); });
+  return {id:Date.now().toString(36), name:String(name||'').trim()||'路線', created:created||TODAY, stops};
+}
+// 存的路線 → 現在的點 key（人還在、座標可能改過就用現在的；找不到人就用存的座標找點）
+function savedToRouteKeys(saved, clientList, allPts){
+  const keys=[];
+  (saved.stops||[]).forEach(st=>{
+    const c=clientList.find(x=>x.id===st.cid); const p=c&&(c.properties||[])[st.pi];
+    let k=(p&&p.geo&&p.geo.lat&&p.geo.grade!=='不準')?geoKey(p.geo):geoKey({lat:st.lat,lng:st.lng});
+    if(allPts[k] && !keys.includes(k)) keys.push(k);
+  });
+  return keys;
+}
+function renderSavedRouteSelect(){
+  const sel=document.getElementById('routeSaved'); if(!sel) return;
+  sel.innerHTML='<option value="">📂 路線…</option>'+savedRoutes.map(r=>`<option value="${r.id}">${calEsc(r.name)}（${r.stops.length}）</option>`).join('');
+  sel.value=_routeLoadedId||'';
+  const nm=document.getElementById('routeLoadedName'), del=document.getElementById('routeDelBtn');
+  const cur=savedRoutes.find(r=>r.id===_routeLoadedId);
+  if(nm){ nm.style.display=cur?'':'none'; nm.textContent=cur?`📂 ${cur.name}（${cur.created} 排的）`:''; }
+  if(del) del.style.display=cur?'':'none';
+}
+async function saveCurrentRoute(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能存路線'); return; }
+  if(!_route.length){ showToast('⚠️ 路線是空的'); return; }
+  const cur=savedRoutes.find(r=>r.id===_routeLoadedId);
+  if(cur && await uiConfirm(`更新「${cur.name}」這條路線？（取消＝另存新的）`,{ok:'更新',cancel:'另存新的'})){
+    const nr=routeToSaved(cur.name,_route,_routePts,cur.created); cur.stops=nr.stops; saveSavedRoutes(); renderSavedRouteSelect(); showToast(`💾 已更新「${cur.name}」`); return;
+  }
+  const d=new Date(); const def=`${d.getMonth()+1}/${d.getDate()} ${(document.getElementById('mapBatch')?.value||'').replace(/^.*?\s/,'')||'路線'}`;
+  const name=await uiPrompt('路線名稱：', def); if(name===null) return;
+  const nr=routeToSaved(name,_route,_routePts); savedRoutes.unshift(nr); _routeLoadedId=nr.id; _routeCreated=nr.created;
+  saveSavedRoutes(); renderSavedRouteSelect(); mapRender(); showToast(`💾 已存「${nr.name}」，手機開地圖就能載入`);
+}
+function loadSavedRoute(id){
+  if(!id){ _routeLoadedId=null; _routeCreated=''; renderSavedRouteSelect(); return; }
+  const r=savedRoutes.find(x=>x.id===id); if(!r) return;
+  const keys=savedToRouteKeys(r, clients, _routePts);
+  _route=keys; _routeLoadedId=r.id; _routeCreated=r.created;
+  renderSavedRouteSelect(); _mapFitted=false; mapRender();
+  showToast(`📂 載入「${r.name}」${keys.length<r.stops.length?`（${r.stops.length-keys.length} 站找不到人或沒座標，略過）`:''}`);
+}
+async function deleteLoadedRoute(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能刪'); return; }
+  const cur=savedRoutes.find(r=>r.id===_routeLoadedId); if(!cur) return;
+  if(!(await uiConfirm(`刪掉路線「${cur.name}」？（客戶資料與聯絡記錄不受影響）`,{ok:'刪除',danger:true}))) return;
+  savedRoutes=savedRoutes.filter(r=>r.id!==cur.id); _routeLoadedId=null; _routeCreated=''; saveSavedRoutes(); renderSavedRouteSelect(); mapRender(); showToast('🗑 已刪');
+}
+// ── 查地址（t186）：打任何地址，Google 定位後放紅針，拿來對照客戶的針；紅針才對就「套用到剛才點的那個人」
+let _tempMarker=null, _tempPos=null, _lastInfoKey=null;
+async function mapSearchAddress(){
+  const raw=(document.getElementById('mapAddrSearch')?.value||'').trim(); if(!raw) return;
+  const r=addrForGeo(raw,''); const q=(r.q && r.level!=='不準')?r.q:raw.replace(/台/g,'臺');
+  showToast('📍 定位中…');
+  const g=await geocodeOne(q);
+  if(g.status!=='OK'){ showToast(g.status==='ZERO_RESULTS'?'⚠️ Google 找不到這個地址':'⚠️ '+geoStopText(g.status)); return; }
+  if(_tempMarker) _tempMarker.setMap(null);
+  _tempPos={lat:g.lat,lng:g.lng};
+  _tempMarker=new google.maps.Marker({position:_tempPos, map:_gmap, zIndex:999, icon:{path:google.maps.SymbolPath.CIRCLE, scale:11, fillColor:'#D22B2B', fillOpacity:.95, strokeColor:'#fff', strokeWeight:3}, label:{text:'?',color:'#fff',fontSize:'12px',fontWeight:'700'}, title:g.addr});
+  _tempMarker.addListener('click',()=>mapOpenTempInfo(q,g));
+  _gmap.panTo(_tempPos); if(_gmap.getZoom()<16) _gmap.setZoom(17);
+  mapOpenTempInfo(q,g);
+}
+function mapOpenTempInfo(q,g){
+  const grade=geoGrade(q,g.addr);
+  const last=_lastInfoKey&&_routePts[_lastInfoKey]?_routePts[_lastInfoKey]:(_lastInfoKey&&_mapPts[_lastInfoKey]);
+  const names=last?[...new Set(last.entries.map(e=>e.c.name||''))].join('、'):'';
+  _mapInfo.setContent(`<div style="max-width:260px;font-size:12px;line-height:1.5"><div style="font-weight:700;color:#D22B2B">📍 查地址結果（${grade}）</div><div>查：${calEsc(q)}</div><div>Google：${calEsc(g.addr)}</div>
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">${names?`<button onclick="applyTempToKey()" style="background:#2C63CF;color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✏️ 套用到「${calEsc(names)}」</button>`:'<span style="color:#888">先點一個客戶的針，這裡就能把紅針位置套給他</span>'}
+    <button onclick="removeTempMarker()" style="background:#eee;border:none;border-radius:8px;padding:5px 9px;font-size:12px;cursor:pointer;font-family:inherit">移除紅針</button></div></div>`);
+  _mapInfo.open({map:_gmap, anchor:_tempMarker});
+}
+function removeTempMarker(){ if(_tempMarker) _tempMarker.setMap(null); _tempMarker=null; _tempPos=null; if(_mapInfo) _mapInfo.close(); }
+async function applyTempToKey(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能改'); return; }
+  const k=_lastInfoKey, pos=_tempPos; const pt=k&&(_routePts[k]||_mapPts[k]); if(!pt||!pos) return;
+  const names=[...new Set(pt.entries.map(e=>e.c.name||''))].join('、');
+  if(!(await uiConfirm(`把「${names}」的座標改成紅針的位置？（存成手填）`))) return;
+  pt.entries.forEach(e=>{ e.p.geo={lat:pos.lat, lng:pos.lng, grade:'手填', q:'', addr:'', ts:TODAY}; });
+  const nk=geoKey(pos); _route=_route.map(x=>x===k?nk:x); _lastInfoKey=nk;
+  saveLocal(); removeTempMarker(); mapRender(); showToast(`📍 已套用：${names}`);
+}
 function toggleMapLock(){ _mapLocked=!_mapLocked; renderMapLock(); mapRender(); showToast(_mapLocked?'🔒 圖釘已鎖定，不能拖':'🔓 已解鎖，拖圖釘可改座標（放開會先問你）'); }
 function renderMapLock(){ const b=document.getElementById('mapLockBtn'); if(!b) return; b.textContent=_mapLocked?'🔒 鎖定':'🔓 可拖'; b.style.background=_mapLocked?'':'var(--obg)'; b.style.color=_mapLocked?'':'var(--orange)'; b.style.borderColor=_mapLocked?'':'var(--obd)'; }
 function geoKey(g){ return (+g.lat).toFixed(6)+','+(+g.lng).toFixed(6); }
@@ -7475,7 +7581,7 @@ async function openMapView(opts){
   renderMapSelChip();
   _mapLocked=true; renderMapLock();   // 每次開地圖都回到鎖定，手機才不會誤拖
   v.style.display='flex'; updateMapBackBtn();
-  renderMapBatchSelect();
+  renderMapBatchSelect(); renderSavedRouteSelect();
   try{ await loadGeoLib(); }catch(e){ showToast('⚠️ 地圖載入失敗，請檢查網路'); return; }
   if(!_gmap){
     _gmap=new google.maps.Map(document.getElementById('gmap'),{center:{lat:25.04,lng:121.54},zoom:12,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:'greedy'});
@@ -7584,6 +7690,7 @@ function mapEntryHtml(e){
 }
 function mapOpenInfo(k){
   const pt=_mapPts[k]; if(!pt||!_mapInfo) return;
+  _lastInfoKey=k;
   const inRoute=_route.includes(k);
   const html=`<div style="max-width:260px;font-family:inherit">${pt.entries.map(mapEntryHtml).join('')}
     <div style="margin-top:6px"><button onclick="${inRoute?`routeRemove('${k}')`:`routeAdd('${k}')`}" style="background:${inRoute?'#FDECEC':'#2C63CF'};color:${inRoute?'#D22B2B':'#fff'};border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">${inRoute?'➖ 移出路線':'➕ 加入路線'}</button></div></div>`;
@@ -7609,7 +7716,7 @@ async function mapShowMissing(){
 function routeAdd(k){ if(!_route.includes(k)) _route.push(k); if(_mapInfo) _mapInfo.close(); mapRender(); }
 function routeRemove(k){ _route=_route.filter(x=>x!==k); if(_mapInfo) _mapInfo.close(); mapRender(); }
 function routeMove(i,d){ const j=i+d; if(j<0||j>=_route.length) return; const t=_route[i]; _route[i]=_route[j]; _route[j]=t; mapRender(); }
-function routeClear(){ _route=[]; mapRender(); }
+function routeClear(){ _route=[]; _routeLoadedId=null; _routeCreated=''; renderSavedRouteSelect(); mapRender(); }
 function routeAddInView(){
   if(!_gmap) return; const b=_gmap.getBounds(); if(!b) return;
   let n=0; Object.entries(_mapPts).forEach(([k,pt])=>{ if(!_route.includes(k) && b.contains({lat:pt.lat,lng:pt.lng})){ _route.push(k); n++; } });
@@ -7672,11 +7779,12 @@ function renderRouteList(){
   if(rc) rc.textContent=`${_route.length} 站・約 ${routeLength(_route,_routePts).toFixed(1)} 公里（直線）`;
   const urls=routeNavUrls(_route,_routePts);
   el.innerHTML=_route.map((k,i)=>{ const pt=_routePts[k]; if(!pt) return ''; const names=pt.entries.map(e=>e.c.name||'').join('、'); const addr=pt.entries[0].p.addr||'';
-    const done=pt.entries.every(e=>lastSiteVisit(e.c)===TODAY);
-    return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;${done?'opacity:.55':''}">
+    const since=_routeCreated||TODAY;
+    const done=pt.entries.every(e=>lastSiteVisit(e.c)>=since);
+    return `<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;${done?'opacity:.55':''}" data-done="${done?1:0}">
       <span style="background:${done?'var(--green)':'var(--accent)'};color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${done?'✓':i+1}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:600;${done?'text-decoration:line-through':''}">${[...new Set(pt.entries.map(e=>e.c))].map(c=>`<a href="#" onclick="closeMapView();openEdit(${c.id});return false" title="開這個人的面板看資料" style="color:var(--accent);text-decoration:none">📋 ${calEsc(c.name||'(無名)')}</a>`).join('、')}</div><div style="color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${calEsc(addr)}</div>
-        <button onclick="routeMarkVisited('${k}')" ${done?'disabled':''} style="margin-top:3px;border:1px solid var(--gbd);background:var(--gbg);color:var(--green);border-radius:6px;cursor:pointer;font-size:11px;padding:2px 8px;font-family:inherit">${done?'✔ 今天跑過':'✔ 跑過'}</button></div>
+        <button onclick="routeMarkVisited('${k}')" ${done?'disabled':''} style="margin-top:3px;border:1px solid var(--gbd);background:var(--gbg);color:var(--green);border-radius:6px;cursor:pointer;font-size:11px;padding:2px 8px;font-family:inherit">${done?'✔ 跑過了':'✔ 跑過'}</button></div>
       <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
         <button onclick="routeMove(${i},-1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▲</button>
         <button onclick="routeMove(${i},1)" style="border:none;background:var(--s2);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px">▼</button>

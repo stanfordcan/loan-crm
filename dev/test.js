@@ -413,6 +413,16 @@ eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)
   ok(lastSiteVisit(V)==='2026-10-05' && visitedWithin(V,30) && !visitedWithin(V,10) && lastSiteVisit({logs:[]})==='' && !visitedWithin({},30),'跑過判定：只看現場拜訪的記錄');
   const M=[{name:'a',logs:[],staleMuteUntil:'2026-12-01'},{name:'b',logs:[{date:TODAY,text:'x',kind:'site'}]}];
   ok(markVisitedClients(M)===1 && M[0].logs[0].kind==='site' && M[0].logs[0].date===TODAY && M[0].staleMuteUntil==='' && M[1].logs.length===1,'記跑過：寫今天現場拜訪、解除暫不追、今天記過的不重複');
+  // t186：存路線／載回
+  eval([ext('routeToSaved'),ext('savedToRouteKeys')].join('\n'));
+  const RC=[{id:1,name:'甲',properties:[{addr:'A',geo:{lat:25.04,lng:121.55,grade:'精準'}}]},{id:2,name:'乙',properties:[{addr:'B0'},{addr:'B',geo:{lat:25.02,lng:121.55,grade:'隔壁'}}]},{id:3,name:'丙',properties:[{addr:'C',geo:{lat:25.06,lng:121.52,grade:'精準'}}]}];
+  const RP=mapGroupPoints(RC,null,false).pts; const RK=Object.keys(RP);
+  const sv=routeToSaved(' 10/20 大安 ',[RK[1],RK[0]],RP,'2026-10-20');
+  ok(sv.name==='10/20 大安' && sv.stops.length===2 && sv.stops[0].cid===2 && sv.stops[0].pi===1 && sv.stops[1].cid===1,'存路線：記每站的人（客戶 id＋第幾間）與順序');
+  ok(savedToRouteKeys(sv,RC,RP).join('|')===RK[1]+'|'+RK[0],'載回：順序照存的');
+  RC[1].properties[1].geo={lat:25.03,lng:121.56,grade:'手填'}; const RP2=mapGroupPoints(RC,null,false).pts;
+  ok(savedToRouteKeys(sv,RC,RP2)[0]===geoKey({lat:25.03,lng:121.56}),'載回：那個人的座標改過就用新的');
+  ok(savedToRouteKeys(sv,RC.filter(c=>c.id!==2),RP2).length===1,'載回：人被刪了就略過那站');
 }
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
