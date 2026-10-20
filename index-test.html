@@ -1839,6 +1839,7 @@ async function applyUrlSettings() {
       <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">🛠️ 資料整理工具<span style="font-size:10px;font-weight:400;color:var(--t3)">（每顆都會先列清單讓你確認；建議先下載備份）</span></div>
       <button onclick="openBatchMgr()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏷️ 批次管理（改名／合併）<br><span style="font-size:10px;font-weight:400;opacity:.8">列出所有批次與建議名稱，確認後一次改</span></button>
       <button onclick="cleanupInvalidEmpty()" style="width:100%;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清除無效空資料<br><span style="font-size:10px;font-weight:400;opacity:.8">無效案件＋沒有任何電話的</span></button>
+      <button onclick="cleanupDupLogs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🧹 清理重複聯絡記錄<br><span style="font-size:10px;font-weight:400;opacity:.8">同一句話多筆只留一筆、被截斷的半句與沒日期的雜訊刪掉（先列清單再確認）</span></button>
       <button onclick="cleanupAddrs()" style="width:100%;background:var(--abg);color:var(--accent);border:1px solid var(--abd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🔤 門牌統一寫法<br><span style="font-size:10px;font-weight:400;opacity:.8">全形數字→半形、五樓→5樓、去空白；客戶地址、戶籍、每張不動產都統一（先列數量再確認）</span></button>
       <button onclick="cleanupDuplicateProps()" style="width:100%;background:var(--obg);color:var(--orange);border:1px solid var(--obd);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:7px">🏚️ 合併重複的不動產<br><span style="font-size:10px;font-weight:400;opacity:.8">同一人底下同建號、或門牌只差全形半形／中文數字的，併成一張（先列清單再確認）</span></button>
       <!-- 一次性舊資料整理：清過一輪、且匯入都走新規則後就用不到，預設收合 -->
@@ -2161,7 +2162,7 @@ let COMPANY_URL = '';   // 每個人填入自己的個人總檔網址
 let CLAUDE_API_KEY = ''; // Anthropic API 金鑰（選填，用於 AI 輔助去重）
 const API_TOKEN   = 'stanford87';
 // 版本標記：每次 push 會更新，重整後看標題下的版本號就知道有沒有載到新版
-const APP_VERSION = '🧪測試版 t167 (總檔同一間房有兩列時,以設定日期較新那列為主,舊的那列自動收進公司資料的「舊版」,不用去刪總檔;抵押列的設定日期有更新會跟著改並標「📅 設定日 舊→新」) 2026.10.20';
+const APP_VERSION = '🧪測試版 t168 (設定頁多「清理重複聯絡記錄」:舊同步留下的同一句話十幾筆、被截斷的半句、沒日期的雜訊,先列清單再確認,清掉的匯入不會再回來) 2026.10.20';
 // 標題列只顯示短版（🧪 t112 或正式版日期），完整說明放 title 與 ⚙️ 設定底部，省手機首屏空間
 function shortVersion(v){ const m=String(v||'').match(/測試版\s*(t\d+)/); return m?('🧪 '+m[1]):String(v||''); }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ const v=document.getElementById('appVersion'); if(v){ v.textContent='版本 '+shortVersion(APP_VERSION); v.title=APP_VERSION; } }); }catch(e){}
@@ -8871,6 +8872,49 @@ async function cleanupAddrs(){
   const d=normalizeAllAddrs(false);
   saveLocal(); render();
   showToast(`🔤 已統一 ${d.n} 個地址`);
+  if(typeof closeUrlSettings==='function') closeUrlSettings();
+}
+// 清理舊同步留下的重複聯絡記錄（2026/05～08 舊版總檔同步把「沒寫日期」的那句話每次都蓋當天日期，一句話長成十幾筆）
+// 規則：1 沒日期且 ≤2 字的雜訊丟掉；2 同一句話多筆 → 留總檔原文有寫的日期那筆，沒有就留最早那筆；
+//       3 被截斷的半句（≥8 字、有另一筆更長且以它開頭、總檔原文裡沒這半句）丟掉。丟掉的都記進 deletedLogKeys，匯入不會再帶回。
+function dedupeClientLogs(c, dryRun){
+  const logs=c.logs||[]; if(logs.length<2) return 0;
+  const norm=t=>String(t||'').trim();
+  const rawDates={}, rawTexts=new Set();
+  (c.properties||[]).forEach(p=>{ const pr=(p.companyRaw||{}).process; if(!pr) return; parseVisitLogs(pr).forEach(l=>{ const t=norm(l.text); rawTexts.add(t); if(!l.nd && !rawDates[t]) rawDates[t]=l.date; }); });
+  if(c.companyRaw&&c.companyRaw.process) parseVisitLogs(c.companyRaw.process).forEach(l=>{ const t=norm(l.text); rawTexts.add(t); if(!l.nd && !rawDates[t]) rawDates[t]=l.date; });
+  const byText={}; logs.forEach((l,i)=>{ const t=norm(l.text); (byText[t]=byText[t]||[]).push(i); });
+  const drop=new Set();
+  logs.forEach((l,i)=>{ if(!l.date && norm(l.text).length<=2) drop.add(i); });
+  Object.entries(byText).forEach(([t,idxs])=>{
+    if(idxs.length<2) return;
+    let keep=idxs.find(i=>logs[i].date===rawDates[t]);
+    if(keep==null) keep=idxs.slice().sort((a,b)=>String(logs[a].date||'9999').localeCompare(String(logs[b].date||'9999')))[0];
+    idxs.forEach(i=>{ if(i!==keep) drop.add(i); });
+  });
+  const texts=Object.keys(byText);
+  logs.forEach((l,i)=>{ if(drop.has(i)) return; const t=norm(l.text); if(t.length>=8 && !rawTexts.has(t) && texts.some(o=>o!==t && o.length>t.length && o.startsWith(t))) drop.add(i); });
+  if(!dryRun && drop.size){
+    c.deletedLogKeys=c.deletedLogKeys||[];
+    drop.forEach(i=>{ const key=(logs[i].date||'')+norm(logs[i].text).slice(0,20); if(!c.deletedLogKeys.includes(key)) c.deletedLogKeys.push(key); });
+    c.logs=logs.filter((_,i)=>!drop.has(i));
+  }
+  return drop.size;
+}
+function dedupeAllLogs(dryRun){
+  let n=0; const names=[];
+  clients.forEach(c=>{ const d=dedupeClientLogs(c, dryRun); if(d){ n+=d; names.push(`${c.name||'(無名)'}（${d}）`); } });
+  return {n, names};
+}
+async function cleanupDupLogs(){
+  if(readOnlyMode){ showToast('👁 唯讀模式不能整理'); return; }
+  if(editId){ showToast('⚠️ 先關掉客戶面板再整理'); return; }
+  const r=dedupeAllLogs(true);
+  if(!r.n){ showToast('✅ 沒有重複的聯絡記錄'); return; }
+  if(!(await uiConfirm(`找到 ${r.names.length} 人、共 ${r.n} 筆重複或殘缺的聯絡記錄：\n\n${r.names.slice(0,12).join('、')}${r.names.length>12?' …等':''}\n\n同一句話只留一筆（優先留總檔有寫日期的那筆）、被截斷的半句和沒日期的雜訊刪掉，刪掉的以後匯入不會再回來。確定？`,{danger:true}))) return;
+  const d=dedupeAllLogs(false);
+  saveLocal(); render();
+  showToast(`🧹 已清掉 ${d.n} 筆重複聯絡記錄（${d.names.length} 人）`);
   if(typeof closeUrlSettings==='function') closeUrlSettings();
 }
 async function cleanupDuplicateProps(){

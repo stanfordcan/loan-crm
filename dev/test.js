@@ -286,5 +286,16 @@ eval(['parseRightsLoans','cleanCreditorName','classifyCreditor','defaultLoanE','
   const r=smartMergeLoans(p,[{n:'新鑫股份有限',a:132,t:'private',s:'0009000',e:132,d:'114/07/29'}],'總檔','2026-10-20',{});
   ok(r.dated===1 && p.loans[0].d==='114/07/29' && p.loans[0].dPrev==='111/06/22','同登序設定日期變了 → 更新並留舊日期');
 }
+// t168：重複聯絡記錄清理
+eval(['parseVisitLogs','dedupeClientLogs'].map(ext).join(String.fromCharCode(10)));
+{
+  const L=(d,t)=>({date:d,text:t});
+  const c={name:'劉',logs:[L('2026-08-06','單坪估好賣85萬 總價1450萬'),L('2026-07-03','單坪估好賣85萬 總價1450萬'),L('2026-05-25','單坪估好賣85萬 總價1450萬'),L('2026-06-10','單坪估好賣85萬 總價'),L('2025-09-14','新黨候選人'),L('2022-09-14','新黨候選人'),L('','萬'),L('2026-10-01','未接'),L('2026-10-02','未接，改天再打')],
+    properties:[{companyRaw:{process:'單坪估好賣85萬 總價1450萬'+String.fromCharCode(10)+'1110914新黨候選人'}}]};
+  const n=dedupeClientLogs(c,false);
+  ok(n===5,'清掉 5 筆（兩筆重複句、一筆半句、一筆雜訊、一筆年份錯的）','n='+n);
+  ok(c.logs.map(l=>l.date+'|'+l.text).join(';')==='2026-05-25|單坪估好賣85萬 總價1450萬;2022-09-14|新黨候選人;2026-10-01|未接;2026-10-02|未接，改天再打','留最早那筆、留總檔原文日期那筆、短句「未接」不會被當半句刪');
+  ok(c.deletedLogKeys.length===5,'刪掉的記進 deletedLogKeys');
+}
 console.log(`\n總結: 通過 ${pass} / 失敗 ${fail}`);
 process.exit(fail===0?0:1);
